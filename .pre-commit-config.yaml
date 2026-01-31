@@ -1,0 +1,43 @@
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: rust-format
+        name: Rust format
+        description: Run Rust formatting with rustfmt
+        entry: make format
+        language: system
+        types: [file, rust]
+        stages: [pre-commit]
+
+      - id: rust-lint
+        name: Rust lint check
+        description: Run Rust linting with clippy
+        entry: make lint
+        language: system
+        types: [file, rust]
+        stages: [pre-commit]
+
+      - id: rust-check
+        name: Rust build check
+        description: Run Rust build checks with cargo
+        entry: make check-build
+        language: system
+        types: [file, rust]
+        stages: [pre-commit]
+
+      - id: rust-test
+        name: Rust testing
+        description: Run cargo tests
+        entry: make test
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: git-commit-style
+        name: Commit style check
+        description: Run commitizen to validate commit message
+        stages: [commit-msg]
+        entry: make check-commit
+        pass_filenames: false
+        language: system
