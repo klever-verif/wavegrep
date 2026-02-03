@@ -49,7 +49,7 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 ## 2. Scope
 
 ### 2.1 In Scope
-- VCD/FST dump file support
+- VCD/FST/GHW dump file support
 - Signal discovery: list, search, hierarchy navigation
 - Value extraction over time ranges
 - Event search (find time when condition holds)
@@ -63,7 +63,7 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 
 ### 2.3 Future Considerations
 - MCP server for LLM agent integration
-- Other formats (FSDB, VPD, WLF, etc.)
+- Other formats (FSDB, VPD, WLF)
 
 ---
 
@@ -73,6 +73,7 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 
 - VCD (Value Change Dump)
 - FST (Fast Signal Trace)
+- GHW (GHDL Waveform)
 
 ### 3.2 CLI Commands
 
@@ -103,7 +104,7 @@ wavepeek info --waves <file> [--json]
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST file |
+| `--waves <file>` | required | Path to VCD/FST/GHW file |
 | `--json` | off | Output as JSON object instead of TSV |
 
 **Behavior:**
@@ -144,7 +145,7 @@ wavepeek tree --waves <file> [--max <n>] [--max-depth <n>] [--filter <regex>] [-
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST file |
+| `--waves <file>` | required | Path to VCD/FST/GHW file |
 | `--max <n>` | 50 | Maximum number of entries in output |
 | `--max-depth <n>` | 5 | Maximum traversal depth |
 | `--filter <regex>` | `.*` | Filter by full path (regex) |
@@ -182,7 +183,7 @@ wavepeek signals --waves <file> --scope <path> [--max <n>] [--filter <regex>] [-
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST file |
+| `--waves <file>` | required | Path to VCD/FST/GHW file |
 | `--scope <path>` | required | Exact scope path (e.g., `top.cpu`) |
 | `--max <n>` | 50 | Maximum number of entries in output |
 | `--filter <regex>` | `.*` | Filter by signal name (regex) |
@@ -218,7 +219,7 @@ wavepeek at --waves <file> --time <time> [--scope <path>] --signals <names> [--j
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST file |
+| `--waves <file>` | required | Path to VCD/FST/GHW file |
 | `--time <time>` | required | Time point with units (e.g., `1337ns`, `10us`) |
 | `--scope <path>` | — | Scope for short signal names |
 | `--signals <names>` | required | Comma-separated signal names |
@@ -259,7 +260,7 @@ wavepeek changes --waves <file> [--from <time>] [--to <time>] [--scope <path>] -
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST file |
+| `--waves <file>` | required | Path to VCD/FST/GHW file |
 | `--from <time>` | start of dump | Start time with units (e.g., `1us`) |
 | `--to <time>` | end of dump | End time with units (e.g., `2us`) |
 | `--scope <path>` | — | Scope for short signal/clock names |
@@ -309,7 +310,7 @@ wavepeek when --waves <file> --clk <name> [--from <time>] [--to <time>] [--scope
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST file |
+| `--waves <file>` | required | Path to VCD/FST/GHW file |
 | `--clk <name>` | required | Clock signal for posedge sampling |
 | `--from <time>` | start of dump | Start of time range |
 | `--to <time>` | end of dump | End of time range |
@@ -623,24 +624,58 @@ The CLI layer converts `WavepeekError` into stderr output and exit code.
 
 ## 6. Roadmap
 
-### Phase 1: MVP (Core Functionality)
-<!-- TODO: Define MVP scope -->
-- [ ] Basic VCD parsing
-- [ ] Signal listing and search
-- [ ] Value extraction at time point
-- [ ] Text output
+### M1: Project Init (→ v0.1.0)
 
-### Phase 2: Extended Features
-- [ ] FST format support
-- [ ] JSON output
-- [ ] Conditional queries
-- [ ] Range queries
+- Rust project init (Cargo.toml, dependencies per §5.4, module structure per §5.3)
+- Empty module files with `todo!()` / placeholder stubs
+- CLI entry point: `clap` with subcommand skeleton, `--help` only
+- Makefile: `make fmt`, `make lint`, `make test`, `make check`
+- Pre-commit hooks (rustfmt, clippy, cargo check, cargo test)
+- CI pipeline (GitHub Actions: fmt check, clippy, test, build)
+- Release pipeline (tag-triggered: build binaries, GitHub Release)
 
-### Phase 3: Advanced
-- [ ] Performance optimization
-- [ ] Additional formats (EVCD, GHW)
-- [ ] Multi-signal correlation
-- [ ] Plugin system
+### M2: Core CLI (→ v0.2.0)
+
+- `info` command (§3.2.1)
+- `tree` command (§3.2.2)
+- `signals` command (§3.2.3)
+- VCD + FST + GHW format support
+- TSV default output
+- `--json` output for all commands
+- Error handling: WavepeekError enum, exit codes, stderr format (§5.6)
+- Hand-crafted VCD test fixtures
+- Integration tests with `assert_cmd`
+
+### M3: Value Extraction (→ v0.3.0)
+
+- `at` command (§3.2.4)
+- `changes` command — unclocked + clocked modes (§3.2.5)
+- Time parsing with mandatory units (`--from`, `--to`, `--time`)
+- Verilator-generated test fixtures (`make fixtures`)
+
+### M4: Query Engine (→ v0.4.0)
+
+- `when` command (§3.2.6)
+- Expression engine: lexer, parser (Pratt/recursive descent), evaluator (§5.5)
+- MVP operators: `!`, `<`, `>`, `<=`, `>=`, `==`, `!=`, `&&`, `||`
+- Literals: hex, binary, decimal
+- Parentheses grouping, truthy semantics
+
+### M5: Agent-Ready (→ v0.5.0)
+
+- LLM agent skill definition for CLI agents
+- Performance benchmarks
+- Post-MVP expression extensions: bit select/slice, bitwise ops, arithmetic, shift
+
+### M6: MCP Server (→ v0.6.0)
+
+- MCP server for LLM agent integration
+
+### Backlog (unmapped)
+
+- Proprietary formats (FSDB, VPD, WLF)
+- Signed comparison in expression engine
+- `x`/`z` value handling
 
 ---
 
