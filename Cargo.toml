@@ -1,0 +1,33 @@
+[package]
+name = "wavepeek"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+authors = ["esynr3z"]
+description = "Command-line tool for RTL waveform inspection with deterministic machine-friendly output."
+license = "Apache-2.0"
+repository = "https://github.com/kleverhq/wavepeek"
+homepage = "https://github.com/kleverhq/wavepeek"
+readme = "README.md"
+documentation = "https://docs.rs/wavepeek"
+keywords = ["rtl", "waveform", "vcd", "fst", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    ".devcontainer/*",
+    ".github/*",
+    ".memory-bank/*",
+    ".opencode/*",
+]
+
+[dependencies]
+clap = { version = "~4", features = ["derive"] }
+serde = { version = "~1", features = ["derive"] }
+serde_json = "~1"
+regex = "~1"
+thiserror = "~2"
+wellen = "~0.20"
+
+[dev-dependencies]
+assert_cmd = "~2"
+predicates = "~3"
+tempfile = "~3"
