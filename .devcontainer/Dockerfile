@@ -53,6 +53,7 @@ FROM ubuntu:24.04
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ca-certificates curl git nano openssh-client make libatomic1 bash-completion \
+    jq ripgrep \
     g++ mold ccache perl-doc z3 gtkwave \
     python3 pipx \
     locales \
@@ -84,7 +85,7 @@ RUN chown -R ubuntu:ubuntu /opt
 USER ubuntu
 
 # Install OpenCode
-ENV OPENCODE_VERSION=1.1.25
+ENV OPENCODE_VERSION=1.1.53
 RUN curl -fsSL https://opencode.ai/install | bash -s -- --version ${OPENCODE_VERSION}
 
 # Install Rust toolchain
