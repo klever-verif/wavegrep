@@ -157,4 +157,5 @@ Wavepeek is "LLM-first" and expects output stability:
 
 - Developer workflow entrypoints: `Makefile`, `.pre-commit-config.yaml`.
 - Product/architecture requirements: `.memory-bank/PRD.md`.
+- Release process and checklist: `.memory-bank/RELEASE.md`.
 - Agent workflow docs (OpenCode skills): `.opencode/README.md`.
