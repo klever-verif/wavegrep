@@ -18,6 +18,8 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 
 **The gap:** There is no tool to "grep" waveforms — to extract signal information, values, and temporal relationships via short, composable commands. GUI viewers (GTKWave) work for humans but cannot be automated. This leaves LLM agents blind to simulation results.
 
+VCD is text and therefore natively readable by LLM agents, but real-world dumps are typically very large. Directly exploring raw VCD content is difficult and inefficient: it quickly consumes context window budget and makes iterative analysis expensive. Agents need a structured, deterministic, LLM-friendly derivative view of waveform data rather than raw dump text.
+
 ### 1.3 Target Users
 
 **Primary: LLM agents**
@@ -38,10 +40,10 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 ### 1.4 Design Principles
 
 1. **LLM-first** — Output formats, command structure, and error messages are designed for machine consumption
-2. **Self-documenting I/O** — Commands read as unambiguous descriptions of what they do. Output can be interpreted without external context (name=value pairs, no positional-only columns, no short aliases)
+2. **Self-documenting I/O** — Commands read as unambiguous descriptions of what they do. Default output is structured JSON with a stable, versioned schema.
 3. **Composable commands** — Unix philosophy: do one thing well, combine via pipes. Command names are unambiguous first, short second
 4. **Deterministic output** — Same input always produces same output (no timestamps, random IDs, etc.)
-5. **Stable formats** — JSON as primary machine-readable format with versioned schema
+5. **Stable formats** — JSON is the default output with an explicit schema version (`schema_version`). Human-friendly output is opt-in via `--human` and does not have a strict contract.
 6. **Minimal footprint** — Fast startup, low memory, no background processes
 
 ---
@@ -49,7 +51,7 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 ## 2. Scope
 
 ### 2.1 In Scope
-- VCD/FST/GHW dump file support
+- VCD/FST dump file support
 - Signal discovery: list, search, hierarchy navigation
 - Value extraction over time ranges
 - Event search (find time when condition holds)
@@ -73,65 +75,99 @@ In RTL design and verification, waveforms are the primary debugging artifact. Un
 
 - VCD (Value Change Dump)
 - FST (Fast Signal Trace)
-- GHW (GHDL Waveform)
 
 ### 3.2 CLI Commands
 
 #### General conventions
 
 - **No positional arguments.** All arguments are named flags for self-documenting commands.
-  The dump file is always passed via `--waves`.
-- **Bounded output.** Commands that return lists always have `--max`
-  with a reasonable default (typically 50) to avoid flooding LLM context.
+  All commands that operate on a waveform dump require `--waves <file>`. Commands that do not
+  read a dump (e.g., `schema`) do not accept `--waves`.
+- **Bounded output.** All commands have bounded output by default (to avoid flooding LLM context).
+  Boundedness is achieved via one or more of: `--max`, `--first`/`--last`, input size (e.g., number
+  of `--signals`), or inherently finite output (e.g., `schema`). When list output is truncated due
+  to `--max`, a warning is emitted.
 - **Bounded recursion.** Recursive commands have `--max-depth` with a default of 5.
-- **Output format.** Default output is TSV without header (self-documenting fields).
-  All commands support `--json` flag for JSON array output.
+- **Output format.** Default output is JSON with a strict, stable contract.
+  All commands support `--human` for a human-friendly output mode that is not a strict contract.
+- **JSON envelope (default mode).** On success, default JSON output is a single object:
+
+  ```json
+  {
+    "schema_version": 1,
+    "command": "<command>",
+    "data": {},
+    "warnings": []
+  }
+  ```
+
+  Notes:
+  - `command` is the subcommand name and can be used to discriminate the shape of `data`.
+  - `data` is an object for scalar outputs (e.g., `info`) and an array for list-like outputs.
+  - `warnings` is an array of free-form strings. In `--human` mode, warnings are printed to stderr.
+  - On error, stdout is empty; stderr contains `error: <category>: <message>` (see §5.6).
 - **Time format.** All time values require explicit units: `fs`, `ps`, `ns`, `us`, `ms`, `s`.
+  The numeric part may be an integer or a decimal (e.g., `2000ps`, `1.5ns`).
   Bare numbers without units are rejected.
+- **Time normalization.** All parsed times are converted to the dump's time precision.
+  Output timestamps are printed as normalized integer counts in `time_precision` units (e.g., `2000ps`).
+  If a provided time cannot be represented exactly in dump precision, it is an error.
 - **Time ranges.** Commands that operate on time ranges use `--from` and `--to`.
   Both are optional: `--from` + `--to` defines a window, only `--from` means
   from that point to end of dump, only `--to` means from start to that point,
   neither means the entire dump.
+  Range boundaries are inclusive.
+
+#### 3.2.0 `schema` — JSON schema export
+
+Outputs the JSON schema for wavepeek's default JSON output.
+
+```
+wavepeek schema [--human]
+```
+
+**Parameters:**
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--human` | off | Human-friendly output (no strict contract) |
+
+**Behavior:**
+- Default output: JSON envelope with `data` containing one or more JSON Schema documents.
+- `--human` prints a short summary (e.g., schema version and available schemas).
 
 #### 3.2.1 `info` — Dump metadata
 
 Outputs basic metadata about the waveform dump.
 
 ```
-wavepeek info --waves <file> [--json]
+wavepeek info --waves <file> [--human]
 ```
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST/GHW file |
-| `--json` | off | Output as JSON object instead of TSV |
+| `--waves <file>` | required | Path to VCD/FST file |
+| `--human` | off | Human-friendly output (no strict contract) |
 
 **Behavior:**
-- Outputs dump metadata as key-value pairs (one per line)
-- JSON mode outputs a single object (not array)
+- Default output: JSON envelope with `data` as a single object.
+- In `--human` mode, prints a readable summary.
 
 **Output fields:**
 | Key | Description |
 |-----|-------------|
 | `time_unit` | Time unit of the dump (e.g., `1ns`) |
 | `time_precision` | Time precision (e.g., `1ps`) |
-| `time_start` | Start time of the dump (in `time_unit`) |
-| `time_end` | End time of the dump (in `time_unit`) |
+| `time_start` | Start time of the dump (normalized to `time_precision`, e.g., `0ps`) |
+| `time_end` | End time of the dump (normalized to `time_precision`, e.g., `10000ps`) |
 
 **Examples:**
 ```bash
-# Get dump metadata
+# Default JSON
 wavepeek info --waves dump.vcd
 
-# Output:
-# time_unit       1ns
-# time_precision  1ps
-# time_start      0ns
-# time_end        10us
-
-# As JSON
-wavepeek info --waves dump.vcd --json
+# Human-friendly
+wavepeek info --waves dump.vcd --human
 ```
 
 #### 3.2.2 `tree` — Hierarchy exploration
@@ -139,34 +175,38 @@ wavepeek info --waves dump.vcd --json
 Outputs a flat list of module instances, recursively traversing the hierarchy.
 
 ```
-wavepeek tree --waves <file> [--max <n>] [--max-depth <n>] [--filter <regex>] [--json]
+wavepeek tree --waves <file> [--max <n>] [--max-depth <n>] [--filter <regex>] [--human]
 ```
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST/GHW file |
+| `--waves <file>` | required | Path to VCD/FST file |
 | `--max <n>` | 50 | Maximum number of entries in output |
 | `--max-depth <n>` | 5 | Maximum traversal depth |
 | `--filter <regex>` | `.*` | Filter by full path (regex) |
-| `--json` | off | Output as JSON array instead of TSV |
+| `--human` | off | Human-friendly output (no strict contract) |
 
 **Behavior:**
 - Outputs flat list of instance paths with metadata
-- Sorted by depth first, then alphabetically within each level
-- Default output: TSV (no header, self-documenting format)
-- If results exceed `--max`, prints warning to stderr
+- Ordering: pre-order depth-first traversal; children at each scope are visited in lexicographic order
+- Default output: JSON envelope with `data` as an array of objects.
+- Invalid regex is an `args` error.
+- Each item has:
+  - `path`: full scope path (string)
+  - `depth`: integer depth (root = 0)
+- If results exceed `--max`, output is truncated and a warning is emitted.
 
 **Examples:**
 ```bash
-# List all modules (max 50, TSV output)
+# List all modules (max 50, JSON output)
 wavepeek tree --waves dump.vcd
 
 # Find ALU-related modules
 wavepeek tree --waves dump.vcd --filter ".*alu.*"
 
-# Explore 2 levels deep, as JSON
-wavepeek tree --waves dump.vcd --max-depth 2 --json
+# Explore 2 levels deep, human-friendly
+wavepeek tree --waves dump.vcd --max-depth 2 --human
 
 # Get all modules
 wavepeek tree --waves dump.vcd --max 1000
@@ -177,24 +217,25 @@ wavepeek tree --waves dump.vcd --max 1000
 Lists signals within a specific scope with their metadata.
 
 ```
-wavepeek signals --waves <file> --scope <path> [--max <n>] [--filter <regex>] [--json]
+wavepeek signals --waves <file> --scope <path> [--max <n>] [--filter <regex>] [--human]
 ```
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST/GHW file |
+| `--waves <file>` | required | Path to VCD/FST file |
 | `--scope <path>` | required | Exact scope path (e.g., `top.cpu`) |
 | `--max <n>` | 50 | Maximum number of entries in output |
 | `--filter <regex>` | `.*` | Filter by signal name (regex) |
-| `--json` | off | Output as JSON array instead of TSV |
+| `--human` | off | Human-friendly output (no strict contract) |
 
 **Behavior:**
 - Lists signals directly in the specified scope (non-recursive)
-- Output fields: name, type, width, full path
+- Output fields (JSON): `name`, `path`, `kind`, `width` (signal metadata is TBD; `kind` will be a stable string enum and `width` will be optional)
 - Sorted alphabetically by name
-- Default output: TSV (no header, self-documenting format)
-- If results exceed `--max`, prints warning to stderr
+- Default output: JSON envelope with `data` as an array of objects.
+- Invalid regex is an `args` error.
+- If results exceed `--max`, output is truncated and a warning is emitted.
 
 **Examples:**
 ```bash
@@ -204,8 +245,8 @@ wavepeek signals --waves dump.vcd --scope top.cpu
 # Find clock signals
 wavepeek signals --waves dump.vcd --scope top.cpu --filter ".*clk.*"
 
-# Get as JSON
-wavepeek signals --waves dump.vcd --scope top.cpu --json
+# Human-friendly
+wavepeek signals --waves dump.vcd --scope top.cpu --human
 ```
 
 #### 3.2.4 `at` — Value extraction at time point
@@ -213,17 +254,17 @@ wavepeek signals --waves dump.vcd --scope top.cpu --json
 Gets signal values at a specific time point.
 
 ```
-wavepeek at --waves <file> --time <time> [--scope <path>] --signals <names> [--json]
+wavepeek at --waves <file> --time <time> [--scope <path>] --signals <names> [--human]
 ```
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST/GHW file |
+| `--waves <file>` | required | Path to VCD/FST file |
 | `--time <time>` | required | Time point with units (e.g., `1337ns`, `10us`) |
 | `--scope <path>` | — | Scope for short signal names |
 | `--signals <names>` | required | Comma-separated signal names |
-| `--json` | off | Output as JSON array instead of TSV |
+| `--human` | off | Human-friendly output (no strict contract) |
 
 **Modes:**
 - `--signals clk,data` (no scope) — names are full paths
@@ -231,10 +272,11 @@ wavepeek at --waves <file> --time <time> [--scope <path>] --signals <names> [--j
 
 **Behavior:**
 - Outputs signal values at specified time
-- Output fields: name (or path if no scope), value (hex)
-- Values always in hex format
+- Default output: JSON envelope with `data` as an object:
+  - `time`: normalized time string in `time_precision` units
+  - `signals`: array of `{ name, path, value }` in the same order as `--signals`
+- Values are emitted as Verilog literals: `<width>'h<digits>` (including `x`/`z`).
 - Fail fast: error if any signal not found
-- Default output: TSV (no header, self-documenting format)
 
 **Examples:**
 ```bash
@@ -244,8 +286,8 @@ wavepeek at --waves dump.vcd --time 100ns --signals top.cpu.clk,top.cpu.data
 # Get values relative to scope (shorter)
 wavepeek at --waves dump.vcd --time 100ns --scope top.cpu --signals clk,data,valid
 
-# As JSON
-wavepeek at --waves dump.vcd --time 100ns --scope top.cpu --signals clk --json
+# Human-friendly
+wavepeek at --waves dump.vcd --time 100ns --scope top.cpu --signals clk --human
 ```
 
 #### 3.2.5 `changes` — Value changes over time range
@@ -254,34 +296,43 @@ Outputs snapshots of signal values over a time range. Supports two modes:
 unclocked (trigger on any signal change) and clocked (trigger on posedge of a clock).
 
 ```
-wavepeek changes --waves <file> [--from <time>] [--to <time>] [--scope <path>] --signals <names> [--clk <name>] [--max <n>] [--json]
+wavepeek changes --waves <file> [--from <time>] [--to <time>] [--scope <path>] --signals <names> [--clk <name>] [--max <n>] [--human]
 ```
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST/GHW file |
+| `--waves <file>` | required | Path to VCD/FST file |
 | `--from <time>` | start of dump | Start time with units (e.g., `1us`) |
 | `--to <time>` | end of dump | End time with units (e.g., `2us`) |
 | `--scope <path>` | — | Scope for short signal/clock names |
 | `--signals <names>` | required | Comma-separated signal names |
 | `--clk <name>` | — | Clock signal for posedge-triggered snapshots |
 | `--max <n>` | 50 | Maximum number of snapshot rows |
-| `--json` | off | Output as JSON array instead of TSV |
+| `--human` | off | Human-friendly output (no strict contract) |
 
 **Modes:**
 - **Unclocked** (no `--clk`): row appears when any of `--signals` changes
-- **Clocked** (`--clk` provided): row appears on each posedge of the clock signal. Clock itself is excluded from output.
+- **Clocked** (`--clk` provided): row appears on each posedge (clean `0 -> 1` transition) of the clock signal.
+  Transitions involving `x`/`z` do not count as posedge. Clock itself is excluded from output.
 - `--signals` and `--clk` follow same scope convention: short name with `--scope`, full path without
 
 **Behavior:**
 - Each row shows current value of all signals (snapshot)
-- Output: `time\tname=value\tname=value\t...` (tab-separated)
-- Signal order matches `--signals` order
-- Values in hex format
+- Default output: JSON envelope with `data` as an array of snapshots.
+- Each snapshot:
+  - `time`: normalized time string in `time_precision` units
+  - `signals`: array of `{ name, path, value }` in the same order as `--signals`
+- Snapshots are emitted in increasing `time` order.
+- If multiple tracked signals change at the same timestamp, a single snapshot is emitted for that timestamp,
+  using the final values at that timestamp (after applying all changes at that time).
+- `--from`/`--to` define an inclusive window of candidate timestamps; snapshots are emitted only when the
+  trigger occurs in the window (no synthetic snapshots at boundaries).
+- Values are emitted as Verilog literals: `<width>'h<digits>` (including `x`/`z`).
+- In clocked mode, `--clk` must not be included in `--signals`.
 - Fail fast: error if any signal not found
-- If no changes/posedges in the time range, empty stdout + warning to stderr
-- If results exceed `--max`, prints warning to stderr
+- If no changes/posedges in the time range, `data` is empty and a warning is emitted.
+- If results exceed `--max`, output is truncated and a warning is emitted.
 
 **Examples:**
 ```bash
@@ -294,8 +345,8 @@ wavepeek changes --waves dump.vcd --from 1us --to 2us --scope top.cpu --signals 
 # Clocked: snapshot per clock cycle
 wavepeek changes --waves dump.vcd --from 1us --to 2us --scope top.cpu --clk clk --signals data,valid,ready
 
-# As JSON
-wavepeek changes --waves dump.vcd --from 1us --to 2us --scope top.cpu --signals clk --json
+# Human-friendly
+wavepeek changes --waves dump.vcd --from 1us --to 2us --scope top.cpu --signals clk --human
 ```
 
 #### 3.2.6 `when` — Event search
@@ -304,13 +355,13 @@ Finds clock cycles where a boolean expression evaluates to true.
 Expression is evaluated on every posedge of the specified clock.
 
 ```
-wavepeek when --waves <file> --clk <name> [--from <time>] [--to <time>] [--scope <path>] --cond <expr> [--first [<n>]] [--last [<n>]] [--max <n>] [--json]
+wavepeek when --waves <file> --clk <name> [--from <time>] [--to <time>] [--scope <path>] --cond <expr> [--first [<n>]] [--last [<n>]] [--max <n>] [--human]
 ```
 
 **Parameters:**
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--waves <file>` | required | Path to VCD/FST/GHW file |
+| `--waves <file>` | required | Path to VCD/FST file |
 | `--clk <name>` | required | Clock signal for posedge sampling |
 | `--from <time>` | start of dump | Start of time range |
 | `--to <time>` | end of dump | End of time range |
@@ -319,19 +370,22 @@ wavepeek when --waves <file> --clk <name> [--from <time>] [--to <time>] [--scope
 | `--first [<n>]` | 1 if flag present | Return first N matches |
 | `--last [<n>]` | 1 if flag present | Return last N matches |
 | `--max <n>` | 50 | Maximum matches (when neither --first nor --last) |
-| `--json` | off | Output as JSON array instead of TSV |
+| `--human` | off | Human-friendly output (no strict contract) |
 
 **Behavior:**
-- Expression is evaluated at every posedge of `--clk`, outputs timestamps where it's true
-- Output: one timestamp per line
+- Expression is evaluated at every posedge (clean `0 -> 1` transition) of `--clk`.
+  Transitions involving `x`/`z` do not count as posedge.
+- Outputs timestamps where the expression is true after 2-state casting (unknown `x` counts as false).
+- Default output: JSON envelope with `data` as an array of objects: `{ "time": "<normalized>" }`.
 - `--clk` follows same scope convention as `--signals`: short name with `--scope`, full path without
 - **No qualifier:** return all matches up to `--max`
 - **`--first`:** return first N matches (default N=1 if no value given)
 - **`--last`:** return last N matches (default N=1 if no value given)
 - `--first` and `--last` are mutually exclusive — error if both specified
-- Error if `--first N` with `--max M` where N > M
+- `--max` is not allowed together with `--first` or `--last`
 - Fail fast: error if any signal in expression not found
-- If no matches, empty stdout + warning to stderr
+- If no matches, `data` is empty and a warning is emitted.
+- If matches exceed `--max` (when neither `--first` nor `--last` is used), output is truncated and a warning is emitted.
 
 **Expression language (MVP):**
 
@@ -357,13 +411,18 @@ Grouping: `(`, `)`
 Truthy semantics: signal used without comparison operator is truthy if non-zero
 (e.g., `valid` means `valid != 0`).
 
+4-state semantics (MVP):
+- Signal values are treated as 4-state bit vectors (`0`/`1`/`x`/`z`). Operators follow SystemVerilog-like
+  4-state semantics and may produce an unknown boolean result `x`.
+- `&&` and `||` use short-circuit evaluation: the RHS is evaluated only when needed to determine the result.
+- For match decisions, the final expression result is cast to 2-state: only `1` is true; `0` and `x` are false.
+
 Post-MVP additions:
 - Bit select/slice: `data[7:0]`, `data[3]`
 - Bitwise operators: `&`, `|`, `^`, `~`
 - Arithmetic: `+`, `-`
 - Shift: `<<`, `>>`
 - Signed comparison
-- `x`/`z` value handling
 
 **Examples:**
 ```bash
@@ -401,6 +460,7 @@ wavepeek when --waves dump.vcd --clk clk --scope top.cpu --cond "(a || b) && !re
 ### 4.4 LLM Agent Integration
 - Ready-made skill definition for LLM CLI agents (OpenCode, Codex CLI, Claude Code)
 - Skill shipped in repo with setup instructions
+- Deterministic default JSON output with stable schema versioning
 
 ---
 
@@ -410,13 +470,13 @@ wavepeek when --waves dump.vcd --clk clk --scope top.cpu --cond "(a || b) && !re
 
 | Component | Choice | Rationale |
 |-----------|--------|-----------|
-| **Language** | Rust 1.93+ | Performance, memory safety, zero-cost abstractions. Ideal for parsing large binary/text dump files without GC pauses. |
+| **Language** | Rust stable (MSRV TBD) | Performance, memory safety, zero-cost abstractions. Ideal for parsing large binary/text dump files without GC pauses. |
 | **CLI framework** | `clap` (derive API) | De-facto standard for Rust CLIs. Derive API provides self-documenting argument definitions with compile-time validation. |
-| **Waveform parsing** | `wellen` | Unified interface for VCD, FST, and GHW formats. Battle-tested in the [Surfer](https://surfer-project.org/) waveform viewer. Multi-threaded VCD parsing via `rayon`. Optimized for on-demand signal access (loads hierarchy first, signal data lazily). |
-| **Serialization** | `serde` + `serde_json` | Standard Rust serialization. Used for `--json` output in all commands. |
+| **Waveform parsing** | `wellen` | Unified interface for VCD and FST formats. Battle-tested in the [Surfer](https://surfer-project.org/) waveform viewer. Multi-threaded VCD parsing via `rayon`. Optimized for on-demand signal access (loads hierarchy first, signal data lazily). |
+| **Serialization** | `serde` + `serde_json` | Standard Rust serialization. Used for default JSON output and JSON schema export. |
 | **Pattern matching** | `regex` | For `--filter` flag in `tree` and `signals` commands. |
 | **Error handling** | `thiserror` | Typed error enums with `#[derive(Error)]`. All error variants are known at compile time. No runtime error boxing (no `anyhow`). |
-| **Build automation** | Cargo + Make | Cargo for compilation. Makefile provides shorthand targets: `make fmt`, `make lint`, `make test`, `make check`. |
+| **Build automation** | Cargo + Make | Cargo for compilation. Makefile provides shorthand targets: `make format`, `make format-check`, `make lint`, `make test`, `make check`. |
 
 ### 5.2 High-Level Architecture
 
@@ -427,36 +487,35 @@ The CLI layer formats results for output.
 **Layers (top to bottom):**
 
 1. **CLI Layer** (`clap`) — Argument parsing, validation, output formatting.
-   TSV / JSON output to stdout, errors to stderr.
+   Default JSON output to stdout (strict contract), human-friendly output via `--human`, errors to stderr.
    Passes typed command structs down to the engine.
 
 2. **Engine Layer** — Business logic per command: `info`, `tree`, `signals`,
-   `at`, `changes`, `when`. Operates on waveform abstractions, returns structured
+   `at`, `changes`, `when`, `schema`. Operates on waveform abstractions, returns structured
    results. Contains expression evaluator (for `when`).
 
 3. **Waveform Layer** (`wellen`) — Thin adapter over wellen. Handles file opening,
-   format detection (VCD/FST/GHW), hierarchy traversal, and signal value queries.
+   format detection (VCD/FST), hierarchy traversal, and signal value queries.
    Exposes: Hierarchy, Signal, TimeTable.
 
 **Key architectural decisions:**
 
-- **No intermediate data model.** We use `wellen::Hierarchy`, `wellen::Signal`, and
-  `wellen::SignalValue` directly rather than converting to our own types.
-  This avoids allocation overhead and keeps the codebase small.
-  If wellen's API changes, the impact is contained to the waveform layer.
+- **Stable output schema.** Default JSON output uses a versioned schema.
+  Implementation may introduce internal data structures to stabilize the output contract
+  independently of upstream dependency APIs.
 
 - **Stateless execution.** Each CLI invocation opens the file, executes one command,
   and exits. No caching, no sessions, no background processes. This simplifies the
   architecture and matches the design principle of minimal footprint.
 
 - **Format-agnostic engine.** The engine layer does not know whether it is working
-  with VCD, FST, or GHW. Format detection and loading is handled entirely by
+  with VCD or FST. Format detection and loading is handled entirely by
   the waveform layer (wellen auto-detects format from file content).
 
 ### 5.3 Module Structure
 
-Single crate with internal module boundaries. This is sufficient for a focused CLI tool
-with 6 commands. If a library target is needed later (e.g., for an MCP server), the
+Single crate with internal module boundaries. This is sufficient for a focused CLI tool.
+If a library target is needed later (e.g., for an MCP server), the
 engine and waveform modules can be extracted into a workspace crate with minimal effort.
 
 ```
@@ -469,7 +528,8 @@ src/
 │   ├── signals.rs       # `signals` command args + output
 │   ├── at.rs            # `at` command args + output
 │   ├── changes.rs       # `changes` command args + output
-│   └── when.rs          # `when` command args + output
+│   ├── when.rs          # `when` command args + output
+│   └── schema.rs        # `schema` command args + output
 ├── engine/              # Business logic per command
 │   ├── mod.rs           # Shared types (result structs, time parsing)
 │   ├── info.rs          # Dump metadata extraction
@@ -477,7 +537,8 @@ src/
 │   ├── signals.rs       # Signal listing within scope
 │   ├── at.rs            # Value extraction at time point
 │   ├── changes.rs       # Value change tracking (clocked/unclocked)
-│   └── when.rs          # Condition evaluation over clock cycles
+│   ├── when.rs          # Condition evaluation over clock cycles
+│   └── schema.rs        # JSON schema export
 ├── expr/                # Expression engine (for `when` command)
 │   ├── mod.rs           # Public API: parse() + eval()
 │   ├── lexer.rs         # Tokenizer
@@ -485,7 +546,7 @@ src/
 │   └── eval.rs          # AST evaluator against signal values
 ├── waveform/            # Thin adapter over wellen
 │   └── mod.rs           # File loading, format detection, query helpers
-├── output.rs            # Shared output formatting (TSV, JSON)
+├── output.rs            # Shared output formatting (JSON + human)
 └── error.rs             # Error enum (WavepeekError)
 ```
 
@@ -493,21 +554,21 @@ src/
 
 | Module | Knows about | Does not know about |
 |--------|-------------|---------------------|
-| `cli/` | clap, output formats (TSV/JSON) | wellen, file I/O |
+| `cli/` | clap, output formats (JSON/human) | wellen, file I/O |
 | `engine/` | domain logic, waveform layer API | clap, output formats |
 | `expr/` | expression AST, signal values | wellen, CLI, output |
 | `waveform/` | wellen API | CLI, engine logic |
-| `output` | serde_json, TSV formatting | domain logic |
+| `output` | serde_json, JSON/human formatting | domain logic |
 | `error` | all error variants | nothing else |
 
 ### 5.4 Key Dependencies
 
 | Crate | Version | Purpose | Notes |
 |-------|---------|---------|-------|
-| `wellen` | ~0.20 | VCD, FST, GHW parsing | Core dependency. BSD-3-Clause. Brings in `rayon`, `fst-reader`, `memmap2`, `lz4_flex` transitively. |
+| `wellen` | ~0.20 | VCD, FST parsing | Core dependency. BSD-3-Clause. Brings in `rayon`, `fst-reader`, `memmap2`, `lz4_flex` transitively. |
 | `clap` | ~4 | CLI argument parsing | With `derive` feature for declarative argument definitions. |
 | `serde` | ~1 | Serialization framework | With `derive` feature. |
-| `serde_json` | ~1 | JSON output | For `--json` flag. |
+| `serde_json` | ~1 | JSON output | Default output serialization and schema export. |
 | `regex` | ~1 | Pattern matching | For `--filter` in `tree` and `signals`. |
 | `thiserror` | ~2 | Error type derivation | `#[derive(Error)]` for typed error enums. |
 
@@ -524,7 +585,8 @@ src/
 The `when` command requires evaluating boolean expressions against signal values
 at each clock posedge. This needs a small expression language (defined in 3.2.6).
 
-**Pipeline:** Input string → Lexer → Token stream → Parser → AST → Evaluator (+ signal values at current time point) → bool
+**Pipeline:** Input string → Lexer → Token stream → Parser → AST → Evaluator (+ signal values at current time point)
+→ 4-state boolean (`0`/`1`/`x`) → 2-state match (`x` counts as false)
 
 **Components:**
 
@@ -540,8 +602,8 @@ at each clock posedge. This needs a small expression language (defined in 3.2.6)
   `Signal(name)`, `Literal(value)`. Minimal, no optimization passes.
 
 - **Evaluator** — Walks the AST, resolves signal names to current values
-  (provided by the engine), computes the result. All arithmetic is unsigned.
-  Truthy semantics: any non-zero value is true.
+  (provided by the engine), and computes a 4-state boolean result using SystemVerilog-like semantics.
+  `&&` and `||` use short-circuit evaluation. For `when` match decisions, unknown `x` is cast to false.
 
 **Implementation approach:** Deferred. The expression language is small enough
 (5 precedence levels, no user-defined functions) that both hand-written recursive
@@ -553,7 +615,7 @@ requirements and complexity of the post-MVP extensions (bit slicing, bitwise ops
 
 **Principles:**
 - **Fail fast.** On the first error, print a message to stderr and exit with a
-  non-zero code. No partial output to stdout.
+  non-zero code. Stdout is empty on errors (no JSON envelope).
 - **LLM-parseable errors.** Error messages follow a fixed format so agents can
   detect and interpret them programmatically.
 - **No panics in production paths.** All recoverable errors use `Result<T, WavepeekError>`.
@@ -580,6 +642,12 @@ error: expr: parse error in condition: unexpected token ')' at position 12
 | `0` | Success |
 | `1` | User error (bad arguments, signal not found, invalid expression) |
 | `2` | File error (cannot open, cannot parse, unsupported format) |
+
+**Warnings:**
+
+- Warnings (e.g., output truncation due to `--max`, no matches in a query) do not change exit code (still `0`).
+- In default JSON mode, warnings are appended to the `warnings` array in the JSON envelope.
+- In `--human` mode, warnings are printed to stderr as free-form text.
 
 **Error enum:**
 
@@ -617,7 +685,8 @@ The CLI layer converts `WavepeekError` into stderr output and exit code.
 - Exact stdout output (deterministic output is a design principle)
 - Exit code
 - Stderr content for error cases
-- `--json` output validates against expected JSON structure
+- Default JSON output validates against expected JSON structure and schema version
+- `--human` output is not asserted for exact formatting (no strict contract)
 - Consistency: same query on VCD and FST of the same design produces identical output
 
 ---
@@ -629,9 +698,9 @@ The CLI layer converts `WavepeekError` into stderr output and exit code.
 - Rust project init (Cargo.toml, dependencies per §5.4, module structure per §5.3)
 - Empty module files with `todo!()` / placeholder stubs
 - CLI entry point: `clap` with subcommand skeleton, `--help` only
-- Makefile: `make fmt`, `make lint`, `make test`, `make check`
+- Makefile: `make format`, `make format-check`, `make lint`, `make test`, `make check`
 - Pre-commit hooks (rustfmt, clippy, cargo check, cargo test)
-- CI pipeline (GitHub Actions: fmt check, clippy, test, build)
+- CI pipeline (GitHub Actions: format check, clippy, test, build)
 - Release pipeline (tag-triggered: build binaries, GitHub Release)
 
 ### M2: Core CLI (→ v0.2.0)
@@ -639,9 +708,9 @@ The CLI layer converts `WavepeekError` into stderr output and exit code.
 - `info` command (§3.2.1)
 - `tree` command (§3.2.2)
 - `signals` command (§3.2.3)
-- VCD + FST + GHW format support
-- TSV default output
-- `--json` output for all commands
+- VCD + FST format support
+- JSON default output (strict, versioned schema)
+- `--human` output for all commands (no strict contract)
 - Error handling: WavepeekError enum, exit codes, stderr format (§5.6)
 - Hand-crafted VCD test fixtures
 - Integration tests with `assert_cmd`
@@ -660,10 +729,13 @@ The CLI layer converts `WavepeekError` into stderr output and exit code.
 - MVP operators: `!`, `<`, `>`, `<=`, `>=`, `==`, `!=`, `&&`, `||`
 - Literals: hex, binary, decimal
 - Parentheses grouping, truthy semantics
+- SystemVerilog-like 4-state evaluation with short-circuiting; unknown `x` casts to false for matching
 
 ### M5: Agent-Ready (→ v0.5.0)
 
 - LLM agent skill definition for CLI agents
+- `schema` command to export JSON schema(s)
+- Release automation publishes schema assets per release
 - Performance benchmarks
 - Post-MVP expression extensions: bit select/slice, bitwise ops, arithmetic, shift
 
@@ -675,23 +747,24 @@ The CLI layer converts `WavepeekError` into stderr output and exit code.
 
 - Proprietary formats (FSDB, VPD, WLF)
 - Signed comparison in expression engine
-- `x`/`z` value handling
 
 ---
 
 ## 7. Open Questions
-<!-- TODO: Resolve open questions -->
-1. What syntax for conditional queries? (SQL-like? Expression-based?)
-2. Is streaming mode needed for huge files?
-3. Priority of formats after VCD?
-4. Is an interactive REPL session needed?
-5. Integration with other tools (Verilator, cocotb)?
+
+1. **Scope/path canonicalization.** What is the canonical path syntax and escaping rules for VCD escaped identifiers and unusual names across formats?
+2. **Warnings (codes vs free text).** Do we add stable warning codes for promote/suppress, or keep warnings as free-form strings only?
+3. **Value radix options.** Do we add `--radix` (hex/bin/dec/auto) and what is the default policy beyond the Verilog-literal representation?
+4. **Schema distribution.** Exact shape and naming for schema assets in releases (single schema vs per-command schemas; filenames; how clients discover them).
+5. **Signal metadata schema.** Exact JSON fields for `signals` output (`kind`, `width`, and other metadata) and how they map across formats.
+6. **GHW support scope.** Should GHW be added after MVP, and if yes, what acceptance criteria and priority should gate its introduction?
 
 ---
 
 ## 8. References
 - [GTKWave](http://gtkwave.sourceforge.net/) — reference waveform viewer
+- [Surfer](https://surfer-project.org/) — modern waveform viewer; reference implementation context for the parsing stack
 - [VCD Format Specification](https://en.wikipedia.org/wiki/Value_change_dump)
 - [FST Format](https://gtkwave.sourceforge.net/gtkwave.pdf)
-
-
+- [wellen (GitHub)](https://github.com/ekiwi/wellen) — Rust waveform parsing library used by wavepeek
+- [wellen (docs.rs)](https://docs.rs/wellen/0.20.2) — API documentation
