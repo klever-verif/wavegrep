@@ -1,0 +1,22 @@
+use std::path::PathBuf;
+
+use clap::Args;
+
+#[derive(Debug, Args)]
+pub struct SignalsArgs {
+    /// Path to VCD/FST waveform file
+    #[arg(long, value_name = "FILE")]
+    pub waves: PathBuf,
+    /// Exact scope path (for example, top.cpu)
+    #[arg(long)]
+    pub scope: String,
+    /// Maximum number of entries in output
+    #[arg(long, default_value_t = 50)]
+    pub max: usize,
+    /// Regex filter for signal name
+    #[arg(long, default_value = ".*")]
+    pub filter: String,
+    /// Human-friendly output mode
+    #[arg(long)]
+    pub human: bool,
+}
