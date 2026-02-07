@@ -4,9 +4,8 @@
 bootstrap:
 	rustup show >/dev/null
 	cargo --version
-	cargo fmt -- --version
+	cargo fmt --version
 	cargo clippy --version
-	cargo test -- --version
 	pre-commit install --hook-type commit-msg --hook-type pre-commit
 
 ## Format with rustfmt
