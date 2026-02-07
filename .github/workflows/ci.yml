@@ -10,14 +10,25 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   checks:
     name: Format, lint, test, build
     runs-on: ubuntu-24.04
+    env:
+      DEVCONTAINER_CACHE_REF: ghcr.io/${{ github.repository_owner }}/wavepeek-devcontainer:buildcache
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Login to GHCR for devcontainer cache
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Print runtime provenance
         run: |
@@ -25,8 +36,22 @@ jobs:
           echo "devcontainer_dockerfile=.devcontainer/Dockerfile"
           sha256sum .devcontainer/Dockerfile
 
-      - name: Run checks in devcontainer baseline
+      - name: Run checks in devcontainer baseline (cache write)
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         uses: devcontainers/ci@v0.3
         with:
           configFile: .devcontainer/devcontainer.json
+          cacheFrom: |
+            type=registry,ref=${{ env.DEVCONTAINER_CACHE_REF }}
+          cacheTo: |
+            type=registry,ref=${{ env.DEVCONTAINER_CACHE_REF }},mode=max
+          push: never
+          runCmd: make ci
+
+      - name: Run checks in devcontainer baseline (cache read-only)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/devcontainer.json
+          push: never
           runCmd: make ci
