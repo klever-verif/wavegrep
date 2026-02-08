@@ -111,6 +111,8 @@ jobs:
           cacheFrom: |
             type=registry,ref=${{ env.DEVCONTAINER_CACHE_REF }}
           push: never
+          env: |
+            CARGO_REGISTRY_TOKEN
           runCmd: cargo publish --locked
 
       - name: Create GitHub Release
