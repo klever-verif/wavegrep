@@ -6,6 +6,8 @@ pub mod signals;
 pub mod tree;
 pub mod when;
 
+use serde::Serialize;
+
 use crate::cli;
 use crate::error::WavepeekError;
 
@@ -20,7 +22,44 @@ pub enum Command {
     When(cli::when::WhenArgs),
 }
 
-pub fn run(command: Command) -> Result<(), WavepeekError> {
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandName {
+    Info,
+    Tree,
+    Signals,
+}
+
+impl CommandName {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Info => "info",
+            Self::Tree => "tree",
+            Self::Signals => "signals",
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum CommandData {
+    Info(info::InfoData),
+    Tree(Vec<tree::TreeEntry>),
+    Signals(Vec<signals::SignalEntry>),
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommandResult {
+    #[serde(skip)]
+    pub command: CommandName,
+    #[serde(skip)]
+    pub human: bool,
+    pub data: CommandData,
+    pub warnings: Vec<String>,
+}
+
+pub fn run(command: Command) -> Result<CommandResult, WavepeekError> {
     match command {
         Command::Schema(args) => schema::run(args),
         Command::Info(args) => info::run(args),

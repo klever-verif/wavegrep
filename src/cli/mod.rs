@@ -10,6 +10,7 @@ use clap::{Parser, Subcommand};
 
 use crate::engine::{self, Command as EngineCommand};
 use crate::error::WavepeekError;
+use crate::output;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -69,8 +70,9 @@ pub fn run() -> Result<(), WavepeekError> {
 
 fn dispatch(command: Command) -> Result<(), WavepeekError> {
     let engine_command = into_engine_command(command);
+    let result = engine::run(engine_command)?;
 
-    engine::run(engine_command)
+    output::write(result)
 }
 
 fn into_engine_command(command: Command) -> EngineCommand {

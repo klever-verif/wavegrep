@@ -218,3 +218,8 @@
   - Decision: threaded typed args through non-M2 stub handlers (`schema`, `at`, `changes`, `when`) as ignored parameters to keep behavior unchanged while avoiding dead-code warnings.
   - Added unit tests in `src/cli/mod.rs` to lock dispatch argument forwarding for `info`, `tree`, and `signals`.
   - Validation: `cargo test` passed.
+- Task 2 completed.
+  - Added shared `CommandResult`/`CommandData` engine response model and wired CLI dispatch to a shared output writer.
+  - Implemented centralized JSON envelope emission in `src/output.rs` with fixed `schema_version = 1` and warning passthrough.
+  - Implemented initial human renderers for `info`, `tree`, and `signals`, including stderr warning routing in human mode.
+  - Added JSON-envelope unit tests for shape and warning preservation; validation via `cargo test` passed.
