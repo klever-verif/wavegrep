@@ -223,3 +223,9 @@
   - Implemented centralized JSON envelope emission in `src/output.rs` with fixed `schema_version = 1` and warning passthrough.
   - Implemented initial human renderers for `info`, `tree`, and `signals`, including stderr warning routing in human mode.
   - Added JSON-envelope unit tests for shape and warning preservation; validation via `cargo test` passed.
+- Task 3 completed.
+  - Expanded `WavepeekError` with explicit `scope` and `signal` categories and added unit tests to lock formatting plus exit-code mapping.
+  - Switched CLI parsing to `Cli::try_parse()` and normalized clap failures to `error: args: ...` while preserving standard `--help` and `--version` behavior.
+  - Added clap error normalization helper that strips usage/noise into a stable one-line args message.
+  - Updated integration tests to assert args-category stderr prefix and empty stdout for parse/validation failures.
+  - Validation: `cargo test` passed.

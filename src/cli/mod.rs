@@ -6,6 +6,7 @@ pub mod signals;
 pub mod tree;
 pub mod when;
 
+use clap::error::ErrorKind;
 use clap::{Parser, Subcommand};
 
 use crate::engine::{self, Command as EngineCommand};
@@ -64,8 +65,44 @@ enum Command {
 }
 
 pub fn run() -> Result<(), WavepeekError> {
-    let cli = Cli::parse();
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) => return handle_parse_error(error),
+    };
+
     dispatch(cli.command)
+}
+
+fn handle_parse_error(error: clap::Error) -> Result<(), WavepeekError> {
+    match error.kind() {
+        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => error.print().map_err(|io_error| {
+            WavepeekError::Internal(format!("failed to print help: {io_error}"))
+        }),
+        _ => Err(WavepeekError::Args(normalize_clap_error(&error))),
+    }
+}
+
+fn normalize_clap_error(error: &clap::Error) -> String {
+    let rendered = error.render().to_string();
+
+    for line in rendered.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("error:") {
+            return rest.trim().to_string();
+        }
+    }
+
+    rendered
+        .lines()
+        .find_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .unwrap_or_else(|| "invalid arguments".to_string())
 }
 
 fn dispatch(command: Command) -> Result<(), WavepeekError> {
@@ -93,7 +130,7 @@ mod tests {
 
     use clap::Parser;
 
-    use super::{Cli, EngineCommand, into_engine_command};
+    use super::{Cli, EngineCommand, into_engine_command, normalize_clap_error};
 
     #[test]
     fn info_dispatch_keeps_human_and_waves_args() {
@@ -171,5 +208,15 @@ mod tests {
             }
             other => panic!("expected signals command, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn clap_errors_are_normalized_to_single_line_message() {
+        let error = Cli::try_parse_from(["wavepeek", "schema", "--waves", "dump.vcd"])
+            .expect_err("schema --waves should fail");
+
+        let normalized = normalize_clap_error(&error);
+        assert!(normalized.contains("unexpected argument '--waves'"));
+        assert!(!normalized.contains("Usage:"));
     }
 }

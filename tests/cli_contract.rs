@@ -60,7 +60,11 @@ fn waveform_commands_require_waves_flag() {
         .arg("info")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("--waves <FILE>"));
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("error: args:"))
+        .stderr(predicate::str::contains(
+            "required arguments were not provided",
+        ));
 }
 
 #[test]
@@ -71,6 +75,8 @@ fn schema_does_not_accept_waves_flag() {
         .args(["schema", "--waves", "dump.vcd"])
         .assert()
         .failure()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("error: args:"))
         .stderr(predicate::str::contains("unexpected argument '--waves'"));
 }
 
@@ -82,5 +88,20 @@ fn positional_arguments_are_rejected() {
         .args(["info", "--waves", "dump.vcd", "extra"])
         .assert()
         .failure()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("error: args:"))
         .stderr(predicate::str::contains("unexpected argument 'extra'"));
+}
+
+#[test]
+fn unknown_flags_are_normalized_to_args_category() {
+    let mut command = wavepeek_cmd();
+
+    command
+        .args(["info", "--waves", "dump.vcd", "--wat"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("error: args:"))
+        .stderr(predicate::str::contains("unexpected argument '--wat'"));
 }
