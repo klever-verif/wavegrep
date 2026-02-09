@@ -15,7 +15,7 @@ This repository defines a minimal, consistent agent/skill system for a semi-auto
 
 ## Planning flow
 1. Start a session with `@planner` and provide context.
-2. Planner drafts `.memory-bank/plans/YYYY-MM-DD-<slug>/PLAN.md` via `write-plan` (may use `explore` subagents).
+2. Planner drafts `.agents/plans/YYYY-MM-DD-<slug>/PLAN.md` via `write-plan` (may use `explore` subagents).
 3. Agentic review loop: `reviewer` reviews the plan, fixes are committed, then a fresh reviewer runs a control pass.
 4. User review gate: you review the plan; if changes are needed, the agentic review loop repeats.
 5. Planner reports the plan path and commit SHAs.
@@ -33,7 +33,7 @@ This repository defines a minimal, consistent agent/skill system for a semi-auto
 - Reviewer loads `review-plan` or `review-task` depending on scope.
 
 ## Conventions
-- Plan path: `.memory-bank/plans/YYYY-MM-DD-<slug>/PLAN.md`.
+- Plan path: `.agents/plans/YYYY-MM-DD-<slug>/PLAN.md`.
 - Tasks are atomic (~2-4h) and include Goal, Inputs, Known-unknowns, Steps, Outputs.
 - Commits are required at each review iteration; pre-commit hooks are an implicit gate.
 - Default language is English unless you request otherwise.

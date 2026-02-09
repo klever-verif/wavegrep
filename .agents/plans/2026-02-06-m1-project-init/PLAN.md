@@ -10,7 +10,7 @@
 - Keep local checks (`make` + pre-commit) in parity with CI.
 - Add exactly two GitHub workflows: pre-merge CI and release CI.
 - Ensure release CI supports dry-run debugging via GitHub repo variable, while still executing the full pipeline without publishing side effects.
-- Document the release procedure in `.memory-bank/RELEASE.md` with a concrete, step-by-step checklist.
+- Document the release procedure in `.agents/RELEASE.md` with a concrete, step-by-step checklist.
 
 ## Non-Goals
 - Implementing business logic for `info`, `tree`, `signals`, `at`, `changes`, `when`, or `schema`.
@@ -39,7 +39,7 @@
 - `R6`: Run pre-merge CI on one OS in the development container environment, with explicit runtime provenance tied to `.devcontainer` (Dockerfile or pinned equivalent image).
 - `R7`: Add release workflow triggered by semver tags matching `v*.*.*`.
 - `R8`: Add release dry-run gate controlled by GitHub repo variable (for example `RELEASE_DRY_RUN=1`) so pipeline fully executes but skips side effects (crate publish + GitHub Release creation), and require explicit verification that no side effects occurred.
-- `R9`: Add `.memory-bank/RELEASE.md` with an explicit release checklist (version bump, commit, tag, push, verification, rollback notes).
+- `R9`: Add `.agents/RELEASE.md` with an explicit release checklist (version bump, commit, tag, push, verification, rollback notes).
 - `R10`: Capture manual human validation feedback for CI and release dry-run runs.
 - **Non-functional / constraints:**
 - `R11`: Keep automation simple and deterministic; avoid introducing unnecessary abstraction in M1 workflows.
@@ -50,14 +50,14 @@
 |---|---|---|---|---|
 | Rust scaffold + module placeholders + CLI help surface | R1, R2, R3 | Task 1 | D1, D2, D3, D4 | `Cargo.toml`, `src/` tree, help outputs |
 | Local workflow alignment + pre-merge CI on master | R4, R5, R6, R11, R12 | Task 2 | D5, D6, D7, D12 | `Make` logs, `.github/workflows/ci.yml`, CI run logs + runtime proof |
-| Semver release workflow + dry-run gate + runbook + human feedback | R7, R8, R9, R10, R11 | Task 3 | D8, D9, D10, D11, D13 | `.github/workflows/release.yml`, `.memory-bank/RELEASE.md`, release run logs |
+| Semver release workflow + dry-run gate + runbook + human feedback | R7, R8, R9, R10, R11 | Task 3 | D8, D9, D10, D11, D13 | `.github/workflows/release.yml`, `.agents/RELEASE.md`, release run logs |
 
 ## Proposed Solution
 - Task 1: bootstrap Rust crate and PRD module skeleton, then wire `clap` command/help contracts only.
 - Task 2: align local checks and implement one pre-merge workflow that runs format/lint/test/build on `master` PRs and direct pushes.
 - Task 3: implement semver-tag release workflow with dry-run guard from GitHub variable; dry-run runs all build/package logic but hard-skips publish/release side effects.
 - Use one Linux baseline in CI via the dev container environment to minimize drift between local development and CI runtime.
-- Add `.memory-bank/RELEASE.md` as operational runbook so release operations are reproducible and reviewable.
+- Add `.agents/RELEASE.md` as operational runbook so release operations are reproducible and reviewable.
 
 ## Alternatives Considered
 - **Keep eight granular tasks:** rejected to align with your preference for three top-level tasks.
@@ -102,7 +102,7 @@
 - [ ] `D7`: `.github/workflows/ci.yml` exists and triggers on `pull_request` to `master` and `push` to `master`; one run for each trigger is green.
 - [ ] `D8`: `.github/workflows/release.yml` exists with tag trigger `v*.*.*`.
 - [ ] `D9`: With `RELEASE_DRY_RUN=1`, release workflow run is green, logs show publish/release side effects were skipped, and no new GitHub Release is created for the dry-run tag.
-- [ ] `D10`: `.memory-bank/RELEASE.md` exists with checklist covering version bump, commit, tag, push, dry-run/real mode, verification, and rollback notes.
+- [ ] `D10`: `.agents/RELEASE.md` exists with checklist covering version bump, commit, tag, push, dry-run/real mode, verification, and rollback notes.
 - [ ] `D11`: Manual human validation feedback for CI and release dry-run is provided by reviewer.
 - [ ] `D12`: CI logs include explicit runtime provenance showing the job environment is derived from `.devcontainer` baseline.
 - [ ] `D13`: Dry-run logs confirm publish step was not executed (no registry upload action invoked).
@@ -111,7 +111,7 @@
 
 ### Task 1: Rust scaffold and CLI skeleton (~4h)
 - Goal: Deliver compile-ready Rust project structure and help-only CLI contract.
-- Inputs: `.memory-bank/PRD.md` (M1, 3.2, 5.3, 5.4), existing repository root.
+- Inputs: `.agents/PRD.md` (M1, 3.2, 5.3, 5.4), existing repository root.
 - Known-unknowns: Exact crate patch versions resolved during implementation.
 - Steps:
 1. Initialize binary crate metadata and add PRD dependencies/dev-dependencies.
@@ -138,6 +138,6 @@
 - Steps:
 1. Create `.github/workflows/release.yml` triggered by tags `v*.*.*`.
 2. Implement dry-run gate via repo variable `RELEASE_DRY_RUN` so pipeline runs fully while skipping crate publish and GitHub Release creation when enabled.
-3. Add `.memory-bank/RELEASE.md` with concrete release checklist (bump, commit, tag, push, verify, rollback).
+3. Add `.agents/RELEASE.md` with concrete release checklist (bump, commit, tag, push, verify, rollback).
 4. Execute one manual human-verified dry-run cycle, including explicit no-side-effect checks (no release created, no publish invocation), then incorporate feedback.
 - Outputs: Release automation with safe debug mode, release runbook, and captured human validation feedback.

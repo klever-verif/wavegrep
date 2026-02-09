@@ -91,7 +91,7 @@ Notes for agents:
 ## Code Style (Rust)
 
 The project goal is a deterministic, machine-friendly CLI for waveform
-inspection. The PRD in `.memory-bank/PRD.md` is the source of truth for CLI
+inspection. The PRD in `.agents/PRD.md` is the source of truth for CLI
 behavior, output stability, and error semantics.
 
 ### Formatting
@@ -170,7 +170,7 @@ Wavepeek is "LLM-first" and expects output stability:
 ## Repo References
 
 - Developer workflow entrypoints: `Makefile`, `.pre-commit-config.yaml`.
-- Product/architecture requirements: `.memory-bank/PRD.md`.
-- Release process and checklist: `.memory-bank/RELEASE.md`.
+- Product/architecture requirements: `.agents/PRD.md`.
+- Release process and checklist: `.agents/RELEASE.md`.
 - Changelog: `CHANGELOG.md` (Keep a Changelog format).
 - Agent workflow docs (OpenCode skills): `.opencode/README.md`.

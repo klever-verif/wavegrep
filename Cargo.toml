@@ -15,7 +15,7 @@ categories = ["command-line-utilities", "development-tools"]
 exclude = [
     ".devcontainer/*",
     ".github/*",
-    ".memory-bank/*",
+    ".agents/*",
     ".opencode/*",
 ]
 

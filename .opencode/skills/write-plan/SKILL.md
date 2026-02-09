@@ -13,7 +13,7 @@ Turn ideas and context into an execution-ready PLAN.md with clear tasks and vali
 ## Workflow
 1. Gather context; use `explore` subagents for codebase searches when needed.
 2. Ask the minimum number of clarifying questions if blocked; otherwise document safe assumptions.
-3. Draft PLAN.md using `references/plan-template.md` at `.memory-bank/plans/YYYY-MM-DD-<slug>/PLAN.md`.
+3. Draft PLAN.md using `references/plan-template.md` at `.agents/plans/YYYY-MM-DD-<slug>/PLAN.md`.
 4. Keep tasks atomic (~2-4h) and include Goal, Inputs, Known-unknowns, Steps, Outputs for each.
 5. Run agentic review:
    - Load `ask-review` and request `reviewer` with the `review-plan` skill.
@@ -26,7 +26,7 @@ Turn ideas and context into an execution-ready PLAN.md with clear tasks and vali
    - On approval, ensure the latest plan changes are committed.
 
 ## Output rules
-- Plan location: `.memory-bank/plans/YYYY-MM-DD-<slug>/PLAN.md`.
+- Plan location: `.agents/plans/YYYY-MM-DD-<slug>/PLAN.md`.
 - Use the template in `references/plan-template.md`.
 - Default language is English unless the user requests otherwise.
 - Use imperative verbs in task steps and keep assumptions explicit.

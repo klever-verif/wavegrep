@@ -18,7 +18,7 @@ Route plan or implementation reviews to the `reviewer` subagent with the right s
 ## Prompt skeleton
 - Review type: plan or implementation (and required skill).
 - Scope summary: 2-4 sentences.
-- Plan/task reference: `.memory-bank/plans/.../PLAN.md` + task id.
+- Plan/task reference: `.agents/plans/.../PLAN.md` + task id.
 - Diff/commits: range or list.
 - Focus files: explicit paths.
 - Tests: what ran and results.
