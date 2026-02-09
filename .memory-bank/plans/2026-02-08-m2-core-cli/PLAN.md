@@ -241,3 +241,8 @@
   - Added hand-crafted `tests/fixtures/hand/m2_core.vcd` plus generated `tests/fixtures/hand/m2_core.fst` for cross-format metadata parity checks.
   - Added integration tests in `tests/info_cli.rs` for VCD/FST JSON contract, human-mode smoke output, and missing/invalid-file error handling with exit code `2` and empty stdout.
   - Validation: `cargo test` passed.
+- Task 6 completed.
+  - Implemented `tree` command end-to-end using adapter DFS output, regex path filtering, `--max-depth`, and `--max` truncation warnings.
+  - Added semantic args validation for `tree --max` (`> 0`) and normalized invalid regex failures into `error: args: ...`.
+  - Added integration suite `tests/tree_cli.rs` covering deterministic VCD/FST ordering, depth limiting, truncation warnings, invalid regex handling, and repeat-run byte-for-byte determinism.
+  - Validation: `cargo test` passed.
