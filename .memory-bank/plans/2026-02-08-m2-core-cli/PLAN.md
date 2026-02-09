@@ -256,6 +256,7 @@
 - Task 8 completed.
   - Expanded integration matrix with human-mode warning routing checks for both `tree` and `signals` (`warnings` to stderr, non-JSON stdout).
   - Reviewer feedback loop found a gap (warning text asserted on stderr but not explicitly absent from stdout); tests were tightened with explicit negative stdout assertions.
+  - Final end-to-end reviewer pass reported no blocker/major/minor findings and marked branch merge-ready for M2 scope.
   - Completed DoD verification and checked off all `D1`..`D16` items in this document.
   - Ran full quality gates: `make ci` and `make pre-commit`, both passing cleanly.
   - Result: M2 core CLI (`info`, `tree`, `signals`) is now end-to-end implemented with deterministic VCD/FST behavior and locked contracts.
