@@ -72,6 +72,22 @@ fn info_json_contract_for_fst_fixture() {
 }
 
 #[test]
+fn info_opens_fst_with_verilator_pack_array_attributes() {
+    let fixture = fixture_path("verilator_pack_array.fst");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let mut command = wavepeek_cmd();
+    command
+        .args(["info", "--waves", fixture.as_str()])
+        .assert()
+        .success()
+        .stdout(predicate::eq(
+            "time_unit: 1ps\ntime_start: 0ps\ntime_end: 60ps\n",
+        ))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
 fn info_json_output_is_deterministic_across_runs() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();

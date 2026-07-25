@@ -16,9 +16,9 @@ This work does not migrate `wavepeek` to a new `wellen` API series, change any p
 
 - [x] (2026-07-25 19:54Z) Read issue 73, repository testing and benchmarking guidance, and the current dependency and fixture policies.
 - [x] (2026-07-25 19:54Z) Reproduced the panic on current `main` commit `caea6c39b27a1ec763b699266ef2d241f8a84c1a` with the issue fixture: exit code 101 from `fst-reader` 0.14.3 at its unimplemented PACK attribute branch.
-- [ ] Add the checked-in format-specific FST fixture, document it in the waveform fixture policy, and add a focused `info` CLI regression test.
-- [ ] Run the focused test before changing dependencies and record the expected failure as TDD evidence.
-- [ ] Update only the allowed `wellen` 0.20 patch release in `Cargo.lock`, then rerun focused and adjacent tests.
+- [x] (2026-07-25 20:00Z) Added the checked-in format-specific FST fixture, documented it in the waveform fixture policy, and added the focused `info` CLI regression test.
+- [x] (2026-07-25 20:00Z) Ran the focused test before changing dependencies; it failed with process exit 101 at the `fst-reader` PACK `todo!`, as required for TDD evidence.
+- [x] (2026-07-25 20:02Z) Updated the lockfile to `wellen` 0.20.4 and its required transitive versions; the focused regression, full `info_cli` suite, fixture-policy test, and direct CLI acceptance invocation all pass.
 - [ ] Run the repository quality gates, obtain focused code review, address all actionable findings, and rerun affected validation.
 - [ ] Fetch the latest `origin/main`, reconcile the branch if needed, and run the clean-worktree performance gate against that exact main commit.
 - [ ] Finalize and remove this branch-local plan, create conventional commits, push the branch, and open a GitHub pull request that links issue 73 and reports validation and performance evidence.
@@ -27,8 +27,8 @@ This work does not migrate `wavepeek` to a new `wellen` API series, change any p
 
 - Observation: The upstream reproducer is only 1,637 bytes, so a self-contained checked-in regression fixture is smaller and more deterministic than adding network access or a fixture generator to tests.
   Evidence: Its SHA-256 is `f5f0f17576bbaf27846a911dd38f1580333b14aa7cb31fbe3d5d9accc4fd8f55` and `stat` reports 1,637 bytes.
-- Observation: The manifest constraint `wellen = "~0.20"` already admits the upstream fix, while the lockfile selects `wellen` 0.20.2 and `fst-reader` 0.14.3.
-  Evidence: Issue 73 identifies `wellen` 0.20.4 as the minimal fixed release, so no `Cargo.toml` or source API change is required.
+- Observation: The manifest constraint `wellen = "~0.20"` already admits the upstream fix, while the original lockfile selected `wellen` 0.20.2 and `fst-reader` 0.14.3.
+  Evidence: `cargo update -p wellen --precise 0.20.4` updated `fst-reader` to 0.16.6 and the required compression, memory-map, integer-enum, and deflate transitive packages without changing `Cargo.toml` or Rust source.
 
 ## Decision Log
 
@@ -44,7 +44,7 @@ This work does not migrate `wavepeek` to a new `wellen` API series, change any p
 
 ## Outcomes & Retrospective
 
-Implementation is not complete. The baseline panic and minimal dependency path have been established; code, validation, review, performance comparison, and pull request evidence remain.
+The focused implementation milestone is complete: the exact issue fixture is tracked and policy-documented, its CLI test failed against the original lockfile, and `wellen` 0.20.4 now opens it with exact expected metadata and empty stderr. Full quality validation, independent review, performance comparison, and pull request publication remain.
 
 ## Context and Orientation
 
@@ -135,13 +135,35 @@ Baseline reproduction on `caea6c39b27a1ec763b699266ef2d241f8a84c1a`:
     not yet implemented: PACK attributes
     [exit 101]
 
+Focused regression test before the dependency change:
+
+    running 1 test
+    test info_opens_fst_with_verilator_pack_array_attributes ... FAILED
+    Unexpected failure.
+    code=101
+    not yet implemented: PACK attributes
+
+Focused and adjacent tests after the dependency change:
+
+    test info_opens_fst_with_verilator_pack_array_attributes ... ok
+    test result: ok. 1 passed; 0 failed
+    test waveform_fixture_policy_manifest_matches_repository_layout ... ok
+    test result: ok. 8 passed; 0 failed  # full info_cli suite
+
+Direct fixed behavior:
+
+    time_unit: 1ps
+    time_start: 0ps
+    time_end: 60ps
+    stderr bytes: 0
+
 Fixture integrity:
 
-    f5f0f17576bbaf27846a911dd38f1580333b14aa7cb31fbe3d5d9accc4fd8f55  tmp/issue73-verilator-complex-structs.fst
+    f5f0f17576bbaf27846a911dd38f1580333b14aa7cb31fbe3d5d9accc4fd8f55  tests/fixtures/hand/verilator_pack_array.fst
     1637 bytes
 
 ### Interfaces and Dependencies
 
 No Rust interface changes are required. `tests/common/mod.rs::fixture_path(&str) -> PathBuf` remains the fixture resolver, and the existing `wavepeek info --waves <path>` public CLI remains the tested interface. `Cargo.toml` remains unchanged with `wellen = "~0.20"`. `Cargo.lock` must select `wellen` 0.20.4 and the compatible `fst-reader` version that contains PACK and ARRAY parsing support.
 
-Revision note (2026-07-25): Created the plan after repository research and baseline reproduction so implementation, TDD evidence, review, performance comparison, and PR publication can continue from this file alone.
+Revision note (2026-07-25): Created the plan after repository research and baseline reproduction so implementation, TDD evidence, review, performance comparison, and PR publication can continue from this file alone. Updated it after adding the fixture and test to preserve the observed red-test evidence before changing dependencies, then after the minimal lockfile update to record focused acceptance results and exact transitive dependency effects.

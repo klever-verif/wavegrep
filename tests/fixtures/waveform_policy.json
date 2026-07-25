@@ -27,6 +27,10 @@
     {
       "path": "tests/fixtures/hand/value_real.vcd",
       "reason": "Uses VCD real-value records for value formatting and FSDB unsupported-real coverage."
+    },
+    {
+      "path": "tests/fixtures/hand/verilator_pack_array.fst",
+      "reason": "Uses Verilator-specific FST PACK and ARRAY hierarchy attributes that the ordinary fixture generator does not emit."
     }
   ],
   "source_backed": [
