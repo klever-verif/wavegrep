@@ -19,7 +19,7 @@ This work does not migrate `wavepeek` to a new `wellen` API series, change any p
 - [x] (2026-07-25 20:00Z) Added the checked-in format-specific FST fixture, documented it in the waveform fixture policy, and added the focused `info` CLI regression test.
 - [x] (2026-07-25 20:00Z) Ran the focused test before changing dependencies; it failed with process exit 101 at the `fst-reader` PACK `todo!`, as required for TDD evidence.
 - [x] (2026-07-25 20:02Z) Updated the lockfile to `wellen` 0.20.4 and its required transitive versions; the focused regression, full `info_cli` suite, fixture-policy test, and direct CLI acceptance invocation all pass.
-- [ ] Quality/review milestone (completed: `just ci` passed with all available FSDB gates; three parallel review lanes returned two clean reports and one medium fixture-attribution finding; added an adjacent provenance and BSD-3-Clause notice; remaining: targeted re-review, fresh control pass, and affected validation).
+- [x] (2026-07-25 20:17Z) Completed quality and review: `just ci` passed with all available FSDB gates; three parallel lanes returned two clean reports and one medium fixture-attribution finding; the adjacent provenance/BSD-3-Clause notice resolved it; targeted re-review and a fresh independent control pass returned no substantive findings.
 - [ ] Fetch the latest `origin/main`, reconcile the branch if needed, and run the clean-worktree performance gate against that exact main commit.
 - [ ] Finalize and remove this branch-local plan, create conventional commits, push the branch, and open a GitHub pull request that links issue 73 and reports validation and performance evidence.
 
@@ -49,7 +49,7 @@ This work does not migrate `wavepeek` to a new `wellen` API series, change any p
 
 ## Outcomes & Retrospective
 
-The focused implementation milestone is complete: the exact issue fixture is tracked, policy-documented, and accompanied by durable provenance and license terms; its CLI test failed against the original lockfile; and `wellen` 0.20.4 now opens it with exact expected metadata and empty stderr. `just ci` passes. Independent review found one fixture-attribution issue that has been addressed and awaits re-review; the performance comparison and pull request remain.
+The focused implementation and quality milestones are complete: the exact issue fixture is tracked, policy-documented, and accompanied by durable provenance and license terms; its CLI test failed against the original lockfile; and `wellen` 0.20.4 now opens it with exact expected metadata and empty stderr. `just ci` passes. Independent correctness, dependency, performance, targeted follow-up, and control reviews leave no substantive findings. The performance comparison and pull request remain.
 
 ## Context and Orientation
 
@@ -176,6 +176,8 @@ Initial parallel review:
     performance: No substantive findings.
     dependency hygiene: medium — preserve fixture provenance, digest, and BSD-3-Clause terms after WIP-plan cleanup.
     resolution: added tests/fixtures/hand/verilator_pack_array.fst.LICENSE and linked it from the fixture policy reason.
+    targeted dependency re-review: No substantive findings.
+    fresh consolidated control review: No substantive findings.
 
 Fixture integrity:
 
@@ -186,4 +188,4 @@ Fixture integrity:
 
 No Rust interface changes are required. `tests/common/mod.rs::fixture_path(&str) -> PathBuf` remains the fixture resolver, and the existing `wavepeek info --waves <path>` public CLI remains the tested interface. `Cargo.toml` remains unchanged with `wellen = "~0.20"`. `Cargo.lock` must select `wellen` 0.20.4 and the compatible `fst-reader` version that contains PACK and ARRAY parsing support.
 
-Revision note (2026-07-25): Created the plan after repository research and baseline reproduction so implementation, TDD evidence, review, performance comparison, and PR publication can continue from this file alone. Updated it after adding the fixture and test to preserve the observed red-test evidence before changing dependencies, after the minimal lockfile update to record focused acceptance results and exact transitive dependency effects, and after the initial quality/review pass to preserve gate evidence and the fixture-attribution finding and resolution.
+Revision note (2026-07-25): Created the plan after repository research and baseline reproduction so implementation, TDD evidence, review, performance comparison, and PR publication can continue from this file alone. Updated it after adding the fixture and test to preserve the observed red-test evidence before changing dependencies, after the minimal lockfile update to record focused acceptance results and exact transitive dependency effects, after the initial quality/review pass to preserve gate evidence and the fixture-attribution finding and resolution, and after targeted and independent control reviews confirmed the consolidated diff is clean.
