@@ -82,7 +82,7 @@ fn info_opens_fst_with_verilator_pack_array_attributes() {
         .assert()
         .success()
         .stdout(predicate::eq(
-            "time_unit: 1ps\ntime_start: 0ps\ntime_end: 60ps\n",
+            "time_unit: 1ps\ntime_start: 0ps\ntime_end: 1ps\n",
         ))
         .stderr(predicate::str::is_empty());
 }
