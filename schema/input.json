@@ -78,33 +78,43 @@
                           "additionalProperties": false,
                           "properties": {
                             "paddr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pclk": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "penable": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "prdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pready": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "presetn": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "psel": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pslverr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwrite": {
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           },
@@ -121,30 +131,39 @@
                           "additionalProperties": false,
                           "properties": {
                             "paddr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pclk": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "penable": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "prdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "presetn": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "psel": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pslverr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwrite": {
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           },
@@ -212,39 +231,51 @@
                           "additionalProperties": false,
                           "properties": {
                             "paddr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pclk": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "penable": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pprot": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "prdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pready": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "presetn": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "psel": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pslverr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pstrb": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwrite": {
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           },
@@ -261,36 +292,47 @@
                           "additionalProperties": false,
                           "properties": {
                             "paddr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pclk": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "penable": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pprot": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "prdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "presetn": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "psel": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pslverr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pstrb": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwrite": {
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           },
@@ -347,54 +389,71 @@
                           "additionalProperties": false,
                           "properties": {
                             "paddr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pauser": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pbuser": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pclk": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "penable": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pnse": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pprot": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "prdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pready": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "presetn": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pruser": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "psel": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pslverr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pstrb": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwrite": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwuser": {
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           },
@@ -411,51 +470,67 @@
                           "additionalProperties": false,
                           "properties": {
                             "paddr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pauser": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pbuser": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pclk": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "penable": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pnse": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pprot": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "prdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "presetn": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pruser": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "psel": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pslverr": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pstrb": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwdata": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwrite": {
+                              "pattern": "\\S",
                               "type": "string"
                             },
                             "pwuser": {
+                              "pattern": "\\S",
                               "type": "string"
                             }
                           },
@@ -500,6 +575,7 @@
         },
         "maps": {
           "additionalProperties": {
+            "pattern": "\\S",
             "type": "string"
           },
           "description": "Explicit mappings from lowercase APB standard signal names to waveform signal names.",

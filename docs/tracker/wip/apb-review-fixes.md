@@ -19,10 +19,10 @@ This work does not change APB event classification, waveform mapping, output row
 - [x] (2026-07-26 11:47Z) Reproduce and analyze all three review findings against runtime, generated schemas, tests, and docs.
 - [x] (2026-07-26 11:47Z) Restore Git registration for the APB, AHB, ATB, and AXI-Stream worktrees and verify clean upstream-aligned states.
 - [x] (2026-07-26 11:47Z) Create this branch-local ExecPlan for the accepted findings.
-- [ ] Couple JSONL `begin` command and context in the generated stream schema and add positive and negative contract tests.
-- [ ] Reject blank APB source map values in the input schema and add validator coverage.
-- [ ] Correct both APB documentation mapping examples and strengthen embedded-doc tests.
-- [ ] Regenerate schemas, run focused tests and `just check`, and commit coherent fixes.
+- [x] (2026-07-26 11:54Z) Couple JSONL `begin` command and context in the generated stream schema and add positive and negative contract tests.
+- [x] (2026-07-26 11:54Z) Reject blank APB source map values in the input schema and add validator coverage.
+- [x] (2026-07-26 11:54Z) Correct both APB documentation mapping examples and strengthen embedded-doc tests.
+- [ ] Regenerate schemas, run focused tests and `just check`, and commit coherent fixes. (Completed: schema regeneration, schema contract check, 35 schema tests, APB input-schema test, APB docs test, and schema checker tests; remaining: commits and `just check`.)
 - [ ] Perform a complete self-review, run `just ci`, record evidence, remove this WIP plan, and commit cleanup.
 - [ ] Push `feat/extract-apb`, wait for PR #69 CI, and verify the updated remote PR state.
 
@@ -54,7 +54,7 @@ This work does not change APB event classification, waveform mapping, output row
 
 ## Outcomes & Retrospective
 
-Implementation has not started. All three findings are confirmed: one medium public stream-schema gap and two low input-schema/documentation mismatches. No finding is a runtime APB extraction defect.
+All three review fixes are implemented and focused tests pass. The stream schema now has three disjoint begin-record branches, APB map values require non-whitespace text, and both docs examples list every demonstrated payload mapping. Full local gates, final review, WIP cleanup, and remote delivery remain.
 
 ## Context and Orientation
 
@@ -126,7 +126,17 @@ Formatting, schema generation, tests, and repository gates are idempotent. Schem
 
 The accepted review findings were supplied from a local review of PR #69. No external service or new dependency is required. Disposable logs belong under repository-root `tmp/`.
 
-At completion, replace this paragraph with concise commit, gate, review, and PR evidence before removing the plan; its committed history will retain the final state.
+Focused evidence:
+
+    just check-schema: schema contract OK
+    cargo test --test schema_cli: 35 passed
+    cargo test --test extract_apb_cli extract_apb_source_schema_accepts_canonical_values_only: 1 passed
+    cargo test --test docs_cli public_extract_docs_cover_apb_profiles_modes_and_stateless_scope: 1 passed
+    python3 -B -m unittest tools/schema/test_check_schema_contract.py: 3 passed
+
+At completion, add commits, full-gate, review, and PR evidence before removing the plan; its committed history will retain the final state.
+
+Revision note (2026-07-26): Marked all three accepted findings implemented after schema generation and focused validation passed.
 
 ### Interfaces and Dependencies
 

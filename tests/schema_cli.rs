@@ -2222,6 +2222,69 @@ fn schema_stream_validator_enforces_apb_context_and_item_isolation() {
         .validate(&valid_begin)
         .unwrap_or_else(|error| panic!("valid APB5 begin rejected: {error}\n{valid_begin}"));
 
+    for command in [
+        "info",
+        "scope",
+        "signal",
+        "value",
+        "change",
+        "property",
+        "extract generic",
+    ] {
+        let context_free_begin = json!({
+            "type": "begin",
+            "seq": 0,
+            "command": command,
+            "$schema": expected_stream_schema_url()
+        });
+        validator
+            .validate(&context_free_begin)
+            .unwrap_or_else(|error| {
+                panic!("valid context-free {command} begin rejected: {error}\n{context_free_begin}")
+            });
+    }
+
+    let mut missing_context = valid_begin.clone();
+    missing_context.as_object_mut().unwrap().remove("context");
+    assert!(
+        validator.validate(&missing_context).is_err(),
+        "extract apb begin must require context: {missing_context}"
+    );
+    let mut null_context = valid_begin.clone();
+    null_context["context"] = Value::Null;
+    assert!(
+        validator.validate(&null_context).is_err(),
+        "extract apb begin must reject null context: {null_context}"
+    );
+    let mut wrong_protocol_command = valid_begin.clone();
+    wrong_protocol_command["command"] = json!("extract axi");
+    assert!(
+        validator.validate(&wrong_protocol_command).is_err(),
+        "extract axi begin must reject APB context: {wrong_protocol_command}"
+    );
+    let mut unrelated_command = valid_begin.clone();
+    unrelated_command["command"] = json!("change");
+    assert!(
+        validator.validate(&unrelated_command).is_err(),
+        "context-free begin must reject APB context: {unrelated_command}"
+    );
+    let wrong_protocol_context = json!({
+        "type": "begin",
+        "seq": 0,
+        "command": "extract apb",
+        "$schema": expected_stream_schema_url(),
+        "context": {
+            "name": "axi4",
+            "profile": "axi4",
+            "issue": "H.c",
+            "mappings": {}
+        }
+    });
+    assert!(
+        validator.validate(&wrong_protocol_context).is_err(),
+        "extract apb begin must reject AXI context: {wrong_protocol_context}"
+    );
+
     let valid_item = json!({
         "type": "item",
         "seq": 1,
@@ -2279,6 +2342,13 @@ fn schema_stream_validator_enforces_axi5_context_and_item_isolation() {
     validator
         .validate(&valid_begin)
         .unwrap_or_else(|error| panic!("valid AXI5 begin rejected: {error}\n{valid_begin}"));
+
+    let mut missing_context = valid_begin.clone();
+    missing_context.as_object_mut().unwrap().remove("context");
+    assert!(
+        validator.validate(&missing_context).is_err(),
+        "extract axi begin must require context: {missing_context}"
+    );
 
     let valid_item = json!({
         "type": "item",

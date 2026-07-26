@@ -54,6 +54,59 @@
     },
     "beginRecord": {
       "additionalProperties": true,
+      "oneOf": [
+        {
+          "properties": {
+            "command": {
+              "const": "extract apb"
+            },
+            "context": {
+              "$ref": "#/$defs/extractApbContext"
+            }
+          },
+          "required": [
+            "command",
+            "context"
+          ]
+        },
+        {
+          "properties": {
+            "command": {
+              "const": "extract axi"
+            },
+            "context": {
+              "$ref": "#/$defs/extractAxiContext"
+            }
+          },
+          "required": [
+            "command",
+            "context"
+          ]
+        },
+        {
+          "not": {
+            "required": [
+              "context"
+            ]
+          },
+          "properties": {
+            "command": {
+              "enum": [
+                "info",
+                "scope",
+                "signal",
+                "value",
+                "change",
+                "property",
+                "extract generic"
+              ]
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      ],
       "properties": {
         "$schema": {
           "const": "https://kleverhq.github.io/wavepeek/schema-stream-v2.2.json",

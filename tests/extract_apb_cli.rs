@@ -706,6 +706,14 @@ fn extract_apb_source_schema_accepts_canonical_values_only() {
             "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
             "profile": "apb3", "maps": {"pprot": "prot"}
         }),
+        json!({
+            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
+            "maps": {"pclk": ""}
+        }),
+        json!({
+            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
+            "maps": {"pclk": "  \t\n"}
+        }),
     ] {
         assert!(
             !validator.is_valid(&invalid),

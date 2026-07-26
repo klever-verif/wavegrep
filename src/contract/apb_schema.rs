@@ -152,7 +152,7 @@ fn apb_source_input_schema() -> Value {
             "maps": {
                 "type": "object",
                 "description": "Explicit mappings from lowercase APB standard signal names to waveform signal names.",
-                "additionalProperties": {"type": "string"}
+                "additionalProperties": nonblank_string_schema()
             }
         },
         "allOf": [{"oneOf": branches}]
@@ -162,13 +162,17 @@ fn apb_source_input_schema() -> Value {
 fn apb_input_maps_schema(profile: &ApbProfileSpec, allow_pready: bool) -> Value {
     let properties = apb::standard_signals(profile)
         .filter(|standard| allow_pready || *standard != "pready")
-        .map(|standard| (standard.to_string(), json!({"type": "string"})))
+        .map(|standard| (standard.to_string(), nonblank_string_schema()))
         .collect::<Map<_, _>>();
     json!({
         "type": "object",
         "additionalProperties": false,
         "properties": properties,
     })
+}
+
+fn nonblank_string_schema() -> Value {
+    json!({"type": "string", "pattern": "\\S"})
 }
 
 fn apb_data_schema() -> Value {
@@ -400,6 +404,24 @@ fn ref_schema(def_name: &str) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn input_map_values_require_non_whitespace() {
+        let source = apb_source_input_schema();
+        assert_eq!(
+            source["properties"]["maps"]["additionalProperties"]["pattern"],
+            "\\S"
+        );
+        let profile_maps = &source["allOf"][0]["oneOf"][0]["allOf"][1]["oneOf"][0]["properties"]["maps"]
+            ["properties"];
+        assert!(
+            profile_maps
+                .as_object()
+                .unwrap()
+                .values()
+                .all(|schema| { schema["type"] == "string" && schema["pattern"] == "\\S" })
+        );
+    }
 
     #[test]
     fn implicit_high_context_forbids_pready_and_wait_capture() {

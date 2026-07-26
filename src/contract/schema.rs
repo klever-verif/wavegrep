@@ -211,6 +211,7 @@ fn stream_defs() -> Value {
     object.extend(generated_stream_record_defs());
     apb_schema::apply_stream_context_defs(&mut object);
     axi_schema::apply_stream_context_defs(&mut object);
+    apply_stream_begin_context_constraints(&mut object);
     object.insert(
         "streamCommand".to_string(),
         json!({"type": "string", "enum": stream_commands()}),
@@ -274,6 +275,44 @@ fn stream_defs() -> Value {
         object.insert(name.to_string(), item_record_for(command, item_ref));
     }
     Value::Object(object)
+}
+
+fn apply_stream_begin_context_constraints(defs: &mut Map<String, Value>) {
+    let context_free_commands = stream_commands()
+        .iter()
+        .copied()
+        .filter(|command| !matches!(*command, "extract apb" | "extract axi"))
+        .collect::<Vec<_>>();
+    let begin = defs
+        .get_mut("beginRecord")
+        .and_then(Value::as_object_mut)
+        .expect("generated stream definitions must contain beginRecord");
+    begin.insert(
+        "oneOf".to_string(),
+        json!([
+            {
+                "required": ["command", "context"],
+                "properties": {
+                    "command": {"const": "extract apb"},
+                    "context": ref_schema("extractApbContext"),
+                },
+            },
+            {
+                "required": ["command", "context"],
+                "properties": {
+                    "command": {"const": "extract axi"},
+                    "context": ref_schema("extractAxiContext"),
+                },
+            },
+            {
+                "required": ["command"],
+                "properties": {
+                    "command": {"enum": context_free_commands},
+                },
+                "not": {"required": ["context"]},
+            },
+        ]),
+    );
 }
 
 fn generated_output_payload_defs() -> Map<String, Value> {
