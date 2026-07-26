@@ -585,6 +585,15 @@ impl WellenBackend {
                     .map(|(signal_ref, _)| signal_ref)
             })
             .collect::<Result<Vec<_>, _>>()?;
+        if signal_refs
+            .iter()
+            .any(|signal_ref| streaming.hierarchy().is_derived_signal(*signal_ref))
+        {
+            return Err(WavepeekError::Internal(
+                "bounded streaming candidate collection requires ground signals".to_string(),
+            ));
+        }
+
         let filter = wellen::stream::Filter {
             start: from_raw,
             end: Some(to_raw),
@@ -594,7 +603,9 @@ impl WellenBackend {
         let mut changed = BTreeSet::new();
         streaming
             .stream_changes(filter, |time, _signal_ref, _value| {
-                changed.insert(time);
+                if (from_raw..=to_raw).contains(&time) {
+                    changed.insert(time);
+                }
                 Ok::<(), std::convert::Infallible>(())
             })
             .map_err(|error| match error {
@@ -1150,6 +1161,8 @@ mod tests {
 
     const RICH_VALUE_VCD: &str = "$date\n  2026-03-12\n$end\n$version\n  wavepeek-rich-value\n$end\n$timescale 1ns $end\n$scope module top $end\n$var real 1 ! temp $end\n$var string 1 \" msg $end\n$upscope $end\n$enddefinitions $end\n#0\nr1.5 !\nsgo \"\n";
 
+    const DERIVED_SPLIT_VCD: &str = "$date\n  2026-07-26\n$end\n$version\n  wavepeek-derived-split\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! split [0] $end\n$var wire 1 \" split [1] $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n0\"\n#5\n1!\n#10\n1\"\n#15\n0!\n#20\n0\"\n";
+
     const RECURSIVE_TEST_VCD: &str = "$date\n  2026-02-28\n$end\n$version\n  wavepeek-recursive-test\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! clk $end\n$scope module cpu $end\n$var wire 1 \" valid $end\n$scope module core $end\n$var wire 1 # execute $end\n$upscope $end\n$upscope $end\n$scope module mem $end\n$var wire 1 $ ready $end\n$upscope $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n0\"\n0#\n0$\n#5\n1!\n1\"\n1#\n1$\n";
 
     const DELAYED_VALUE_VCD: &str = "$date\n  2026-03-03\n$end\n$version\n  wavepeek-delayed-value\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! delayed $end\n$upscope $end\n$enddefinitions $end\n#0\n#5\n1!\n";
@@ -1570,6 +1583,25 @@ mod tests {
             10,
             ChangeCandidateCollectionMode::Auto,
         ));
+    }
+
+    #[test]
+    fn streaming_candidate_collection_rejects_derived_signals() {
+        let fixture = write_fixture(DERIVED_SPLIT_VCD, "derived-split.vcd");
+        let backend = super::WellenBackend::open(fixture.path()).expect("fixture should open");
+        let resolved = backend
+            .resolve_signals(&["top.split".to_string()])
+            .expect("derived signal should resolve");
+        let signal_ref = super::trusted_signal_ref(resolved[0].id);
+
+        assert!(backend.inner.hierarchy().is_derived_signal(signal_ref));
+        assert!(
+            backend
+                .collect_change_times_streaming(&resolved, 5, 10)
+                .expect_err("derived signals should use indexed collection")
+                .to_string()
+                .contains("requires ground signals")
+        );
     }
 
     #[test]
