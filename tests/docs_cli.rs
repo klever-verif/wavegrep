@@ -391,6 +391,20 @@ fn public_extract_docs_cover_apb_profiles_modes_and_stateless_scope() {
         );
     }
 
+    for topic_id in ["commands/extract", "workflows/extract-handshake"] {
+        let output = successful_stdout_text(&["docs", "show", topic_id]);
+        for mapping in [
+            "paddr = uart_apb_paddr",
+            "pwdata = uart_apb_pwdata",
+            "pslverr = uart_apb_pslverr",
+        ] {
+            assert!(
+                output.contains(mapping),
+                "topic {topic_id} should include payload mapping `{mapping}`"
+            );
+        }
+    }
+
     let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
     assert!(machine_output.contains("`extract.apb.source`"));
     assert!(machine_output.contains("Profile, mode, wait setting, event, direction"));

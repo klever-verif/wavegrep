@@ -46,6 +46,9 @@ mappings:
   penable = uart_apb_penable
   pwrite = uart_apb_pwrite
   pready = uart_apb_pready
+  paddr = uart_apb_paddr
+  pwdata = uart_apb_pwdata
+  pslverr = uart_apb_pslverr
 events:
 @20ns sample@19ns [setup write] pwrite=1'h1 paddr=16'h0040 pwdata=32'hdeadbeef
 @30ns sample@29ns [access-wait write] pwrite=1'h1 paddr=16'h0040 pwdata=32'hdeadbeef
