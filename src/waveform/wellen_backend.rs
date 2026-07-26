@@ -572,6 +572,16 @@ impl WellenBackend {
         from_raw: u64,
         to_raw: u64,
     ) -> Result<Vec<u64>, WavepeekError> {
+        if resolved.iter().any(|signal| {
+            self.inner
+                .hierarchy()
+                .is_derived_signal(trusted_signal_ref(signal.id))
+        }) {
+            return Err(WavepeekError::Internal(
+                "bounded streaming candidate collection requires ground signals".to_string(),
+            ));
+        }
+
         let mut streaming = wellen::stream::read_from_file(
             self.source_path.as_path(),
             &wellen::LoadOptions::default(),
@@ -585,15 +595,6 @@ impl WellenBackend {
                     .map(|(signal_ref, _)| signal_ref)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        if signal_refs
-            .iter()
-            .any(|signal_ref| streaming.hierarchy().is_derived_signal(*signal_ref))
-        {
-            return Err(WavepeekError::Internal(
-                "bounded streaming candidate collection requires ground signals".to_string(),
-            ));
-        }
-
         let filter = wellen::stream::Filter {
             start: from_raw,
             end: Some(to_raw),
@@ -800,7 +801,9 @@ fn expr_type_from_var(
             (ExprTypeKind::Real, 64, false, false, ExprStorage::Scalar)
         }
         VarType::String => (ExprTypeKind::String, 0, false, false, ExprStorage::Scalar),
-        VarType::Event => (ExprTypeKind::Event, 0, false, false, ExprStorage::Scalar),
+        VarType::Event | VarType::EventParameter => {
+            (ExprTypeKind::Event, 0, false, false, ExprStorage::Scalar)
+        }
         VarType::Enum => (
             ExprTypeKind::EnumCore,
             var.length(hierarchy).ok_or_else(|| {
@@ -1977,6 +1980,7 @@ mod tests {
             "$var event 1 \" ev $end\n",
             "$var real 1 # temp $end\n",
             "$var string 1 $ msg $end\n",
+            "$var parameter 0 % event_param $end\n",
             "$upscope $end\n",
             "$enddefinitions $end\n",
             "#0\n",
@@ -1987,7 +1991,8 @@ mod tests {
             "1!\n",
             "1\"\n",
             "r2.5 #\n",
-            "sworld $\n"
+            "sworld $\n",
+            "1%\n"
         );
 
         let fixture = write_fixture(EXPR_VCD, "expr-sample.vcd");
@@ -2046,6 +2051,19 @@ mod tests {
                 .expect_err("events cannot be sampled as values")
                 .to_string()
                 .contains("is a raw event and cannot be sampled as a value")
+        );
+
+        let event_parameter = waveform
+            .resolve_expr_signal("top.event_param")
+            .expect("event parameter should resolve");
+        assert!(matches!(
+            event_parameter.expr_type.kind,
+            crate::expr::ExprTypeKind::Event
+        ));
+        assert!(
+            waveform
+                .expr_event_occurred(&event_parameter, 5)
+                .expect("event parameter should occur")
         );
 
         let signal = waveform
