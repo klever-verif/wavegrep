@@ -22,8 +22,9 @@ This work does not change APB event classification, waveform mapping, output row
 - [x] (2026-07-26 11:54Z) Couple JSONL `begin` command and context in the generated stream schema and add positive and negative contract tests.
 - [x] (2026-07-26 11:54Z) Reject blank APB source map values in the input schema and add validator coverage.
 - [x] (2026-07-26 11:54Z) Correct both APB documentation mapping examples and strengthen embedded-doc tests.
-- [ ] Regenerate schemas, run focused tests and `just check`, and commit coherent fixes. (Completed: schema regeneration, schema contract check, 35 schema tests, APB input-schema test, APB docs test, and schema checker tests; remaining: commits and `just check`.)
-- [ ] Perform a complete self-review, run `just ci`, record evidence, remove this WIP plan, and commit cleanup.
+- [x] (2026-07-26 11:55Z) Regenerate schemas, run focused tests and `just check`, and commit coherent fixes.
+- [x] (2026-07-26 11:57Z) Perform a complete self-review against all three findings and run `just ci` successfully.
+- [ ] Commit the completed plan and remove it in a cleanup commit.
 - [ ] Push `feat/extract-apb`, wait for PR #69 CI, and verify the updated remote PR state.
 
 ## Surprises & Discoveries
@@ -54,7 +55,9 @@ This work does not change APB event classification, waveform mapping, output row
 
 ## Outcomes & Retrospective
 
-All three review fixes are implemented and focused tests pass. The stream schema now has three disjoint begin-record branches, APB map values require non-whitespace text, and both docs examples list every demonstrated payload mapping. Full local gates, final review, WIP cleanup, and remote delivery remain.
+All three findings are resolved and locally PR-ready. The stream schema has three disjoint begin-record branches and now rejects missing, null, wrong-protocol, and unrelated-command contexts while accepting every runtime context-free command. APB map values require non-whitespace text in both generic and profile-specific source-map schemas. Both docs examples list all mappings needed by their payload rows.
+
+Self-review found no unresolved correctness, compatibility, or scope issues. Runtime serialization and APB extraction behavior are unchanged. The shared stream fix also closes the pre-existing equivalent AXI begin-context gap without changing valid AXI records. `just check` and `just ci` pass; only completed-plan cleanup and remote PR delivery remain.
 
 ## Context and Orientation
 
@@ -133,10 +136,17 @@ Focused evidence:
     cargo test --test extract_apb_cli extract_apb_source_schema_accepts_canonical_values_only: 1 passed
     cargo test --test docs_cli public_extract_docs_cover_apb_profiles_modes_and_stateless_scope: 1 passed
     python3 -B -m unittest tools/schema/test_check_schema_contract.py: 3 passed
+    just check: passed, including default and FSDB clippy, schemas, docs, and FSDB smoke checks
+    just ci: passed; 683 unit tests; all integration suites; src coverage 94.23% regions, 93.52% functions, 94.69% lines; 20 FSDB integration tests
+    self-review: all three findings mapped to code, generated artifacts, negative tests, and docs; no unresolved findings
+    8269dea fix(schema): couple stream begin context
+    94ca15a docs(extract): align APB example mappings
 
-At completion, add commits, full-gate, review, and PR evidence before removing the plan; its committed history will retain the final state.
+The PR URL remains https://github.com/kleverhq/wavepeek/pull/69. Its updated remote head and CI state remain pending until after completed-plan cleanup and push.
 
 Revision note (2026-07-26): Marked all three accepted findings implemented after schema generation and focused validation passed.
+
+Revision note (2026-07-26): Recorded successful full gates and a clean requirement-level self-review before WIP cleanup and remote delivery.
 
 ### Interfaces and Dependencies
 
