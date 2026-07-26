@@ -7,7 +7,9 @@ use std::io::BufReader;
 use std::path::Path;
 use std::path::PathBuf;
 
-use wellen::{ScopeRef, ScopeType, SignalRef, Timescale, TimescaleUnit, VarType, simple};
+use wellen::{
+    ScopeRef, ScopeType, SignalRef, SignalValueRef, Timescale, TimescaleUnit, VarType, simple,
+};
 
 use crate::error::WavepeekError;
 use crate::expr::{
@@ -261,28 +263,21 @@ impl WellenBackend {
 
         let value = loaded.get_value_at(&offset, offset.elements - 1);
         match value {
-            wellen::SignalValue::Event => Err(WavepeekError::Internal(format!(
+            SignalValueRef::Event => Err(WavepeekError::Internal(format!(
                 "signal '{}' produced event data through value sampling",
                 resolved.path
             ))),
-            wellen::SignalValue::Binary(_, _)
-            | wellen::SignalValue::FourValue(_, _)
-            | wellen::SignalValue::NineValue(_, _) => {
-                let bits = value.to_bit_string().ok_or_else(|| {
-                    WavepeekError::Internal(format!(
-                        "failed to convert value for signal '{}' to bit string",
-                        resolved.path
-                    ))
-                })?;
+            SignalValueRef::BitVec(value) => {
+                let bits = value.bit_string();
                 Ok(SampledValue::Integral {
                     label: enum_label_for_bits(&resolved.expr_type, bits.as_str()),
                     bits: Some(bits),
                 })
             }
-            wellen::SignalValue::String(raw) => Ok(SampledValue::String {
+            SignalValueRef::String(raw) => Ok(SampledValue::String {
                 value: Some(raw.to_string()),
             }),
-            wellen::SignalValue::Real(value) => Ok(SampledValue::Real { value: Some(value) }),
+            SignalValueRef::Real(value) => Ok(SampledValue::Real { value: Some(value) }),
         }
     }
 
@@ -598,10 +593,16 @@ impl WellenBackend {
 
         let mut changed = BTreeSet::new();
         streaming
-            .stream(&filter, |time, _signal_ref, _value| {
+            .stream_changes(filter, |time, _signal_ref, _value| {
                 changed.insert(time);
+                Ok::<(), std::convert::Infallible>(())
             })
-            .map_err(|error| map_wellen_error(self.source_path.as_path(), error))?;
+            .map_err(|error| match error {
+                wellen::stream::StreamError::Wellen(error) => {
+                    map_wellen_error(self.source_path.as_path(), error)
+                }
+                wellen::stream::StreamError::Callback(never) => match never {},
+            })?;
 
         Ok(changed.into_iter().collect())
     }
@@ -678,28 +679,16 @@ fn time_window_indices(time_table: &[u64], from_raw: u64, to_raw: u64) -> Option
 }
 
 fn decode_signal_bits(
-    value: wellen::SignalValue,
+    value: SignalValueRef<'_>,
     signal_path: &str,
 ) -> Result<Option<String>, WavepeekError> {
     match value {
-        wellen::SignalValue::Event => Ok(Some(String::new())),
-        wellen::SignalValue::Binary(_, _)
-        | wellen::SignalValue::FourValue(_, _)
-        | wellen::SignalValue::NineValue(_, _) => {
-            let bits = value.to_bit_string().ok_or_else(|| {
-                WavepeekError::Internal(format!(
-                    "failed to convert value for signal '{}' to bit string",
-                    signal_path
-                ))
-            })?;
-            Ok(Some(bits))
-        }
-        wellen::SignalValue::String(_) | wellen::SignalValue::Real(_) => {
-            Err(WavepeekError::Signal(format!(
-                "signal '{}' has unsupported non-bit-vector encoding",
-                signal_path
-            )))
-        }
+        SignalValueRef::Event => Ok(Some(String::new())),
+        SignalValueRef::BitVec(value) => Ok(Some(value.bit_string())),
+        SignalValueRef::String(_) | SignalValueRef::Real(_) => Err(WavepeekError::Signal(format!(
+            "signal '{}' has unsupported non-bit-vector encoding",
+            signal_path
+        ))),
     }
 }
 
@@ -709,7 +698,7 @@ fn resolve_signal_ref_with_width(
 ) -> Result<(SignalRef, u32), WavepeekError> {
     let var_ref = resolve_var_ref(hierarchy, canonical_path)?;
     let var = &hierarchy[var_ref];
-    let width = var.length().ok_or_else(|| {
+    let width = var.length(hierarchy).ok_or_else(|| {
         WavepeekError::Signal(format!(
             "signal '{canonical_path}' has unsupported non-bit-vector encoding"
         ))
@@ -803,7 +792,7 @@ fn expr_type_from_var(
         VarType::Event => (ExprTypeKind::Event, 0, false, false, ExprStorage::Scalar),
         VarType::Enum => (
             ExprTypeKind::EnumCore,
-            var.length().ok_or_else(|| {
+            var.length(hierarchy).ok_or_else(|| {
                 WavepeekError::Signal(format!(
                     "signal '{canonical_path}' is missing enum width metadata"
                 ))
@@ -813,7 +802,7 @@ fn expr_type_from_var(
             ExprStorage::Scalar,
         ),
         other => {
-            let width = var.length().ok_or_else(|| {
+            let width = var.length(hierarchy).ok_or_else(|| {
                 WavepeekError::Signal(format!(
                     "signal '{canonical_path}' has unsupported non-bit-vector encoding"
                 ))
@@ -977,7 +966,7 @@ fn signal_entry_from_var_ref(
         name: var.name(hierarchy).to_string(),
         path: var.full_name(hierarchy),
         kind: var_type_alias(var.var_type()).to_string(),
-        width: var.length(),
+        width: var.length(hierarchy),
     }
 }
 
@@ -1077,7 +1066,7 @@ fn var_type_alias(var_type: VarType) -> &'static str {
     match var_type {
         VarType::Event => "event",
         VarType::Integer => "integer",
-        VarType::Parameter => "parameter",
+        VarType::Parameter | VarType::EventParameter => "parameter",
         VarType::Real => "real",
         VarType::Reg => "reg",
         VarType::Supply0 => "supply0",
@@ -1862,6 +1851,7 @@ mod tests {
             (wellen::VarType::Event, "event"),
             (wellen::VarType::Integer, "integer"),
             (wellen::VarType::Parameter, "parameter"),
+            (wellen::VarType::EventParameter, "parameter"),
             (wellen::VarType::Real, "real"),
             (wellen::VarType::Reg, "reg"),
             (wellen::VarType::Supply0, "supply0"),
@@ -2196,13 +2186,13 @@ mod tests {
     #[test]
     fn waveform_helper_tables_exercise_decode_timescale_and_extra_var_types() {
         assert_eq!(
-            super::decode_signal_bits(wellen::SignalValue::Event, "top.ev")
+            super::decode_signal_bits(wellen::SignalValueRef::Event, "top.ev")
                 .expect("events should decode as empty bit strings"),
             Some(String::new())
         );
         for value in [
-            wellen::SignalValue::String("oops"),
-            wellen::SignalValue::Real(1.25),
+            wellen::SignalValueRef::String("oops"),
+            wellen::SignalValueRef::Real(1.25),
         ] {
             assert!(
                 super::decode_signal_bits(value, "top.bad")
