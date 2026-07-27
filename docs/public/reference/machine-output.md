@@ -74,7 +74,9 @@ The stable JSON-producing commands currently include the waveform-inspection com
 
 Payload paths are canonical in JSON and JSONL output.
 
-`extract atb` data is an object with `name`, canonical `profile`, Issue C metadata, resolved `mappings`, and stateless `events`. Every event has `time`, `sample_time`, `profile`, `event`, and `payload`. The event kind is `transfer`, `flush`, or `sync-request`. Transfer payload objects permit mapped `atbytes`, `atdata`, and `atid` values; flush and synchronization-request payloads are empty. The schemas enforce profile-specific mapping and event sets, complete transfer or flush handshakes in context-bearing output, and mapping-backed event kinds.
+`extract apb` data is an object with `name`, `profile`, `issue`, `pready_mode`, `include_wait`, canonical `mappings`, and `events`. Each event has `time`, `sample_time`, `profile`, `event`, `direction`, and a `payload` object keyed by lowercase APB standard signal name. Profiles are APB3, APB4, and APB5 from Arm IHI 0024E Issue E. Profile, mode, wait setting, event, direction, mapping keys, and payload keys are schema-constrained; mappings depend on profile and PREADY mode, event kinds depend on the effective wait setting, and payload keys depend on profile, event kind, and direction. Response fields are completion-only. Direction-specific payload keys are optional because only mapped observations are emitted; `pwrite` is required in every event payload.
+
+`extract atb` data is an object with `name`, `profile`, `issue`, canonical `mappings`, and `events`. Profiles are `atb-a`, `atb-b`, and `atb-c` from Arm IHI 0032C Issue C. Each event has `time`, `sample_time`, `profile`, `event`, and a `payload` object. Event kinds are `transfer`, `flush`, and `sync-request`. Transfer payload keys are the mapped subset of `atbytes`, `atdata`, and `atid`; flush and synchronization-request payloads are empty. The schema constrains profile signal sets and requires complete handshake pairs.
 
 `extract axi` data is an object with AXI context and transfer rows. It has `name`, `profile`, `issue`, `mappings`, and `transfers`. Each transfer has `time`, `sample_time`, `profile`, `channel`, and a `payload` object keyed by lowercase AXI standard signal name. Supported profiles are AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP. AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 use Issue H.c metadata; AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP use Issue L metadata. AXI5 and ACE5-LiteDVM can include `ac` and `cr` DVM channels but not `cd`. ACE and ACE5 include `ac`, `cr`, and `cd` coherency channels in addition to the five base AXI channels. The schema enumerates supported profiles, channels, and payload keys per profile/channel; payload keys are optional because rows include only mapped payload signals. Mapping paths are canonical.
 
@@ -96,9 +98,11 @@ Rules for successful JSONL streams:
 - `begin` is first and has `seq: 0`.
 - `seq` increases by one for every record.
 - `command` is stable across the stream.
-- `item` records carry the same row payload shape used inside `--json` data arrays for array-producing commands, the transfer row shape for `extract axi`, or the `info` data object for `info`.
+- `item` records carry the same row payload shape used inside `--json` data arrays for array-producing commands, the event row shape for `extract apb` or `extract atb`, the transfer row shape for `extract axi`, or the `info` data object for `info`.
 - `change`, `property`, and `extract` rows include both `time` and `sample_time`. `time` is the selected event timestamp; `sample_time` is where values were printed, evaluated, or extracted.
-- `extract atb` and `extract axi` streams include protocol context on the `begin` record and repeat `profile` on each event or transfer item so each JSONL row can be validated independently.
+- `extract apb` streams include APB profile, Issue E, PREADY mode, wait setting, and mappings on the `begin` record; each event item repeats `profile` for independent row validation.
+- `extract atb` streams include ATB profile, Issue C, and mappings on the `begin` record; each event item repeats `profile` for independent row validation.
+- `extract axi` streams include AXI context on the `begin` record and repeat `profile` on each transfer item so each JSONL row can be validated independently.
 - `diagnostic` records carry the same diagnostic object shape used by `--json`.
 - `end` is last on successful completion and reports `summary.status: "ok"`, item count, diagnostic count, and whether output was truncated.
 
@@ -106,7 +110,7 @@ The checked-in stream schema, such as `schema/stream.json`, validates one JSONL 
 
 If the process exits non-zero or a stream lacks a final `end` record, treat the stream as incomplete. A consumer that intentionally closes stdout early, for example by piping to `head`, may stop the producer without a fatal error.
 
-`--json` and `--jsonl` are mutually exclusive. `--jsonl` is available only on waveform-inspection commands: `info`, `scope`, `signal`, `value`, `change`, `property`, `extract atb`, `extract axi`, and `extract generic`.
+`--json` and `--jsonl` are mutually exclusive. `--jsonl` is available only on waveform-inspection commands: `info`, `scope`, `signal`, `value`, `change`, `property`, `extract apb`, `extract atb`, `extract axi`, and `extract generic`.
 
 ## 4. `schema` Command Behavior
 
@@ -122,7 +126,7 @@ Its behavior is special and fixed:
 
 `wavepeek schema --stream` prints the canonical JSONL record schema snapshot, `schema/stream.json`. That schema describes one stream record, not a whole JSONL stream.
 
-`wavepeek schema --input` prints the canonical JSON input document schema snapshot, `schema/input.json`. Current input document kinds are `extract.generic.sources`, used by `wavepeek extract generic --source`; `extract.atb.source`, used by `wavepeek extract atb --source`; and `extract.axi.source`, used by `wavepeek extract axi --source`.
+`wavepeek schema --input` prints the canonical JSON input document schema snapshot, `schema/input.json`. Current input document kinds are `extract.generic.sources`, used by `wavepeek extract generic --source`; `extract.apb.source`, used by `wavepeek extract apb --source`; `extract.atb.source`, used by `wavepeek extract atb --source`; and `extract.axi.source`, used by `wavepeek extract axi --source`.
 
 ## 5. Diagnostic Behavior
 

@@ -552,6 +552,10 @@ fn schema_command_includes_property_and_extract_command_branches() {
         "schema command enum should include extract atb"
     );
     assert!(
+        commands.iter().any(|entry| entry == "extract apb"),
+        "schema command enum should include extract apb"
+    );
+    assert!(
         commands.iter().any(|entry| entry == "extract axi"),
         "schema command enum should include extract axi"
     );
@@ -578,6 +582,12 @@ fn schema_command_includes_property_and_extract_command_branches() {
     assert!(
         data_variants
             .iter()
+            .any(|entry| entry["$ref"] == "#/$defs/extractApbData"),
+        "schema data variants should include extractApbData"
+    );
+    assert!(
+        data_variants
+            .iter()
             .any(|entry| entry["$ref"] == "#/$defs/extractAxiData"),
         "schema data variants should include extractAxiData"
     );
@@ -587,6 +597,116 @@ fn schema_command_includes_property_and_extract_command_branches() {
             .any(|entry| entry["$ref"] == "#/$defs/extractGenericData"),
         "schema data variants should include extractGenericData"
     );
+}
+
+#[test]
+fn schema_output_validator_enforces_apb_profile_mode_event_and_direction_payloads() {
+    let validator = output_schema_validator();
+    let mapped_apb4 = json!({
+        "$schema": expected_schema_url(),
+        "command": "extract apb",
+        "data": {
+            "name": "uart",
+            "profile": "apb4",
+            "issue": "E",
+            "pready_mode": "mapped",
+            "include_wait": true,
+            "mappings": {
+                "pclk": {"path": "top.pclk"},
+                "psel": {"path": "top.psel"},
+                "penable": {"path": "top.penable"},
+                "pwrite": {"path": "top.pwrite"},
+                "pready": {"path": "top.pready"},
+                "paddr": {"path": "top.paddr"},
+                "pwdata": {"path": "top.pwdata"},
+                "prdata": {"path": "top.prdata"},
+                "pslverr": {"path": "top.pslverr"}
+            },
+            "events": [{
+                "time": "10ns",
+                "sample_time": "9ns",
+                "profile": "apb4",
+                "event": "access-wait",
+                "direction": "write",
+                "payload": {"pwrite": "1'h1", "paddr": "8'h40", "pwdata": "8'haa"}
+            }]
+        },
+        "diagnostics": []
+    });
+    validator.validate(&mapped_apb4).unwrap_or_else(|error| {
+        panic!("valid mapped APB4 output rejected: {error}\n{mapped_apb4}")
+    });
+
+    let mut wait_disabled = mapped_apb4.clone();
+    wait_disabled["data"]["include_wait"] = json!(false);
+    assert!(validator.validate(&wait_disabled).is_err());
+
+    let mut setup_with_response = mapped_apb4.clone();
+    setup_with_response["data"]["events"][0]["event"] = json!("setup");
+    setup_with_response["data"]["events"][0]["payload"]["pslverr"] = json!("1'h0");
+    assert!(validator.validate(&setup_with_response).is_err());
+
+    let mut write_with_read_data = mapped_apb4.clone();
+    write_with_read_data["data"]["events"][0]["event"] = json!("access-complete");
+    write_with_read_data["data"]["events"][0]["payload"]["prdata"] = json!("8'h11");
+    assert!(validator.validate(&write_with_read_data).is_err());
+
+    let mut read_with_write_data = mapped_apb4.clone();
+    read_with_write_data["data"]["events"][0]["event"] = json!("access-complete");
+    read_with_write_data["data"]["events"][0]["direction"] = json!("read");
+    read_with_write_data["data"]["events"][0]["payload"]["pwrite"] = json!("1'h0");
+    assert!(validator.validate(&read_with_write_data).is_err());
+
+    let mut implicit = mapped_apb4.clone();
+    implicit["data"]["pready_mode"] = json!("implicit-high");
+    implicit["data"]["include_wait"] = json!(false);
+    implicit["data"]["events"][0]["event"] = json!("access-complete");
+    assert!(validator.validate(&implicit).is_err());
+    implicit["data"]["mappings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("pready");
+    validator.validate(&implicit).unwrap_or_else(|error| {
+        panic!("valid implicit-high APB4 output rejected: {error}\n{implicit}")
+    });
+
+    let unknown_complete = json!({
+        "$schema": expected_schema_url(),
+        "command": "extract apb",
+        "data": {
+            "name": "peripheral",
+            "profile": "apb5",
+            "issue": "E",
+            "pready_mode": "mapped",
+            "include_wait": false,
+            "mappings": {
+                "pclk": {"path": "top.pclk"},
+                "psel": {"path": "top.psel"},
+                "penable": {"path": "top.penable"},
+                "pwrite": {"path": "top.pwrite"},
+                "pready": {"path": "top.pready"},
+                "pwdata": {"path": "top.pwdata"},
+                "prdata": {"path": "top.prdata"},
+                "pwuser": {"path": "top.pwuser"},
+                "pruser": {"path": "top.pruser"},
+                "pbuser": {"path": "top.pbuser"}
+            },
+            "events": [{
+                "time": "20ns", "sample_time": "19ns", "profile": "apb5",
+                "event": "access-complete", "direction": "unknown",
+                "payload": {
+                    "pwrite": "1'hx", "pwdata": "8'haa", "prdata": "8'h55",
+                    "pwuser": "2'h1", "pruser": "2'h2", "pbuser": "2'h3"
+                }
+            }]
+        },
+        "diagnostics": []
+    });
+    validator
+        .validate(&unknown_complete)
+        .unwrap_or_else(|error| {
+            panic!("valid unknown-direction APB5 output rejected: {error}\n{unknown_complete}")
+        });
 }
 
 #[test]
@@ -1926,6 +2046,7 @@ fn schema_input_command_output_is_valid_json() {
         value["oneOf"],
         json!([
             {"$ref": "#/$defs/extractGenericSourcesInput"},
+            {"$ref": "#/$defs/extractApbSourceInput"},
             {"$ref": "#/$defs/extractAtbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"}
         ])
@@ -1941,6 +2062,14 @@ fn schema_input_command_output_is_valid_json() {
     assert_eq!(
         value["$defs"]["atbProfile"]["enum"],
         json!(["atb-a", "atb-b", "atb-c"])
+    );
+    assert_eq!(
+        value["$defs"]["extractApbSourceInput"]["properties"]["kind"]["const"],
+        "extract.apb.source"
+    );
+    assert_eq!(
+        value["$defs"]["apbProfile"]["enum"],
+        json!(["apb3", "apb4", "apb5"])
     );
     assert_eq!(
         value["$defs"]["extractAxiSourceInput"]["properties"]["kind"]["const"],
@@ -2260,6 +2389,7 @@ fn schema_stream_command_exposes_waveform_command_contract() {
             "value",
             "change",
             "property",
+            "extract apb",
             "extract atb",
             "extract axi",
             "extract generic"
@@ -2296,6 +2426,132 @@ fn schema_stream_command_exposes_waveform_command_contract() {
             .get("pattern")
             .is_none()
     );
+}
+
+#[test]
+fn schema_stream_validator_enforces_apb_context_and_item_isolation() {
+    let validator = stream_schema_validator();
+    let valid_begin = json!({
+        "type": "begin",
+        "seq": 0,
+        "command": "extract apb",
+        "$schema": expected_stream_schema_url(),
+        "context": {
+            "name": "uart",
+            "profile": "apb5",
+            "issue": "E",
+            "pready_mode": "mapped",
+            "include_wait": true,
+            "mappings": {
+                "pclk": {"path": "top.pclk"},
+                "psel": {"path": "top.psel"},
+                "penable": {"path": "top.penable"},
+                "pwrite": {"path": "top.pwrite"},
+                "pready": {"path": "top.pready"},
+                "pnse": {"path": "top.pnse"}
+            }
+        }
+    });
+    validator
+        .validate(&valid_begin)
+        .unwrap_or_else(|error| panic!("valid APB5 begin rejected: {error}\n{valid_begin}"));
+
+    for command in [
+        "info",
+        "scope",
+        "signal",
+        "value",
+        "change",
+        "property",
+        "extract generic",
+    ] {
+        let context_free_begin = json!({
+            "type": "begin",
+            "seq": 0,
+            "command": command,
+            "$schema": expected_stream_schema_url()
+        });
+        validator
+            .validate(&context_free_begin)
+            .unwrap_or_else(|error| {
+                panic!("valid context-free {command} begin rejected: {error}\n{context_free_begin}")
+            });
+    }
+
+    let mut missing_context = valid_begin.clone();
+    missing_context.as_object_mut().unwrap().remove("context");
+    assert!(
+        validator.validate(&missing_context).is_err(),
+        "extract apb begin must require context: {missing_context}"
+    );
+    let mut null_context = valid_begin.clone();
+    null_context["context"] = Value::Null;
+    assert!(
+        validator.validate(&null_context).is_err(),
+        "extract apb begin must reject null context: {null_context}"
+    );
+    let mut wrong_protocol_command = valid_begin.clone();
+    wrong_protocol_command["command"] = json!("extract axi");
+    assert!(
+        validator.validate(&wrong_protocol_command).is_err(),
+        "extract axi begin must reject APB context: {wrong_protocol_command}"
+    );
+    let mut unrelated_command = valid_begin.clone();
+    unrelated_command["command"] = json!("change");
+    assert!(
+        validator.validate(&unrelated_command).is_err(),
+        "context-free begin must reject APB context: {unrelated_command}"
+    );
+    let wrong_protocol_context = json!({
+        "type": "begin",
+        "seq": 0,
+        "command": "extract apb",
+        "$schema": expected_stream_schema_url(),
+        "context": {
+            "name": "axi4",
+            "profile": "axi4",
+            "issue": "H.c",
+            "mappings": {}
+        }
+    });
+    assert!(
+        validator.validate(&wrong_protocol_context).is_err(),
+        "extract apb begin must reject AXI context: {wrong_protocol_context}"
+    );
+
+    let valid_item = json!({
+        "type": "item",
+        "seq": 1,
+        "command": "extract apb",
+        "item": {
+            "time": "20ns",
+            "sample_time": "19ns",
+            "profile": "apb5",
+            "event": "access-complete",
+            "direction": "read",
+            "payload": {"pwrite": "1'h0", "prdata": "16'h1234", "pruser": "4'h6"}
+        }
+    });
+    validator
+        .validate(&valid_item)
+        .unwrap_or_else(|error| panic!("valid APB5 item rejected: {error}\n{valid_item}"));
+
+    let mut invalid_issue = valid_begin.clone();
+    invalid_issue["context"]["issue"] = json!("D");
+    assert!(validator.validate(&invalid_issue).is_err());
+    let mut invalid_mode_map = valid_begin.clone();
+    invalid_mode_map["context"]["pready_mode"] = json!("implicit-high");
+    invalid_mode_map["context"]["include_wait"] = json!(false);
+    assert!(validator.validate(&invalid_mode_map).is_err());
+    let mut invalid_profile_mapping = valid_begin.clone();
+    invalid_profile_mapping["context"]["profile"] = json!("apb4");
+    assert!(validator.validate(&invalid_profile_mapping).is_err());
+    let mut invalid_direction_payload = valid_item.clone();
+    invalid_direction_payload["item"]["payload"]["pwdata"] = json!("16'hbeef");
+    assert!(validator.validate(&invalid_direction_payload).is_err());
+    let mut invalid_setup_response = valid_item.clone();
+    invalid_setup_response["item"]["event"] = json!("setup");
+    assert!(validator.validate(&invalid_setup_response).is_err());
 }
 
 #[test]
@@ -2425,6 +2681,13 @@ fn schema_stream_validator_enforces_axi5_context_and_item_isolation() {
     validator
         .validate(&valid_begin)
         .unwrap_or_else(|error| panic!("valid AXI5 begin rejected: {error}\n{valid_begin}"));
+
+    let mut missing_context = valid_begin.clone();
+    missing_context.as_object_mut().unwrap().remove("context");
+    assert!(
+        validator.validate(&missing_context).is_err(),
+        "extract axi begin must require context: {missing_context}"
+    );
 
     let valid_item = json!({
         "type": "item",

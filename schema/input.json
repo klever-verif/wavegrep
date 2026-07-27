@@ -1,5 +1,22 @@
 {
   "$defs": {
+    "apbPreadyMode": {
+      "description": "APB PREADY handling mode.",
+      "enum": [
+        "mapped",
+        "implicit-high"
+      ],
+      "type": "string"
+    },
+    "apbProfile": {
+      "description": "APB profile name: apb3, apb4, or apb5.",
+      "enum": [
+        "apb3",
+        "apb4",
+        "apb5"
+      ],
+      "type": "string"
+    },
     "atbProfile": {
       "description": "ATB profile name: atb-a, atb-b, or atb-c.",
       "enum": [
@@ -25,6 +42,570 @@
         "ace5-lite-acp"
       ],
       "type": "string"
+    },
+    "extractApbSourceInput": {
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "allOf": [
+                {
+                  "properties": {
+                    "profile": {
+                      "const": "apb3"
+                    }
+                  },
+                  "required": [
+                    "profile"
+                  ]
+                },
+                {
+                  "oneOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "not": {
+                            "required": [
+                              "pready_mode"
+                            ]
+                          }
+                        },
+                        {
+                          "properties": {
+                            "pready_mode": {
+                              "const": "mapped"
+                            }
+                          },
+                          "required": [
+                            "pready_mode"
+                          ]
+                        }
+                      ],
+                      "properties": {
+                        "maps": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "paddr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pclk": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "penable": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "prdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pready": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "presetn": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "psel": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pslverr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwrite": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "include_wait": {
+                          "const": false
+                        },
+                        "maps": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "paddr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pclk": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "penable": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "prdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "presetn": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "psel": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pslverr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwrite": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "pready_mode": {
+                          "const": "implicit-high"
+                        }
+                      },
+                      "required": [
+                        "pready_mode"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "anyOf": [
+                    {
+                      "not": {
+                        "required": [
+                          "profile"
+                        ]
+                      }
+                    },
+                    {
+                      "properties": {
+                        "profile": {
+                          "const": "apb4"
+                        }
+                      },
+                      "required": [
+                        "profile"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "oneOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "not": {
+                            "required": [
+                              "pready_mode"
+                            ]
+                          }
+                        },
+                        {
+                          "properties": {
+                            "pready_mode": {
+                              "const": "mapped"
+                            }
+                          },
+                          "required": [
+                            "pready_mode"
+                          ]
+                        }
+                      ],
+                      "properties": {
+                        "maps": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "paddr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pclk": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "penable": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pprot": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "prdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pready": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "presetn": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "psel": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pslverr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pstrb": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwrite": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "include_wait": {
+                          "const": false
+                        },
+                        "maps": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "paddr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pclk": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "penable": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pprot": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "prdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "presetn": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "psel": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pslverr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pstrb": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwrite": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "pready_mode": {
+                          "const": "implicit-high"
+                        }
+                      },
+                      "required": [
+                        "pready_mode"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {
+                  "properties": {
+                    "profile": {
+                      "const": "apb5"
+                    }
+                  },
+                  "required": [
+                    "profile"
+                  ]
+                },
+                {
+                  "oneOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "not": {
+                            "required": [
+                              "pready_mode"
+                            ]
+                          }
+                        },
+                        {
+                          "properties": {
+                            "pready_mode": {
+                              "const": "mapped"
+                            }
+                          },
+                          "required": [
+                            "pready_mode"
+                          ]
+                        }
+                      ],
+                      "properties": {
+                        "maps": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "paddr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pauser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pbuser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pclk": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "penable": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pnse": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pprot": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "prdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pready": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "presetn": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pruser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "psel": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pslverr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pstrb": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwrite": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwuser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "include_wait": {
+                          "const": false
+                        },
+                        "maps": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "paddr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pauser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pbuser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pclk": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "penable": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pnse": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pprot": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "prdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "presetn": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pruser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "psel": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pslverr": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pstrb": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwdata": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwrite": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "pwuser": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "pready_mode": {
+                          "const": "implicit-high"
+                        }
+                      },
+                      "required": [
+                        "pready_mode"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "$schema": {
+          "const": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
+          "description": "Input schema URL for this source document.",
+          "type": "string"
+        },
+        "include_wait": {
+          "description": "Whether to emit one access-wait row per waited Access cycle.",
+          "type": "boolean"
+        },
+        "includes": {
+          "description": "Regexes selecting waveform signal candidates for APB auto-mapping.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "const": "extract.apb.source",
+          "description": "Input document kind discriminator.",
+          "type": "string"
+        },
+        "maps": {
+          "additionalProperties": {
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "description": "Explicit mappings from lowercase APB standard signal names to waveform signal names.",
+          "type": "object"
+        },
+        "name": {
+          "description": "APB port name metadata. Defaults to apb.",
+          "type": "string"
+        },
+        "pready_mode": {
+          "$ref": "#/$defs/apbPreadyMode"
+        },
+        "profile": {
+          "$ref": "#/$defs/apbProfile"
+        }
+      },
+      "required": [
+        "$schema",
+        "kind"
+      ],
+      "type": "object"
     },
     "extractAtbSourceInput": {
       "additionalProperties": true,
@@ -2853,6 +3434,9 @@
   "oneOf": [
     {
       "$ref": "#/$defs/extractGenericSourcesInput"
+    },
+    {
+      "$ref": "#/$defs/extractApbSourceInput"
     },
     {
       "$ref": "#/$defs/extractAtbSourceInput"

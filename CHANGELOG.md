@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added `wavepeek extract apb` for stateless APB3, APB4, and APB5 Setup, waited Access, and completed Access event extraction with mapped or implicit-HIGH PREADY handling, explicit maps, include-based auto-mapping, source-file mode, and human, JSON, and JSONL output ([issue #66](https://github.com/kleverhq/wavepeek/issues/66)).
 - Added `wavepeek extract atb` for stateless AMBA ATB-A, ATB-B, and ATB-C trace-transfer, flush, and synchronization-request event extraction with explicit maps, include-based auto-mapping, source-file mode, and human, JSON, and JSONL output ([issue #68](https://github.com/kleverhq/wavepeek/issues/68)).
 - Added `wavepeek extract axi` for AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP ready/valid channel extraction with explicit maps, include-based auto-mapping, source-file mode, and human, JSON, and JSONL output ([issue #49](https://github.com/kleverhq/wavepeek/issues/49), [issue #57](https://github.com/kleverhq/wavepeek/issues/57), [issue #58](https://github.com/kleverhq/wavepeek/issues/58), [issue #59](https://github.com/kleverhq/wavepeek/issues/59)).
+
+### Fixed
+- Updated waveform parsing to accept newer Verilator FST `PACK` and `ARRAY` hierarchy attributes ([issue #73](https://github.com/kleverhq/wavepeek/issues/73)).
 
 ## [2.1.0] - 2026-07-04
 
