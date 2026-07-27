@@ -161,6 +161,7 @@ def validate_output_schema(schema: dict[str, Any]) -> None:
             "value",
             "change",
             "property",
+            "extract apb",
             "extract axi",
             "extract generic",
             "docs topics",
@@ -189,6 +190,40 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
         == EXPECTED_STREAM_URL,
         "stream begin record must require exact $schema URL with const",
     )
+    begin_branches = schema["$defs"]["beginRecord"].get("oneOf")
+    require(
+        isinstance(begin_branches, list) and len(begin_branches) == 3,
+        "stream begin record must couple commands to protocol context",
+    )
+    apb_branch, axi_branch, context_free_branch = begin_branches
+    require(
+        apb_branch.get("required") == ["command", "context"]
+        and apb_branch["properties"]["command"].get("const") == "extract apb"
+        and apb_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractApbContext"},
+        "extract apb begin records must require APB context",
+    )
+    require(
+        axi_branch.get("required") == ["command", "context"]
+        and axi_branch["properties"]["command"].get("const") == "extract axi"
+        and axi_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAxiContext"},
+        "extract axi begin records must require AXI context",
+    )
+    require(
+        context_free_branch.get("not") == {"required": ["context"]}
+        and context_free_branch["properties"]["command"].get("enum")
+        == [
+            "info",
+            "scope",
+            "signal",
+            "value",
+            "change",
+            "property",
+            "extract generic",
+        ],
+        "context-free begin records must reject protocol context",
+    )
     require(
         schema["$defs"]["streamCommand"]["enum"]
         == [
@@ -198,6 +233,7 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
             "value",
             "change",
             "property",
+            "extract apb",
             "extract axi",
             "extract generic",
         ],
@@ -232,9 +268,10 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
         schema.get("oneOf")
         == [
             {"$ref": "#/$defs/extractGenericSourcesInput"},
+            {"$ref": "#/$defs/extractApbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"},
         ],
-        "input schema root must accept generic and AXI source documents",
+        "input schema root must accept generic, APB, and AXI source documents",
     )
     generic_def = schema["$defs"]["extractGenericSourcesInput"]
     require(
@@ -253,6 +290,37 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
     require(
         source_def["properties"]["payload"].get("minItems") == 1,
         "input payload must require at least one signal",
+    )
+    apb_def = schema["$defs"]["extractApbSourceInput"]
+    require(
+        apb_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "APB input source must require exact $schema URL with const",
+    )
+    require(
+        apb_def["properties"]["kind"].get("const") == "extract.apb.source",
+        "input schema must require exact extract APB kind",
+    )
+    require(
+        schema["$defs"]["apbProfile"].get("enum") == ["apb3", "apb4", "apb5"],
+        "APB input profile enum is not the expected stable list",
+    )
+    require(
+        apb_def["properties"]["profile"] == {"$ref": "#/$defs/apbProfile"},
+        "APB input profile must reuse the shared profile definition",
+    )
+    require(
+        apb_def["properties"]["pready_mode"]
+        == {"$ref": "#/$defs/apbPreadyMode"},
+        "APB input PREADY mode must reuse the shared mode definition",
+    )
+    require(
+        apb_def["properties"]["maps"]["additionalProperties"].get("pattern")
+        == "\\S",
+        "APB input map values must require non-whitespace text",
+    )
+    require(
+        "allOf" in apb_def,
+        "APB input source must include profile-aware constraints",
     )
     axi_def = schema["$defs"]["extractAxiSourceInput"]
     require(
