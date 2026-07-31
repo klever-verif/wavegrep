@@ -1,4 +1,5 @@
 pub(crate) mod apb_schema;
+pub(crate) mod atb_schema;
 pub(crate) mod axi_schema;
 pub(crate) mod common;
 pub(crate) mod input;

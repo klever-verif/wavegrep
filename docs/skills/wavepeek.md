@@ -105,6 +105,17 @@ When the user asks for every occurrence, count, timestamp list, handshake, reque
 
 Mapped PREADY mode is the default. Use implicit-HIGH mode only when PREADY is physically absent; it forbids both a `pready` mapping and wait capture. Map one concrete Completer select as canonical `psel`. APB rows are sampled events, not assembled or protocol-validated transactions.
 
+`extract atb` supports ATB-A, ATB-B, and ATB-C Issue C profiles. Use it for accepted trace transfers, completed flush handshakes, and sampled synchronization requests. Its rows are stateless observations: do not present them as reconstructed trace packets, trigger decoding, legality checks, or cross-cycle episodes. Read `wavepeek help extract atb` and `wavepeek docs show commands/extract` before choosing mappings.
+
+    wavepeek extract atb \
+      --waves <FILE> \
+      --scope <SCOPE> \
+      --profile atb-c \
+      --map atclk=<CLK> \
+      --map atresetn=<RESET_N> \
+      --include '<ATB_SIGNAL_REGEX>' \
+      --json
+
 `extract axi` supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles. AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP use Issue L; the other supported profiles use Issue H.c. ACE5-LiteDVM adds DVM `ac` and `cr` channels without `cd`. Use it when the user wants ready/valid channel transfer rows:
 
     wavepeek extract axi \
@@ -116,7 +127,7 @@ Mapped PREADY mode is the default. Use implicit-HIGH mode only when PREADY is ph
       --include '<AXI_SIGNAL_REGEX>' \
       --json
 
-Use `extract generic` on a clocked predicate when payload values are needed for non-AXI or custom handshakes:
+Use `extract generic` on a clocked predicate when payload values are needed for unsupported protocols or custom handshakes:
 
     wavepeek extract generic \
       --waves <FILE> \
@@ -127,7 +138,7 @@ Use `extract generic` on a clocked predicate when payload values are needed for 
       --payload <PAYLOAD_AND_CONTEXT_SIGNALS> \
       --json
 
-`extract` emits every matching row, including repeated transfers with identical payload values. The row `time` is the event edge and `sample_time` is where the predicate and payload were sampled. `extract apb` does not pair Setup and Access rows or validate APB sequencing. `extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state.
+`extract` emits every matching row, including repeated transfers with identical payload values. The row `time` is the event edge and `sample_time` is where the predicate and payload were sampled. `extract apb` does not pair Setup and Access rows or validate APB sequencing. `extract atb` reports stateless interface events only. `extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state.
 
 Use `property --capture match` when you only need timestamp rows or when you need property capture modes rather than payload extraction. Use `value --at <sample_time>` as a fallback follow-up when a payload set is decided after the property query.
 

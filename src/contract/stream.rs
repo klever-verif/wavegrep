@@ -7,8 +7,9 @@ use crate::error::WavepeekError;
 
 use super::common::ContractDiagnostic;
 use super::output::{
-    ChangeSnapshot, ExtractApbEvent, ExtractApbMapping, ExtractAxiMapping, ExtractAxiTransfer,
-    ExtractGenericRow, InfoData, PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
+    ChangeSnapshot, ExtractApbEvent, ExtractApbMapping, ExtractAtbEvent, ExtractAtbMapping,
+    ExtractAxiMapping, ExtractAxiTransfer, ExtractGenericRow, InfoData, PropertyRow, ScopeEntry,
+    SignalEntry, ValueSnapshot,
 };
 use super::schema::STREAM_SCHEMA_URL;
 
@@ -175,8 +176,9 @@ struct StreamSummary {
 #[schemars(rename = "streamContextData")]
 #[serde(untagged)]
 pub enum StreamContextData<'a> {
-    ExtractApb(ExtractApbContext<'a>),
-    ExtractAxi(ExtractAxiContext<'a>),
+    Apb(ExtractApbContext<'a>),
+    Atb(ExtractAtbContext<'a>),
+    Axi(ExtractAxiContext<'a>),
 }
 
 #[derive(Debug, JsonSchema, Serialize)]
@@ -203,6 +205,31 @@ impl<'a> From<&'a crate::engine::apb::ApbContext> for ExtractApbContext<'a> {
                 .mappings
                 .iter()
                 .map(|mapping| (mapping.standard.as_str(), ExtractApbMapping::from(mapping)))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
+#[schemars(rename = "extractAtbContext")]
+#[schemars(extend("additionalProperties" = true))]
+pub struct ExtractAtbContext<'a> {
+    name: &'a str,
+    profile: &'a str,
+    issue: &'a str,
+    mappings: std::collections::BTreeMap<&'a str, ExtractAtbMapping<'a>>,
+}
+
+impl<'a> From<&'a crate::engine::atb::AtbContext> for ExtractAtbContext<'a> {
+    fn from(context: &'a crate::engine::atb::AtbContext) -> Self {
+        Self {
+            name: context.name.as_str(),
+            profile: context.profile.as_str(),
+            issue: context.issue.as_str(),
+            mappings: context
+                .mappings
+                .iter()
+                .map(|mapping| (mapping.standard.as_str(), ExtractAtbMapping::from(mapping)))
                 .collect(),
         }
     }
@@ -240,14 +267,21 @@ pub trait StreamContext {
 impl StreamContext for crate::engine::apb::ApbContext {
     fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractApb)?;
-        Ok(StreamContextData::ExtractApb(ExtractApbContext::from(self)))
+        Ok(StreamContextData::Apb(ExtractApbContext::from(self)))
+    }
+}
+
+impl StreamContext for crate::engine::atb::AtbContext {
+    fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAtb)?;
+        Ok(StreamContextData::Atb(ExtractAtbContext::from(self)))
     }
 }
 
 impl StreamContext for crate::engine::axi::AxiContext {
     fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractAxi)?;
-        Ok(StreamContextData::ExtractAxi(ExtractAxiContext::from(self)))
+        Ok(StreamContextData::Axi(ExtractAxiContext::from(self)))
     }
 }
 
@@ -262,6 +296,7 @@ pub enum StreamItemData<'a> {
     Change(ChangeSnapshot<'a>),
     Property(PropertyRow<'a>),
     ExtractApb(ExtractApbEvent<'a>),
+    ExtractAtb(ExtractAtbEvent<'a>),
     ExtractAxi(ExtractAxiTransfer<'a>),
     ExtractGeneric(ExtractGenericRow<'a>),
 }
@@ -316,6 +351,13 @@ impl StreamItem for crate::engine::apb::ApbEvent {
     fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractApb)?;
         Ok(StreamItemData::ExtractApb(ExtractApbEvent::from(self)))
+    }
+}
+
+impl StreamItem for crate::engine::atb::AtbEvent {
+    fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAtb)?;
+        Ok(StreamItemData::ExtractAtb(ExtractAtbEvent::from(self)))
     }
 }
 
@@ -392,6 +434,7 @@ fn require_stream_command(command: CommandName) -> Result<(), WavepeekError> {
         | CommandName::Change
         | CommandName::Property
         | CommandName::ExtractApb
+        | CommandName::ExtractAtb
         | CommandName::ExtractAxi
         | CommandName::ExtractGeneric => Ok(()),
         _ => Err(WavepeekError::Args(

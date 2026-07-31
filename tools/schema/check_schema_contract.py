@@ -162,6 +162,7 @@ def validate_output_schema(schema: dict[str, Any]) -> None:
             "change",
             "property",
             "extract apb",
+            "extract atb",
             "extract axi",
             "extract generic",
             "docs topics",
@@ -192,16 +193,23 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
     )
     begin_branches = schema["$defs"]["beginRecord"].get("oneOf")
     require(
-        isinstance(begin_branches, list) and len(begin_branches) == 3,
+        isinstance(begin_branches, list) and len(begin_branches) == 4,
         "stream begin record must couple commands to protocol context",
     )
-    apb_branch, axi_branch, context_free_branch = begin_branches
+    apb_branch, atb_branch, axi_branch, context_free_branch = begin_branches
     require(
         apb_branch.get("required") == ["command", "context"]
         and apb_branch["properties"]["command"].get("const") == "extract apb"
         and apb_branch["properties"]["context"]
         == {"$ref": "#/$defs/extractApbContext"},
         "extract apb begin records must require APB context",
+    )
+    require(
+        atb_branch.get("required") == ["command", "context"]
+        and atb_branch["properties"]["command"].get("const") == "extract atb"
+        and atb_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAtbContext"},
+        "extract atb begin records must require ATB context",
     )
     require(
         axi_branch.get("required") == ["command", "context"]
@@ -234,6 +242,7 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
             "change",
             "property",
             "extract apb",
+            "extract atb",
             "extract axi",
             "extract generic",
         ],
@@ -269,9 +278,10 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
         == [
             {"$ref": "#/$defs/extractGenericSourcesInput"},
             {"$ref": "#/$defs/extractApbSourceInput"},
+            {"$ref": "#/$defs/extractAtbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"},
         ],
-        "input schema root must accept generic, APB, and AXI source documents",
+        "input schema root must accept generic, APB, ATB, and AXI source documents",
     )
     generic_def = schema["$defs"]["extractGenericSourcesInput"]
     require(
@@ -321,6 +331,27 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
     require(
         "allOf" in apb_def,
         "APB input source must include profile-aware constraints",
+    )
+    atb_def = schema["$defs"]["extractAtbSourceInput"]
+    require(
+        atb_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "ATB input source must require exact $schema URL with const",
+    )
+    require(
+        atb_def["properties"]["kind"].get("const") == "extract.atb.source",
+        "input schema must require exact extract ATB kind",
+    )
+    require(
+        schema["$defs"]["atbProfile"].get("enum") == ["atb-a", "atb-b", "atb-c"],
+        "ATB input profile enum is not the expected stable list",
+    )
+    require(
+        atb_def["properties"]["profile"] == {"$ref": "#/$defs/atbProfile"},
+        "ATB input profile must reuse the shared profile definition",
+    )
+    require(
+        "allOf" in atb_def,
+        "ATB input source must include profile-aware constraints",
     )
     axi_def = schema["$defs"]["extractAxiSourceInput"]
     require(

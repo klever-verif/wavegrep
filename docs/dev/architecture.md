@@ -85,6 +85,7 @@ src/
 │   ├── property.rs      # Property runtime entrypoint and capture-mode execution
 │   ├── extract.rs       # Generic event-row extraction runtime
 │   ├── apb.rs           # Stateless APB profile mapping and event adaptation
+│   ├── atb.rs           # Stateless ATB profile mapping and event adaptation
 │   ├── axi.rs           # Stateless AXI-family profile mapping and transfer adaptation
 │   ├── schema.rs        # JSON schema export
 │   ├── docs.rs          # Embedded docs topics/search/show/export runtime
