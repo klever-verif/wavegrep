@@ -84,7 +84,9 @@ src/
 │   ├── value_format.rs  # Shared Verilog literal formatting helpers
 │   ├── property.rs      # Property runtime entrypoint and capture-mode execution
 │   ├── extract.rs       # Generic event-row extraction runtime
-│   ├── axi.rs           # AXI/ACE profile adapter over generic extraction
+│   ├── apb.rs           # Stateless APB profile mapping and event adaptation
+│   ├── atb.rs           # Stateless ATB profile mapping and event adaptation
+│   ├── axi.rs           # Stateless AXI-family profile mapping and transfer adaptation
 │   ├── axistream.rs     # AXI-Stream profile adapter over generic extraction
 │   ├── signal_mapping.rs # Protocol-neutral standard-name matching for adapters
 │   ├── schema.rs        # JSON schema export

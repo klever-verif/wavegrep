@@ -1,5 +1,49 @@
 {
   "$defs": {
+    "apbDirection": {
+      "description": "Direction derived from the sampled pwrite value.",
+      "enum": [
+        "read",
+        "write",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "apbEventKind": {
+      "description": "Sampled APB event kind.",
+      "enum": [
+        "setup",
+        "access-wait",
+        "access-complete"
+      ],
+      "type": "string"
+    },
+    "apbPreadyMode": {
+      "description": "APB PREADY handling mode.",
+      "enum": [
+        "mapped",
+        "implicit-high"
+      ],
+      "type": "string"
+    },
+    "apbProfile": {
+      "description": "APB profile name: apb3, apb4, or apb5.",
+      "enum": [
+        "apb3",
+        "apb4",
+        "apb5"
+      ],
+      "type": "string"
+    },
+    "atbProfile": {
+      "description": "ATB profile name: atb-a, atb-b, or atb-c.",
+      "enum": [
+        "atb-a",
+        "atb-b",
+        "atb-c"
+      ],
+      "type": "string"
+    },
     "axiProfile": {
       "description": "AXI profile name: axi3, axi4, axi4-lite, axi5, axi5-lite, ace, ace-lite, ace5, ace5-lite, ace5-lite-dvm, or ace5-lite-acp.",
       "enum": [
@@ -31,6 +75,34 @@
         {
           "properties": {
             "command": {
+              "const": "extract apb"
+            },
+            "context": {
+              "$ref": "#/$defs/extractApbContext"
+            }
+          },
+          "required": [
+            "command",
+            "context"
+          ]
+        },
+        {
+          "properties": {
+            "command": {
+              "const": "extract atb"
+            },
+            "context": {
+              "$ref": "#/$defs/extractAtbContext"
+            }
+          },
+          "required": [
+            "command",
+            "context"
+          ]
+        },
+        {
+          "properties": {
+            "command": {
               "const": "extract axi"
             },
             "context": {
@@ -38,6 +110,7 @@
             }
           },
           "required": [
+            "command",
             "context"
           ]
         },
@@ -51,10 +124,16 @@
             }
           },
           "required": [
+            "command",
             "context"
           ]
         },
         {
+          "not": {
+            "required": [
+              "context"
+            ]
+          },
           "properties": {
             "command": {
               "enum": [
@@ -66,9 +145,11 @@
                 "property",
                 "extract generic"
               ]
-            },
-            "context": false
-          }
+            }
+          },
+          "required": [
+            "command"
+          ]
         }
       ],
       "properties": {
@@ -3011,6 +3092,5164 @@
         "profile",
         "channel",
         "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3AccessCompleteReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "prdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3AccessCompleteUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "prdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3AccessCompleteWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3AccessWaitReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3AccessWaitUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3AccessWaitWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3SetupReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3SetupUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb3SetupWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb3",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4AccessCompleteReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "prdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4AccessCompleteUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "prdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4AccessCompleteWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4AccessWaitReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4AccessWaitUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4AccessWaitWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4SetupReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4SetupUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb4SetupWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb4",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5AccessCompleteReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pbuser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "prdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pruser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5AccessCompleteUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pbuser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "prdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pruser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwuser": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5AccessCompleteWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-complete",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pbuser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pslverr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwuser": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5AccessWaitReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5AccessWaitUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwuser": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5AccessWaitWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "access-wait",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwuser": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5SetupReadEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "read",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5SetupUnknownEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "unknown",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwuser": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApb5SetupWriteEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "direction": {
+          "const": "write",
+          "description": "Direction derived from the sampled pwrite value."
+        },
+        "event": {
+          "const": "setup",
+          "description": "Sampled APB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Observed APB values keyed by lowercase standard signal name.",
+          "properties": {
+            "paddr": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pauser": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pnse": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pprot": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pstrb": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwrite": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "pwuser": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "required": [
+            "pwrite"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "apb5",
+          "description": "APB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to classify and sample the APB event."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected APB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "direction",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractApbContext": {
+      "oneOf": [
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb3",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": true,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb3",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "implicit-high",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb3",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb4",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": true,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb4",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "implicit-high",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb4",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pauser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pbuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pnse": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pruser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb5",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": true,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pauser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pbuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pnse": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pruser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb5",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pauser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pbuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pnse": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pruser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "implicit-high",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb5",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "extractApbData": {
+      "oneOf": [
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb3SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb3",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb3SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessWaitReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessWaitWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessWaitUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": true,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb3",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb3SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb3AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "implicit-high",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb3",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb4SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb4",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb4SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessWaitReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessWaitWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessWaitUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": true,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb4",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb4SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb4AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "implicit-high",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb4",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb5SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pauser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pbuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pnse": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pruser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb5",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb5SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessWaitReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessWaitWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessWaitUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": true,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pauser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pbuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pnse": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pready": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pruser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite",
+                "pready"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "mapped",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb5",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "events": {
+              "description": "Extracted APB sampled events in event order.",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/extractApb5SetupReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5SetupWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5SetupUnknownEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteReadEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteWriteEvent"
+                  },
+                  {
+                    "$ref": "#/$defs/extractApb5AccessCompleteUnknownEvent"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "include_wait": {
+              "const": false,
+              "description": "Whether waited Access cycles are emitted."
+            },
+            "issue": {
+              "const": "E",
+              "description": "Arm IHI 0024 issue used for this profile definition."
+            },
+            "mappings": {
+              "additionalProperties": false,
+              "description": "Resolved waveform mappings keyed by lowercase APB standard signal name.",
+              "properties": {
+                "paddr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pauser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pbuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pclk": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "penable": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pnse": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pprot": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "prdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "presetn": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pruser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "psel": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pslverr": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pstrb": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwdata": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwrite": {
+                  "$ref": "#/$defs/extractApbMapping"
+                },
+                "pwuser": {
+                  "$ref": "#/$defs/extractApbMapping"
+                }
+              },
+              "required": [
+                "pclk",
+                "psel",
+                "penable",
+                "pwrite"
+              ],
+              "type": "object"
+            },
+            "name": {
+              "description": "APB port name supplied by CLI or source JSON.",
+              "type": "string"
+            },
+            "pready_mode": {
+              "const": "implicit-high",
+              "description": "PREADY handling mode."
+            },
+            "profile": {
+              "const": "apb5",
+              "description": "APB profile name used for standard signal mapping."
+            }
+          },
+          "required": [
+            "name",
+            "profile",
+            "issue",
+            "pready_mode",
+            "include_wait",
+            "mappings",
+            "events"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "extractApbEvent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractApb3SetupReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3SetupWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3SetupUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3AccessWaitReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3AccessWaitWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3AccessWaitUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3AccessCompleteReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3AccessCompleteWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb3AccessCompleteUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4SetupReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4SetupWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4SetupUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4AccessWaitReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4AccessWaitWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4AccessWaitUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4AccessCompleteReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4AccessCompleteWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb4AccessCompleteUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5SetupReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5SetupWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5SetupUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5AccessWaitReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5AccessWaitWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5AccessWaitUnknownEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5AccessCompleteReadEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5AccessCompleteWriteEvent"
+        },
+        {
+          "$ref": "#/$defs/extractApb5AccessCompleteUnknownEvent"
+        }
+      ]
+    },
+    "extractApbItemRecord": {
+      "$ref": "#/$defs/itemRecordForExtractApbEvent"
+    },
+    "extractApbMapping": {
+      "additionalProperties": true,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/canonicalPath",
+          "description": "Canonical waveform signal path mapped to this APB standard signal."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "extractAtbAContext": {
+      "additionalProperties": true,
+      "properties": {
+        "issue": {
+          "const": "C",
+          "description": "Arm IHI 0032 issue used for this profile definition."
+        },
+        "mappings": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "atvalid",
+                "atready"
+              ]
+            },
+            {
+              "required": [
+                "afvalid",
+                "afready"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "afready": [
+              "afvalid"
+            ],
+            "afvalid": [
+              "afready"
+            ],
+            "atbytes": [
+              "atvalid",
+              "atready"
+            ],
+            "atdata": [
+              "atvalid",
+              "atready"
+            ],
+            "atid": [
+              "atvalid",
+              "atready"
+            ],
+            "atready": [
+              "atvalid"
+            ],
+            "atvalid": [
+              "atready"
+            ]
+          },
+          "description": "Resolved waveform mappings keyed by lowercase ATB standard signal name.",
+          "properties": {
+            "afready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "afvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atbytes": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atclk": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atdata": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atresetn": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            }
+          },
+          "required": [
+            "atclk"
+          ],
+          "type": "object"
+        },
+        "name": {
+          "description": "ATB interface name supplied by CLI or source JSON.",
+          "type": "string"
+        },
+        "profile": {
+          "const": "atb-a",
+          "description": "ATB profile name used for standard signal mapping."
+        }
+      },
+      "required": [
+        "name",
+        "profile",
+        "issue",
+        "mappings"
+      ],
+      "type": "object"
+    },
+    "extractAtbAData": {
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atvalid",
+                  "atready"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "flush"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "afvalid",
+                  "afready"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atbytes"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atbytes"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atdata"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atdata"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atid"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atid"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "events": {
+          "description": "Extracted stateless ATB events in deterministic source order.",
+          "items": {
+            "$ref": "#/$defs/extractAtbAEvent"
+          },
+          "type": "array"
+        },
+        "issue": {
+          "const": "C",
+          "description": "Arm IHI 0032 issue used for this profile definition."
+        },
+        "mappings": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "atvalid",
+                "atready"
+              ]
+            },
+            {
+              "required": [
+                "afvalid",
+                "afready"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "afready": [
+              "afvalid"
+            ],
+            "afvalid": [
+              "afready"
+            ],
+            "atbytes": [
+              "atvalid",
+              "atready"
+            ],
+            "atdata": [
+              "atvalid",
+              "atready"
+            ],
+            "atid": [
+              "atvalid",
+              "atready"
+            ],
+            "atready": [
+              "atvalid"
+            ],
+            "atvalid": [
+              "atready"
+            ]
+          },
+          "description": "Resolved waveform mappings keyed by lowercase ATB standard signal name.",
+          "properties": {
+            "afready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "afvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atbytes": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atclk": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atdata": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atresetn": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            }
+          },
+          "required": [
+            "atclk"
+          ],
+          "type": "object"
+        },
+        "name": {
+          "description": "ATB interface name supplied by CLI or source JSON.",
+          "type": "string"
+        },
+        "profile": {
+          "const": "atb-a",
+          "description": "ATB profile name used for standard signal mapping."
+        }
+      },
+      "required": [
+        "name",
+        "profile",
+        "issue",
+        "mappings",
+        "events"
+      ],
+      "type": "object"
+    },
+    "extractAtbAEvent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractAtbATransferEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbAFlushEvent"
+        }
+      ]
+    },
+    "extractAtbAFlushEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "flush",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Empty payload for a control event whose kind records the complete sampled condition.",
+          "properties": {},
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-a",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbATransferEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "transfer",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Optional raw ATBYTES, ATDATA, and ATID observations keyed by lowercase standard signal name.",
+          "properties": {
+            "atbytes": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "atdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "atid": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-a",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbBContext": {
+      "additionalProperties": true,
+      "properties": {
+        "issue": {
+          "const": "C",
+          "description": "Arm IHI 0032 issue used for this profile definition."
+        },
+        "mappings": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "atvalid",
+                "atready"
+              ]
+            },
+            {
+              "required": [
+                "afvalid",
+                "afready"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "afready": [
+              "afvalid"
+            ],
+            "afvalid": [
+              "afready"
+            ],
+            "atbytes": [
+              "atvalid",
+              "atready"
+            ],
+            "atdata": [
+              "atvalid",
+              "atready"
+            ],
+            "atid": [
+              "atvalid",
+              "atready"
+            ],
+            "atready": [
+              "atvalid"
+            ],
+            "atvalid": [
+              "atready"
+            ]
+          },
+          "description": "Resolved waveform mappings keyed by lowercase ATB standard signal name.",
+          "properties": {
+            "afready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "afvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atbytes": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atclk": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atdata": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atresetn": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "syncreq": {
+              "$ref": "#/$defs/extractAtbMapping"
+            }
+          },
+          "required": [
+            "atclk"
+          ],
+          "type": "object"
+        },
+        "name": {
+          "description": "ATB interface name supplied by CLI or source JSON.",
+          "type": "string"
+        },
+        "profile": {
+          "const": "atb-b",
+          "description": "ATB profile name used for standard signal mapping."
+        }
+      },
+      "required": [
+        "name",
+        "profile",
+        "issue",
+        "mappings"
+      ],
+      "type": "object"
+    },
+    "extractAtbBData": {
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atvalid",
+                  "atready"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "flush"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "afvalid",
+                  "afready"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "sync-request"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "syncreq"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atbytes"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atbytes"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atdata"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atdata"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atid"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atid"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "events": {
+          "description": "Extracted stateless ATB events in deterministic source order.",
+          "items": {
+            "$ref": "#/$defs/extractAtbBEvent"
+          },
+          "type": "array"
+        },
+        "issue": {
+          "const": "C",
+          "description": "Arm IHI 0032 issue used for this profile definition."
+        },
+        "mappings": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "atvalid",
+                "atready"
+              ]
+            },
+            {
+              "required": [
+                "afvalid",
+                "afready"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "afready": [
+              "afvalid"
+            ],
+            "afvalid": [
+              "afready"
+            ],
+            "atbytes": [
+              "atvalid",
+              "atready"
+            ],
+            "atdata": [
+              "atvalid",
+              "atready"
+            ],
+            "atid": [
+              "atvalid",
+              "atready"
+            ],
+            "atready": [
+              "atvalid"
+            ],
+            "atvalid": [
+              "atready"
+            ]
+          },
+          "description": "Resolved waveform mappings keyed by lowercase ATB standard signal name.",
+          "properties": {
+            "afready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "afvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atbytes": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atclk": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atdata": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atresetn": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "syncreq": {
+              "$ref": "#/$defs/extractAtbMapping"
+            }
+          },
+          "required": [
+            "atclk"
+          ],
+          "type": "object"
+        },
+        "name": {
+          "description": "ATB interface name supplied by CLI or source JSON.",
+          "type": "string"
+        },
+        "profile": {
+          "const": "atb-b",
+          "description": "ATB profile name used for standard signal mapping."
+        }
+      },
+      "required": [
+        "name",
+        "profile",
+        "issue",
+        "mappings",
+        "events"
+      ],
+      "type": "object"
+    },
+    "extractAtbBEvent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractAtbBTransferEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbBFlushEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbBSyncRequestEvent"
+        }
+      ]
+    },
+    "extractAtbBFlushEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "flush",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Empty payload for a control event whose kind records the complete sampled condition.",
+          "properties": {},
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-b",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbBSyncRequestEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "sync-request",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Empty payload for a control event whose kind records the complete sampled condition.",
+          "properties": {},
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-b",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbBTransferEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "transfer",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Optional raw ATBYTES, ATDATA, and ATID observations keyed by lowercase standard signal name.",
+          "properties": {
+            "atbytes": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "atdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "atid": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-b",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbCContext": {
+      "additionalProperties": true,
+      "properties": {
+        "issue": {
+          "const": "C",
+          "description": "Arm IHI 0032 issue used for this profile definition."
+        },
+        "mappings": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "atvalid",
+                "atready"
+              ]
+            },
+            {
+              "required": [
+                "afvalid",
+                "afready"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "afready": [
+              "afvalid"
+            ],
+            "afvalid": [
+              "afready"
+            ],
+            "atbytes": [
+              "atvalid",
+              "atready"
+            ],
+            "atdata": [
+              "atvalid",
+              "atready"
+            ],
+            "atid": [
+              "atvalid",
+              "atready"
+            ],
+            "atready": [
+              "atvalid"
+            ],
+            "atvalid": [
+              "atready"
+            ]
+          },
+          "description": "Resolved waveform mappings keyed by lowercase ATB standard signal name.",
+          "properties": {
+            "afready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "afvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atbytes": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atclk": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atdata": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atresetn": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "syncreq": {
+              "$ref": "#/$defs/extractAtbMapping"
+            }
+          },
+          "required": [
+            "atclk"
+          ],
+          "type": "object"
+        },
+        "name": {
+          "description": "ATB interface name supplied by CLI or source JSON.",
+          "type": "string"
+        },
+        "profile": {
+          "const": "atb-c",
+          "description": "ATB profile name used for standard signal mapping."
+        }
+      },
+      "required": [
+        "name",
+        "profile",
+        "issue",
+        "mappings"
+      ],
+      "type": "object"
+    },
+    "extractAtbCData": {
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atvalid",
+                  "atready"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "flush"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "afvalid",
+                  "afready"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "sync-request"
+                    }
+                  },
+                  "required": [
+                    "event"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "syncreq"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atbytes"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atbytes"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atdata"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atdata"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "events": {
+                "contains": {
+                  "properties": {
+                    "event": {
+                      "const": "transfer"
+                    },
+                    "payload": {
+                      "required": [
+                        "atid"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "event",
+                    "payload"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mappings": {
+                "required": [
+                  "atid"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "events": {
+          "description": "Extracted stateless ATB events in deterministic source order.",
+          "items": {
+            "$ref": "#/$defs/extractAtbCEvent"
+          },
+          "type": "array"
+        },
+        "issue": {
+          "const": "C",
+          "description": "Arm IHI 0032 issue used for this profile definition."
+        },
+        "mappings": {
+          "additionalProperties": false,
+          "anyOf": [
+            {
+              "required": [
+                "atvalid",
+                "atready"
+              ]
+            },
+            {
+              "required": [
+                "afvalid",
+                "afready"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "afready": [
+              "afvalid"
+            ],
+            "afvalid": [
+              "afready"
+            ],
+            "atbytes": [
+              "atvalid",
+              "atready"
+            ],
+            "atdata": [
+              "atvalid",
+              "atready"
+            ],
+            "atid": [
+              "atvalid",
+              "atready"
+            ],
+            "atready": [
+              "atvalid"
+            ],
+            "atvalid": [
+              "atready"
+            ]
+          },
+          "description": "Resolved waveform mappings keyed by lowercase ATB standard signal name.",
+          "properties": {
+            "afready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "afvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atbytes": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atclk": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atdata": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atready": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atresetn": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "atvalid": {
+              "$ref": "#/$defs/extractAtbMapping"
+            },
+            "syncreq": {
+              "$ref": "#/$defs/extractAtbMapping"
+            }
+          },
+          "required": [
+            "atclk"
+          ],
+          "type": "object"
+        },
+        "name": {
+          "description": "ATB interface name supplied by CLI or source JSON.",
+          "type": "string"
+        },
+        "profile": {
+          "const": "atb-c",
+          "description": "ATB profile name used for standard signal mapping."
+        }
+      },
+      "required": [
+        "name",
+        "profile",
+        "issue",
+        "mappings",
+        "events"
+      ],
+      "type": "object"
+    },
+    "extractAtbCEvent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractAtbCTransferEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbCFlushEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbCSyncRequestEvent"
+        }
+      ]
+    },
+    "extractAtbCFlushEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "flush",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Empty payload for a control event whose kind records the complete sampled condition.",
+          "properties": {},
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-c",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbCSyncRequestEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "sync-request",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Empty payload for a control event whose kind records the complete sampled condition.",
+          "properties": {},
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-c",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbCTransferEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "event": {
+          "const": "transfer",
+          "description": "Stateless ATB event kind."
+        },
+        "payload": {
+          "additionalProperties": false,
+          "description": "Optional raw ATBYTES, ATDATA, and ATID observations keyed by lowercase standard signal name.",
+          "properties": {
+            "atbytes": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "atdata": {
+              "$ref": "#/$defs/sampledValue"
+            },
+            "atid": {
+              "$ref": "#/$defs/sampledValue"
+            }
+          },
+          "type": "object"
+        },
+        "profile": {
+          "const": "atb-c",
+          "description": "ATB profile name for this event row."
+        },
+        "sample_time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
+        },
+        "time": {
+          "$ref": "#/$defs/normalizedTime",
+          "description": "Selected ATB event timestamp."
+        }
+      },
+      "required": [
+        "time",
+        "sample_time",
+        "profile",
+        "event",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "extractAtbContext": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractAtbAContext"
+        },
+        {
+          "$ref": "#/$defs/extractAtbBContext"
+        },
+        {
+          "$ref": "#/$defs/extractAtbCContext"
+        }
+      ]
+    },
+    "extractAtbData": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractAtbAData"
+        },
+        {
+          "$ref": "#/$defs/extractAtbBData"
+        },
+        {
+          "$ref": "#/$defs/extractAtbCData"
+        }
+      ]
+    },
+    "extractAtbEvent": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/extractAtbAEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbBEvent"
+        },
+        {
+          "$ref": "#/$defs/extractAtbCEvent"
+        }
+      ]
+    },
+    "extractAtbEventKind": {
+      "enum": [
+        "transfer",
+        "flush",
+        "sync-request"
+      ],
+      "type": "string"
+    },
+    "extractAtbItemRecord": {
+      "$ref": "#/$defs/itemRecordForExtractAtbEvent"
+    },
+    "extractAtbMapping": {
+      "additionalProperties": true,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/canonicalPath",
+          "description": "Canonical waveform signal path mapped to this ATB standard signal."
+        }
+      },
+      "required": [
+        "path"
       ],
       "type": "object"
     },
@@ -11076,6 +16315,12 @@
           "$ref": "#/$defs/propertyItemRecord"
         },
         {
+          "$ref": "#/$defs/extractApbItemRecord"
+        },
+        {
+          "$ref": "#/$defs/extractAtbItemRecord"
+        },
+        {
           "$ref": "#/$defs/extractAxiItemRecord"
         },
         {
@@ -11094,6 +16339,54 @@
         },
         "item": {
           "$ref": "#/$defs/changeSnapshot"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "type": {
+          "const": "item"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "command",
+        "item"
+      ],
+      "type": "object"
+    },
+    "itemRecordForExtractApbEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "command": {
+          "const": "extract apb"
+        },
+        "item": {
+          "$ref": "#/$defs/extractApbEvent"
+        },
+        "seq": {
+          "$ref": "#/$defs/sequence"
+        },
+        "type": {
+          "const": "item"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "command",
+        "item"
+      ],
+      "type": "object"
+    },
+    "itemRecordForExtractAtbEvent": {
+      "additionalProperties": true,
+      "properties": {
+        "command": {
+          "const": "extract atb"
+        },
+        "item": {
+          "$ref": "#/$defs/extractAtbEvent"
         },
         "seq": {
           "$ref": "#/$defs/sequence"
@@ -11486,6 +16779,8 @@
         "value",
         "change",
         "property",
+        "extract apb",
+        "extract atb",
         "extract axi",
         "extract axistream",
         "extract generic"
@@ -11494,6 +16789,12 @@
     },
     "streamContextData": {
       "anyOf": [
+        {
+          "$ref": "#/$defs/extractApbContext"
+        },
+        {
+          "$ref": "#/$defs/extractAtbContext"
+        },
         {
           "$ref": "#/$defs/extractAxiContext"
         },

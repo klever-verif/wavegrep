@@ -27,6 +27,10 @@
     {
       "path": "tests/fixtures/hand/value_real.vcd",
       "reason": "Uses VCD real-value records for value formatting and FSDB unsupported-real coverage."
+    },
+    {
+      "path": "tests/fixtures/hand/verilator_pack_array.fst",
+      "reason": "Minimal FST generated with libfst's writer API with one ARRAY bounds attribute, one PACK members attribute, and one signal; the ordinary fixture generator strips these extensions."
     }
   ],
   "source_backed": [
@@ -79,6 +83,33 @@
       "reason": "Ordinary hierarchy-name ambiguity fixture generated from HDL."
     },
     {
+      "name": "extract_apb3",
+      "source": "tests/fixtures/source/extract_apb3.v",
+      "outputs": [
+        "tests/fixtures/generated/extract_apb3.vcd",
+        "tests/fixtures/generated/extract_apb3.fst"
+      ],
+      "reason": "APB3 extraction and VCD/FST parity fixture generated from HDL."
+    },
+    {
+      "name": "extract_apb4",
+      "source": "tests/fixtures/source/extract_apb4.v",
+      "outputs": [
+        "tests/fixtures/generated/extract_apb4.vcd",
+        "tests/fixtures/generated/extract_apb4.fst"
+      ],
+      "reason": "APB4 event classification, payload filtering, and VCD/FST parity fixture generated from HDL."
+    },
+    {
+      "name": "extract_apb5",
+      "source": "tests/fixtures/source/extract_apb5.v",
+      "outputs": [
+        "tests/fixtures/generated/extract_apb5.vcd",
+        "tests/fixtures/generated/extract_apb5.fst"
+      ],
+      "reason": "APB5 optional-signal extraction and VCD/FST parity fixture generated from HDL."
+    },
+    {
       "name": "extract_ace",
       "source": "tests/fixtures/source/extract_ace.v",
       "outputs": [
@@ -128,6 +159,15 @@
         "tests/fixtures/generated/extract_ace_lite.vcd"
       ],
       "reason": "ACE-Lite extraction fixture generated from HDL."
+    },
+    {
+      "name": "extract_atb",
+      "source": "tests/fixtures/source/extract_atb.v",
+      "outputs": [
+        "tests/fixtures/generated/extract_atb.vcd",
+        "tests/fixtures/generated/extract_atb.fst"
+      ],
+      "reason": "ATB-A, ATB-B, and ATB-C stateless event extraction and VCD/FST parity fixture generated from HDL."
     },
     {
       "name": "extract_axi5",
