@@ -13,9 +13,9 @@ see_also:
 ---
 # Extract command
 
-Use `extract` commands when you need row output that combines event selection, protocol state, predicate evaluation, or payload sampling. `extract ahb` follows the pipelined AHB address/data relationship. `extract axi` reports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP ready/valid channel transfers. `extract generic` is protocol-neutral.
+Use `extract` commands when you need row output that combines event selection, protocol state, predicate evaluation, or payload sampling. `extract ahb` follows the pipelined AHB address/data relationship. `extract apb` classifies APB Setup and Access states. `extract atb` expands AMBA ATB transfer, flush, and synchronization-request conditions into generic extraction sources. `extract axi` reports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP ready/valid channel transfers. `extract axistream` handles one AXI4-Stream or AXI5-Stream interface. `extract generic` is protocol-neutral.
 
-For exact syntax and flags, run `wavepeek help extract ahb`, `wavepeek help extract axi`, or `wavepeek help extract generic`.
+For exact syntax and flags, run `wavepeek help extract <ahb|apb|atb|axi|axistream|generic>`.
 
 ## `extract ahb`
 
@@ -69,6 +69,96 @@ A source file can provide canonical or aliased `profile`, `name`, `include_stall
 
 Machine-readable AHB output is typed by profile and event. JSON uses `command: "extract ahb"` and carries Issue C context, inclusion flags, initial pipeline state, canonical mappings, and ordered `events`. JSONL begins with the same context, emits one event per `item`, then diagnostics and an `end` summary. Only emitted public events count toward `--max`, so a limit can stop between a same-edge completion/address pair.
 
+## `extract apb`
+
+`extract apb` emits independent sampled APB events for the `apb3`, `apb4`, and `apb5` profiles from Arm IHI 0024E Issue E. The default is APB4. At the pre-edge sample point for `posedge pclk`, a Setup event is `psel && !penable`. A completed Access is `psel && penable && pready` in mapped-PREADY mode or `psel && penable` in implicit-HIGH mode. Add `--include-wait` in mapped mode to emit one `access-wait` row per cycle where `psel && penable && !pready`. If `presetn` is mapped, every predicate is also gated by sampled known-HIGH reset.
+
+Mapped mode is the default and requires `pready`. Implicit-HIGH mode forbids both a `pready` mapping and `--include-wait`. Unknown `psel`, `penable`, `pready`, or mapped `presetn` values do not classify as true. Setup classification does not depend on `pready`. The command preserves repeated events and does not require or remember a preceding Setup phase.
+
+Map lowercase standard names explicitly, select candidates with include regexes, or combine both. Explicit maps win. Auto-mapping requires a complete normalized signal-name suffix, so forms such as `paddr`, `p_addr`, `apb_paddr_i`, and `apb_p_addr_i` match `paddr`, while `paddrchk`, `psel0`, and `pselx` do not. Map one concrete Completer select such as `uart_psel` to canonical `psel`; indexed selects are not discovered as one combined bus.
+
+All profiles require `pclk`, `psel`, `penable`, and `pwrite`. APB3 accepts the base APB3 signals. APB4 adds `pprot` and `pstrb`. APB5 adds `pnse`, request/data/response user signals, and the APB4 set. `pwakeup` and APB5 check/parity signals are outside extraction. Widths, sparse-write meaning, user-field meaning, and APB protocol conformance are not validated.
+
+Every event includes sampled `pwrite` and derives `direction` as `read`, `write`, or `unknown`. Request fields can appear on every event. Read data, error response, and response-user fields appear only on completion. Known reads omit write data/user fields, known writes omit read data/user fields, and unknown direction preserves available direction-specific observations. Sampled vectors and X/Z literals are emitted unchanged.
+
+```text
+$ wavepeek extract apb --waves path/to/dump.vcd \
+    --scope top.uart \
+    --profile apb4 \
+    --include '^uart_apb_' \
+    --include-wait
+name: apb
+profile: apb4
+issue: E
+pready_mode: mapped
+include_wait: true
+mappings:
+  pclk = uart_apb_pclk
+  psel = uart_apb_psel
+  penable = uart_apb_penable
+  pwrite = uart_apb_pwrite
+  pready = uart_apb_pready
+  paddr = uart_apb_paddr
+  pwdata = uart_apb_pwdata
+  pslverr = uart_apb_pslverr
+events:
+@20ns sample@19ns [setup write] pwrite=1'h1 paddr=16'h0040 pwdata=32'hdeadbeef
+@30ns sample@29ns [access-wait write] pwrite=1'h1 paddr=16'h0040 pwdata=32'hdeadbeef
+@40ns sample@39ns [access-complete write] pwrite=1'h1 paddr=16'h0040 pwdata=32'hdeadbeef pslverr=1'h0
+```
+
+A source file can provide `profile`, `pready_mode`, `include_wait`, `name`, `includes`, and `maps` with `kind: "extract.apb.source"`. The parser accepts profile and PREADY-mode values case-insensitively and accepts `implicit_high` as an alias; generated schemas accept canonical lowercase values only. Source-file mode conflicts with the corresponding CLI flags. Time bounds, scope, row limit, output mode, and absolute-path rendering remain command-line concerns.
+
+APB extraction is stateless sampled-event classification. It does not assemble transactions, pair Setup with Access, count waits into transaction records, decode registers, infer one Completer from several selects, or validate protocol sequencing, stability, parity, or errors.
+
+## `extract atb`
+
+`extract atb` emits stateless AMBA ATB interface events using Arm IHI 0032C Issue C definitions. The supported profiles are `atb-a`, `atb-b`, and `atb-c`; the default is `atb-c`. The CLI and source parser also accept underscore aliases, and accept legacy `atbv1.0` and `atbv1.1` as aliases for ATB-A and ATB-B. Generated schemas accept only the canonical hyphenated profile names.
+
+Every configuration maps `atclk` and at least one complete handshake pair. A transfer event requires known-true `atvalid && atready`; a flush event requires known-true `afvalid && afready`. Mapping `syncreq` on ATB-B or ATB-C adds a synchronization-request source whose predicate is known-true `syncreq`, but does not replace the required transfer or flush pair. `atresetn` is optional; when mapped, each predicate is additionally gated by known-true `atresetn` at the pre-edge sample point. Unknown control or reset values do not produce the affected event.
+
+Transfer payload mappings are optional and stay raw. A transfer row can include mapped `atbytes`, `atdata`, and `atid` values in that order. `ATBYTES + 1` is the number of valid low-order `ATDATA` bytes, but the command preserves the complete observed vectors without trimming or masking; upper bytes outside that count are observations and are not claimed as protocol-valid trace bytes. This permits handshake-only extraction and 8-bit `ATDATA` interfaces where `ATBYTES` is absent. Flush and synchronization-request rows have empty payloads. `ATID` values are observations rather than decoded trigger or protocol semantics.
+
+The extraction profiles deliberately exclude `atclken` and `atwakeup`. ATB-A also excludes `syncreq`; ATB-B and ATB-C accept it. The initial ATB-B and ATB-C extraction signal sets are otherwise identical.
+
+Map signals explicitly or select automatic candidates with include regexes. Matching is case-insensitive after separator normalization, accepts leading interface prefixes and common direction suffixes, and requires a complete standard-signal suffix. Explicit mappings win. With `--scope`, waveform mapping names and include candidates are relative to that scope.
+
+```text
+$ wavepeek extract atb --waves path/to/dump.vcd \
+    --scope top.etm \
+    --profile atb-c \
+    --map atclk=trace_clk \
+    --map atresetn=trace_reset_n \
+    --include '^trace_(at|af|sync)'
+name: atb
+profile: atb-c
+issue: C
+mappings:
+  atclk = trace_clk
+  atresetn = trace_reset_n
+  atvalid = trace_at_valid
+  atready = trace_at_ready
+  atbytes = trace_at_bytes
+  atdata = trace_at_data
+  atid = trace_at_id
+  afvalid = trace_af_valid
+  afready = trace_af_ready
+  syncreq = trace_sync_req
+events:
+@25ns sample@24999ps [transfer] atbytes=2'h3 atdata=32'h44332211 atid=7'h10
+@25ns sample@24999ps [flush]
+@25ns sample@24999ps [sync-request]
+```
+
+When several event conditions are true at one edge, rows appear in `transfer`, `flush`, then `sync-request` order. Every sampled high `syncreq` produces a row independently, and repeated transfer or flush handshakes are preserved even when values do not change.
+
+A source file can provide `profile`, `name`, `includes`, and `maps` with `kind: "extract.atb.source"`. Source-file mode conflicts with the corresponding command-line configuration options; time bounds and scope remain command-line settings.
+
+ATB extraction does not reconstruct trace packets, derive byte counts, decode trace triggers, verify legal encodings, or infer cross-cycle transfer, flush, synchronization, or wake-up episodes. Use the raw event rows as evidence tied to their sampled edge.
+
+Arm IHI 0032C sections 3.1-3.2 define ATB transfer sampling and the `ATVALID`/`ATREADY` handshake. Section 4.2 defines the flush handshake, section 4.4 defines synchronization requests, and Appendix A Table A-1 defines the interface signal matrix.
+
+
 ## `extract axi`
 
 `extract axi` emits one row per completed AXI-family transfer on each mapped ready/valid channel. Supported profiles are `axi3`, `axi4`, `axi4-lite`, `axi5`, `axi5-lite`, `ace`, `ace-lite`, `ace5`, `ace5-lite`, `ace5-lite-dvm`, and `ace5-lite-acp`; the default profile is `axi4`. AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 use Arm IHI 0022H.c Issue H.c signal definitions. AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP use Arm IHI 0022L Issue L ready/valid signal definitions. A completed transfer requires both channel `VALID` and channel `READY` to be true at the pre-edge sample point for `posedge aclk`. If `aresetn` is mapped, it must also be true at that sample point.
@@ -104,6 +194,40 @@ transfers:
 A source file can provide `profile`, `name`, `includes`, and `maps` with `kind: "extract.axi.source"`. Source-file mode conflicts with `--profile`, `--name`, `--map`, and `--include`; time bounds and scope still come from the command line.
 
 Machine-readable AXI output is typed by profile and channel. JSON transfer rows and JSONL item rows include `profile`; the schemas enumerate allowed payload keys for each profile/channel pair while allowing omitted keys for unmapped signals.
+
+## `extract axistream`
+
+`extract axistream` emits one row per completed transfer on one mapped stream interface. Its profiles are `axi4-stream` and `axi5-stream`; both use Arm IHI 0051B Issue B and the default is `axi4-stream`. The CLI and source parser accept profile names case-insensitively and accept the underscore aliases `axi4_stream` and `axi5_stream`. Generated schemas accept canonical hyphenated profile names only.
+
+Map `aclk`, optional `aresetn`, handshake signals, and any payload signals with `--map`, `--include`, or both. Accepted payload standard names are `tdata`, `tstrb`, `tkeep`, `tlast`, `tid`, `tdest`, and `tuser`. Payload signals are optional and omitted from mappings and rows when unmapped. `twakeup` and check/parity signals are not part of transfer extraction.
+
+The default `--tready-mode mapped` requires a `tready` mapping and recognizes a transfer when `tvalid && tready` is true at the pre-edge sample point for `posedge aclk`. Use `--tready-mode implicit-high` only when the physical interface omits `TREADY`; this mode forbids a `tready` mapping and recognizes transfers from `tvalid`. If `aresetn` is mapped, it gates either predicate. `aclk` and `tvalid` are always required.
+
+```text
+$ wavepeek extract axistream --waves path/to/dump.vcd \
+    --scope top.dut \
+    --profile axi4-stream \
+    --map aclk=clk \
+    --map aresetn=rst_n \
+    --include '^video_out_'
+name: axistream
+profile: axi4-stream
+issue: B
+tready_mode: mapped
+mappings:
+  aclk = clk
+  aresetn = rst_n
+  tvalid = video_out_tvalid
+  tready = video_out_tready
+  tdata = video_out_tdata
+  tlast = video_out_tlast
+transfers:
+@25ns sample@24999ps tdata=32'hdeadbeef tlast=1'h1
+```
+
+One invocation maps one interface. Rows do not contain a synthetic channel field, and a handshake-only transfer still emits its event and sample timestamps. The command does not reconstruct packets, interpret byte qualifiers, check protocol timing, or validate AXI5-Stream wake-up or parity.
+
+A source file uses singular kind `extract.axistream.source` and can provide `profile`, `tready_mode`, `name`, `includes`, and `maps`. The defaults are `axi4-stream`, `mapped`, and `axistream`. Source-file mode conflicts with those CLI mapping/configuration options; time bounds and scope remain command-line options.
 
 ## `extract generic`
 
@@ -163,7 +287,7 @@ Source names must be unique within the file. Payload names must be unique within
 
 ## Pre-edge sampling
 
-`extract` rows use `time` for the selected event timestamp and `sample_time` for the point where predicate and payload values are read. For `extract ahb` and `extract generic`, `sample_time` is one dump tick before the selected edge. `extract axi` uses the generic pre-edge engine and follows the same sampling rule.
+`extract` rows use `time` for the selected event timestamp and `sample_time` for the point where predicate and payload values are read. `sample_time` is one dump tick before the selected edge.
 
 This matches common RTL debugging expectations: the row describes the values that caused the edge to be interesting, not values updated on the edge itself.
 
@@ -172,10 +296,15 @@ This matches common RTL debugging expectations: the row describes the values tha
 ## Output modes
 
 Human `extract ahb` output starts with name, profile, issue, inclusion flags, initial data-phase state, resolved mappings, and then event rows. Add `--abs` to print canonical mapping and payload paths. JSON and JSONL carry the full retained pending-address snapshot when `initial_data_phase` is `pending`.
+Human `extract apb` output starts with name, profile, Issue E, PREADY mode, effective wait setting, resolved mappings, and then event rows. `extract apb --json` uses `command: "extract apb"` and exposes the same context plus `events`; JSONL puts the context on `begin` and one event on each `item` row. Profile, mode, wait setting, event, direction, mapping keys, and payload keys are schema-constrained. Add `--abs` to print canonical mapping and payload paths in human output.
+
+Human `extract atb` output starts with name, profile, issue, resolved mappings, and then event rows. `extract atb --json` emits `command: "extract atb"` with `name`, `profile`, `issue`, `mappings`, and `events`. JSONL puts ATB context on the `begin` record and streams one event per `item`. Add `--abs` to print canonical mapping and payload paths in human output.
 
 Human `extract axi` output starts with name, profile, issue, resolved mappings, and then transfer rows. Add `--abs` to print canonical mapping and payload paths in human output.
 
 `extract axi --json` emits the standard envelope with `command: "extract axi"` and a data object containing `name`, `profile`, `issue`, `mappings`, and `transfers`. `extract axi --jsonl` streams a `begin` record with AXI context, one transfer per `item`, optional diagnostics, and an `end` summary.
+
+`extract axistream` uses the same context-first layout plus `tready_mode`, but its rows have no `channel`. JSON uses `command: "extract axistream"`; JSONL puts name, profile, Issue B, TREADY mode, and mappings in the `begin` context and emits one independently profile-typed transfer per `item`.
 
 Human `extract generic` output is compact and row-oriented:
 

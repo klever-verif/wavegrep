@@ -8,8 +8,9 @@ use crate::error::WavepeekError;
 use super::common::ContractDiagnostic;
 use super::output::{
     ChangeSnapshot, ExtractAhbEvent, ExtractAhbInitialDataPhase, ExtractAhbMapping,
-    ExtractAxiMapping, ExtractAxiTransfer, ExtractGenericRow, InfoData, PropertyRow, ScopeEntry,
-    SignalEntry, ValueSnapshot,
+    ExtractApbEvent, ExtractApbMapping, ExtractAtbEvent, ExtractAtbMapping, ExtractAxiMapping,
+    ExtractAxiStreamMapping, ExtractAxiStreamTransfer, ExtractAxiTransfer, ExtractGenericRow,
+    InfoData, PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
 };
 use super::schema::STREAM_SCHEMA_URL;
 
@@ -176,8 +177,11 @@ struct StreamSummary {
 #[schemars(rename = "streamContextData")]
 #[serde(untagged)]
 pub enum StreamContextData<'a> {
-    ExtractAhb(ExtractAhbContext<'a>),
-    ExtractAxi(ExtractAxiContext<'a>),
+    Ahb(ExtractAhbContext<'a>),
+    Apb(ExtractApbContext<'a>),
+    Atb(ExtractAtbContext<'a>),
+    Axi(ExtractAxiContext<'a>),
+    AxiStream(ExtractAxiStreamContext<'a>),
 }
 
 #[derive(Debug, JsonSchema, Serialize)]
@@ -207,6 +211,60 @@ impl<'a> From<&'a crate::engine::ahb::AhbContext> for ExtractAhbContext<'a> {
                 .mappings
                 .iter()
                 .map(|mapping| (mapping.standard.as_str(), ExtractAhbMapping::from(mapping)))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
+#[schemars(rename = "extractApbContext")]
+#[schemars(extend("additionalProperties" = true))]
+pub struct ExtractApbContext<'a> {
+    name: &'a str,
+    profile: &'a str,
+    issue: &'a str,
+    pready_mode: &'a str,
+    include_wait: bool,
+    mappings: std::collections::BTreeMap<&'a str, ExtractApbMapping<'a>>,
+}
+
+impl<'a> From<&'a crate::engine::apb::ApbContext> for ExtractApbContext<'a> {
+    fn from(context: &'a crate::engine::apb::ApbContext) -> Self {
+        Self {
+            name: context.name.as_str(),
+            profile: context.profile.as_str(),
+            issue: context.issue.as_str(),
+            pready_mode: context.pready_mode.as_str(),
+            include_wait: context.include_wait,
+            mappings: context
+                .mappings
+                .iter()
+                .map(|mapping| (mapping.standard.as_str(), ExtractApbMapping::from(mapping)))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
+#[schemars(rename = "extractAtbContext")]
+#[schemars(extend("additionalProperties" = true))]
+pub struct ExtractAtbContext<'a> {
+    name: &'a str,
+    profile: &'a str,
+    issue: &'a str,
+    mappings: std::collections::BTreeMap<&'a str, ExtractAtbMapping<'a>>,
+}
+
+impl<'a> From<&'a crate::engine::atb::AtbContext> for ExtractAtbContext<'a> {
+    fn from(context: &'a crate::engine::atb::AtbContext) -> Self {
+        Self {
+            name: context.name.as_str(),
+            profile: context.profile.as_str(),
+            issue: context.issue.as_str(),
+            mappings: context
+                .mappings
+                .iter()
+                .map(|mapping| (mapping.standard.as_str(), ExtractAtbMapping::from(mapping)))
                 .collect(),
         }
     }
@@ -244,14 +302,69 @@ pub trait StreamContext {
 impl StreamContext for crate::engine::ahb::AhbContext {
     fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractAhb)?;
-        Ok(StreamContextData::ExtractAhb(ExtractAhbContext::from(self)))
+        Ok(StreamContextData::Ahb(ExtractAhbContext::from(self)))
+    }
+}
+
+impl StreamContext for crate::engine::apb::ApbContext {
+    fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractApb)?;
+        Ok(StreamContextData::Apb(ExtractApbContext::from(self)))
+    }
+}
+
+impl StreamContext for crate::engine::atb::AtbContext {
+    fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAtb)?;
+        Ok(StreamContextData::Atb(ExtractAtbContext::from(self)))
     }
 }
 
 impl StreamContext for crate::engine::axi::AxiContext {
     fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractAxi)?;
-        Ok(StreamContextData::ExtractAxi(ExtractAxiContext::from(self)))
+        Ok(StreamContextData::Axi(ExtractAxiContext::from(self)))
+    }
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
+#[schemars(rename = "extractAxiStreamContext")]
+#[schemars(extend("additionalProperties" = true))]
+pub struct ExtractAxiStreamContext<'a> {
+    name: &'a str,
+    profile: &'a str,
+    issue: &'a str,
+    tready_mode: &'a str,
+    mappings: std::collections::BTreeMap<&'a str, ExtractAxiStreamMapping<'a>>,
+}
+
+impl<'a> From<&'a crate::engine::axistream::AxiStreamContext> for ExtractAxiStreamContext<'a> {
+    fn from(context: &'a crate::engine::axistream::AxiStreamContext) -> Self {
+        Self {
+            name: context.name.as_str(),
+            profile: context.profile.as_str(),
+            issue: context.issue.as_str(),
+            tready_mode: context.tready_mode.as_str(),
+            mappings: context
+                .mappings
+                .iter()
+                .map(|mapping| {
+                    (
+                        mapping.standard.as_str(),
+                        ExtractAxiStreamMapping::from(mapping),
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
+impl StreamContext for crate::engine::axistream::AxiStreamContext {
+    fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAxiStream)?;
+        Ok(StreamContextData::AxiStream(ExtractAxiStreamContext::from(
+            self,
+        )))
     }
 }
 
@@ -266,7 +379,10 @@ pub enum StreamItemData<'a> {
     Change(ChangeSnapshot<'a>),
     Property(PropertyRow<'a>),
     ExtractAhb(ExtractAhbEvent<'a>),
+    ExtractApb(ExtractApbEvent<'a>),
+    ExtractAtb(ExtractAtbEvent<'a>),
     ExtractAxi(ExtractAxiTransfer<'a>),
+    ExtractAxiStream(ExtractAxiStreamTransfer<'a>),
     ExtractGeneric(ExtractGenericRow<'a>),
 }
 
@@ -323,10 +439,33 @@ impl StreamItem for crate::engine::ahb::AhbEvent {
     }
 }
 
+impl StreamItem for crate::engine::apb::ApbEvent {
+    fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractApb)?;
+        Ok(StreamItemData::ExtractApb(ExtractApbEvent::from(self)))
+    }
+}
+
+impl StreamItem for crate::engine::atb::AtbEvent {
+    fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAtb)?;
+        Ok(StreamItemData::ExtractAtb(ExtractAtbEvent::from(self)))
+    }
+}
+
 impl StreamItem for crate::engine::axi::AxiTransfer {
     fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractAxi)?;
         Ok(StreamItemData::ExtractAxi(ExtractAxiTransfer::from(self)))
+    }
+}
+
+impl StreamItem for crate::engine::axistream::AxiStreamTransfer {
+    fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAxiStream)?;
+        Ok(StreamItemData::ExtractAxiStream(
+            ExtractAxiStreamTransfer::from(self),
+        ))
     }
 }
 
@@ -396,7 +535,10 @@ fn require_stream_command(command: CommandName) -> Result<(), WavepeekError> {
         | CommandName::Change
         | CommandName::Property
         | CommandName::ExtractAhb
+        | CommandName::ExtractApb
+        | CommandName::ExtractAtb
         | CommandName::ExtractAxi
+        | CommandName::ExtractAxiStream
         | CommandName::ExtractGeneric => Ok(()),
         _ => Err(WavepeekError::Args(
             "--jsonl is available only for waveform commands".to_string(),

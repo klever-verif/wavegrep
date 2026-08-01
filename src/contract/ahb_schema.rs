@@ -340,7 +340,7 @@ fn address_event_schema(profile: &AhbProfileSpec) -> Value {
         "payload".to_string(),
         payload_schema(
             profile,
-            address_payload_signals(profile),
+            ahb::ADDRESS_PAYLOAD.to_vec(),
             &["htrans", "hwrite"],
         ),
     );
@@ -368,9 +368,9 @@ fn slot_event_schema(profile: &AhbProfileSpec, kind: &str, has_direction: bool) 
         );
     }
     let signals = if kind == "idle" {
-        vec!["htrans", "haddr", "hmastlock"]
+        ahb::IDLE_PAYLOAD.to_vec()
     } else {
-        address_payload_signals(profile)
+        ahb::ADDRESS_PAYLOAD.to_vec()
     };
     let required_payload = if has_direction {
         &["htrans", "hwrite"][..]
@@ -407,22 +407,28 @@ fn data_event_schema(profile: &AhbProfileSpec, kind: &str, direction: &str) -> V
     properties.insert("direction".to_string(), json!({"const": direction}));
     let mut signals = vec!["hresp"];
     match direction {
-        "read" => signals.push("hrdata"),
-        "write" => signals.extend(["hwdata", "hwstrb", "hwuser"]),
-        "unknown" => signals.extend(["hwdata", "hwstrb", "hwuser", "hrdata"]),
+        "read" if kind == "data-complete" => signals.extend(ahb::READ_DATA_PAYLOAD),
+        "read" => {}
+        "write" => signals.extend(ahb::WRITE_DATA_PAYLOAD),
+        "unknown" => {
+            signals.extend(ahb::WRITE_DATA_PAYLOAD);
+            signals.extend(ahb::READ_DATA_PAYLOAD);
+        }
         _ => unreachable!("known direction"),
     }
     if kind == "data-complete" {
         if matches!(direction, "read" | "unknown") {
-            signals.push("hruser");
+            signals.extend(ahb::SUCCESS_READ_PAYLOAD);
         }
-        signals.extend(["hbuser", "hexokay"]);
+        signals.extend(ahb::SUCCESS_PAYLOAD);
     }
     signals.retain(|signal| profile.signals.contains(signal));
     let mut payload = payload_schema(profile, signals.clone(), &[]);
     if kind == "data-complete" {
-        let success_signals = ["hruser", "hbuser", "hexokay"]
-            .into_iter()
+        let success_signals = ahb::SUCCESS_READ_PAYLOAD
+            .iter()
+            .chain(ahb::SUCCESS_PAYLOAD)
+            .copied()
             .filter(|signal| signals.contains(signal))
             .collect::<Vec<_>>();
         let conditions = success_signals
@@ -497,7 +503,7 @@ fn initial_address_schema(profile: &AhbProfileSpec) -> Value {
             "direction": {"type": "string", "enum": ["read", "write", "unknown"]},
             "payload": payload_schema(
                 profile,
-                address_payload_signals(profile),
+                ahb::ADDRESS_PAYLOAD.to_vec(),
                 &["htrans", "hwrite"]
             )
         }
@@ -520,25 +526,6 @@ fn payload_schema(
         "properties": properties,
         "required": required,
     })
-}
-
-fn address_payload_signals(profile: &AhbProfileSpec) -> Vec<&'static str> {
-    [
-        "htrans",
-        "hwrite",
-        "haddr",
-        "hburst",
-        "hmastlock",
-        "hprot",
-        "hsize",
-        "hauser",
-        "hnonsec",
-        "hexcl",
-        "hmaster",
-    ]
-    .into_iter()
-    .filter(|signal| profile.signals.contains(signal))
-    .collect()
 }
 
 fn profile_initial_def_name(profile: &AhbProfileSpec) -> String {
@@ -600,6 +587,23 @@ mod tests {
                 assert!(defs.contains_key(&event_def_name(profile, kind)));
             }
         }
+    }
+
+    #[test]
+    fn read_data_is_available_only_on_completion() {
+        let profile = &ahb::profile_specs()[0];
+        let stall = data_event_schema(profile, "data-stall", "read");
+        assert!(
+            stall["properties"]["payload"]["properties"]
+                .get("hrdata")
+                .is_none()
+        );
+        let complete = data_event_schema(profile, "data-complete", "read");
+        assert!(
+            complete["properties"]["payload"]["properties"]
+                .get("hrdata")
+                .is_some()
+        );
     }
 
     #[test]

@@ -105,6 +105,28 @@ When the user asks for every occurrence, count, timestamp list, handshake, reque
       --json
 
 Map selected manager-facing `HREADY`; do not substitute subordinate-local `HREADYOUT` or `HSELx`. AHB output separates address and data-complete events, orders an old completion before a same-edge new address, and warms pipeline state before `--from`. Do not join those rows into a transaction or infer a completion while context is desynchronized.
+`extract apb` supports APB3, APB4, and APB5 from Arm IHI 0024E Issue E. Use it for independent sampled Setup, waited Access, and completed Access rows:
+
+    wavepeek extract apb \
+      --waves <FILE> \
+      --scope <SCOPE> \
+      --profile apb4 \
+      --include '<APB_SIGNAL_REGEX>' \
+      --include-wait \
+      --json
+
+Mapped PREADY mode is the default. Use implicit-HIGH mode only when PREADY is physically absent; it forbids both a `pready` mapping and wait capture. Map one concrete Completer select as canonical `psel`. APB rows are sampled events, not assembled or protocol-validated transactions.
+
+`extract atb` supports ATB-A, ATB-B, and ATB-C Issue C profiles. Use it for accepted trace transfers, completed flush handshakes, and sampled synchronization requests. Its rows are stateless observations: do not present them as reconstructed trace packets, trigger decoding, legality checks, or cross-cycle episodes. Read `wavepeek help extract atb` and `wavepeek docs show commands/extract` before choosing mappings.
+
+    wavepeek extract atb \
+      --waves <FILE> \
+      --scope <SCOPE> \
+      --profile atb-c \
+      --map atclk=<CLK> \
+      --map atresetn=<RESET_N> \
+      --include '<ATB_SIGNAL_REGEX>' \
+      --json
 
 `extract axi` supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles. AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP use Issue L; the other supported profiles use Issue H.c. ACE5-LiteDVM adds DVM `ac` and `cr` channels without `cd`. Use it when the user wants ready/valid channel transfer rows:
 
@@ -117,7 +139,21 @@ Map selected manager-facing `HREADY`; do not substitute subordinate-local `HREAD
       --include '<AXI_SIGNAL_REGEX>' \
       --json
 
-Use `extract generic` on a clocked predicate when payload values are needed for custom handshakes without a dedicated extractor:
+Use `extract axistream` for AXI4-Stream or AXI5-Stream transfer rows from one interface. The default `mapped` TREADY mode requires a mapped `tready`; use `implicit-high` only when the physical interface omits `TREADY`:
+
+    wavepeek extract axistream \
+      --waves <FILE> \
+      --scope <SCOPE> \
+      --profile axi4-stream \
+      --tready-mode mapped \
+      --map aclk=<CLK> \
+      --map aresetn=<RESET_N> \
+      --include '<AXISTREAM_SIGNAL_REGEX>' \
+      --json
+
+The AXI-Stream profiles both use Arm IHI 0051B Issue B. The adapter extracts mapped functional payload values but does not reconstruct packets or include AXI5-Stream wake-up/check signals.
+
+Use `extract generic` on a clocked predicate when payload values are needed for unsupported protocols or custom handshakes:
 
     wavepeek extract generic \
       --waves <FILE> \
@@ -128,7 +164,7 @@ Use `extract generic` on a clocked predicate when payload values are needed for 
       --payload <PAYLOAD_AND_CONTEXT_SIGNALS> \
       --json
 
-`extract` emits every matching row, including repeated transfers with identical payload values. The row `time` is the event edge and `sample_time` is where the predicate and payload were sampled. `extract ahb` reports pipeline events without transaction joining or burst reconstruction. `extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state.
+`extract` emits every matching row, including repeated transfers with identical payload values. The row `time` is the event edge and `sample_time` is where the predicate and payload were sampled. `extract ahb` reports pipeline events without transaction joining or burst reconstruction. `extract apb` does not pair Setup and Access rows or validate APB sequencing. `extract atb` reports stateless interface events only. `extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state. `extract axistream` reports one-interface transfer rows without a synthetic channel and does not reconstruct packets from `tlast`.
 
 Use `property --capture match` when you only need timestamp rows or when you need property capture modes rather than payload extraction. Use `value --at <sample_time>` as a fallback follow-up when a payload set is decided after the property query.
 

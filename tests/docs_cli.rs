@@ -388,6 +388,123 @@ fn public_extract_docs_cover_axi5_and_ace_family_profiles() {
 }
 
 #[test]
+fn public_extract_docs_cover_axistream_profiles_and_tready_modes() {
+    for topic_id in [
+        "commands/extract",
+        "commands/overview",
+        "workflows/extract-handshake",
+        "reference/machine-output",
+    ] {
+        let output = successful_stdout_text(&["docs", "show", topic_id]);
+        assert!(
+            output.contains("AXI4-Stream") && output.contains("AXI5-Stream"),
+            "topic {topic_id} should cover both AXI-Stream profiles"
+        );
+    }
+
+    let extract = successful_stdout_text(&["docs", "show", "commands/extract"]);
+    for fragment in [
+        "Arm IHI 0051B Issue B",
+        "`--tready-mode mapped`",
+        "`--tready-mode implicit-high`",
+        "`extract.axistream.source`",
+        "Rows do not contain a synthetic channel field",
+        "`twakeup` and check/parity signals are not part of transfer extraction",
+    ] {
+        assert!(extract.contains(fragment), "missing {fragment:?}");
+    }
+
+    let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
+    assert!(machine_output.contains("`extract axistream` data has"));
+    assert!(machine_output.contains("`extract.axistream.source`"));
+}
+
+#[test]
+fn public_extract_docs_cover_apb_profiles_modes_and_stateless_scope() {
+    for topic_id in [
+        "commands/extract",
+        "commands/overview",
+        "workflows/extract-handshake",
+        "reference/machine-output",
+    ] {
+        let output = successful_stdout_text(&["docs", "show", topic_id]);
+        assert!(
+            output.contains("APB3") && output.contains("APB4") && output.contains("APB5"),
+            "topic {topic_id} should cover every APB profile"
+        );
+        assert!(
+            output.contains("Issue E"),
+            "topic {topic_id} should identify Arm IHI 0024E Issue E"
+        );
+    }
+
+    let extract = successful_stdout_text(&["docs", "show", "commands/extract"]);
+    for fragment in [
+        "`extract apb` emits independent sampled APB events",
+        "a Setup event is `psel && !penable`",
+        "Add `--include-wait` in mapped mode",
+        "Implicit-HIGH mode forbids both a `pready` mapping and `--include-wait`",
+        "Map one concrete Completer select",
+        "`paddrchk`, `psel0`, and `pselx` do not",
+        "Read data, error response, and response-user fields appear only on completion",
+        "does not assemble transactions",
+        "generated schemas accept canonical lowercase values only",
+    ] {
+        assert!(
+            extract.contains(fragment),
+            "extract docs should contain `{fragment}`"
+        );
+    }
+
+    for topic_id in ["commands/extract", "workflows/extract-handshake"] {
+        let output = successful_stdout_text(&["docs", "show", topic_id]);
+        for mapping in [
+            "paddr = uart_apb_paddr",
+            "pwdata = uart_apb_pwdata",
+            "pslverr = uart_apb_pslverr",
+        ] {
+            assert!(
+                output.contains(mapping),
+                "topic {topic_id} should include payload mapping `{mapping}`"
+            );
+        }
+    }
+
+    let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
+    assert!(machine_output.contains("`extract.apb.source`"));
+    assert!(machine_output.contains("Profile, mode, wait setting, event, direction"));
+}
+
+#[test]
+fn public_extract_docs_cover_atb_profiles_and_stateless_boundaries() {
+    let extract = successful_stdout_text(&["docs", "show", "commands/extract"]);
+    for fragment in [
+        "`extract atb` emits stateless AMBA ATB interface events",
+        "`atb-a`, `atb-b`, and `atb-c`",
+        "Arm IHI 0032C Issue C",
+        "atbv1.0",
+        "atbv1.1",
+        "atclken",
+        "atwakeup",
+        "`atvalid && atready`",
+        "`afvalid && afready`",
+        "`ATBYTES + 1` is the number of valid low-order `ATDATA` bytes",
+        "`transfer`, `flush`, then `sync-request` order",
+        "does not reconstruct trace packets",
+        "Appendix A Table A-1",
+    ] {
+        assert!(
+            extract.contains(fragment),
+            "extract docs should contain `{fragment}`"
+        );
+    }
+
+    let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
+    assert!(machine_output.contains("`extract atb` data is an object"));
+    assert!(machine_output.contains("`extract.atb.source`"));
+}
+
+#[test]
 fn public_docs_describe_fsdb_target_restriction() {
     for topic_id in ["intro", "reference/command-model"] {
         let output = successful_stdout_text(&["docs", "show", topic_id]);

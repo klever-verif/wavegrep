@@ -15,6 +15,7 @@ use crate::engine::expr_runtime::{
     event_candidate_handles, event_expr_matches, open_shared_waveform,
 };
 use crate::engine::extract::{initial_diagnostics, max_entries, parse_bound_time};
+use crate::engine::signal_mapping;
 use crate::engine::time::{format_raw_timestamp, parse_dump_time_context};
 use crate::engine::value_format::format_verilog_literal;
 use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
@@ -29,8 +30,8 @@ const DEFAULT_PROFILE: &str = "ahb-lite";
 const DEFAULT_NAME: &str = "ahb";
 const SOURCE_KIND: &str = "extract.ahb.source";
 const HELP: &str = "wavepeek extract ahb";
-const CANDIDATE_CHUNK_RAW: u64 = 1_000_000;
-const MAX_CANDIDATE_CHUNK_RAW: u64 = 4_000_000;
+const CANDIDATE_CHUNK_ZS: u128 = 1_000_000_000_000_000_000;
+const MAX_CANDIDATE_CHUNK_MULTIPLIER: u64 = 4;
 const REQUIRED_SIGNALS: &[&str] = &["hclk", "htrans", "hready", "hwrite"];
 const AHB_LITE_SIGNALS: &[&str] = &[
     "hclk",
@@ -76,7 +77,7 @@ const AHB5_SIGNALS: &[&str] = &[
     "hresp",
     "hexokay",
 ];
-const ADDRESS_PAYLOAD: &[&str] = &[
+pub(crate) const ADDRESS_PAYLOAD: &[&str] = &[
     "htrans",
     "hwrite",
     "haddr",
@@ -89,11 +90,11 @@ const ADDRESS_PAYLOAD: &[&str] = &[
     "hexcl",
     "hmaster",
 ];
-const IDLE_PAYLOAD: &[&str] = &["htrans", "haddr", "hmastlock"];
-const WRITE_DATA_PAYLOAD: &[&str] = &["hwdata", "hwstrb", "hwuser"];
-const READ_DATA_PAYLOAD: &[&str] = &["hrdata"];
-const SUCCESS_READ_PAYLOAD: &[&str] = &["hruser"];
-const SUCCESS_PAYLOAD: &[&str] = &["hbuser", "hexokay"];
+pub(crate) const IDLE_PAYLOAD: &[&str] = &["htrans", "haddr", "hmastlock"];
+pub(crate) const WRITE_DATA_PAYLOAD: &[&str] = &["hwdata", "hwstrb", "hwuser"];
+pub(crate) const READ_DATA_PAYLOAD: &[&str] = &["hrdata"];
+pub(crate) const SUCCESS_READ_PAYLOAD: &[&str] = &["hruser"];
+pub(crate) const SUCCESS_PAYLOAD: &[&str] = &["hbuser", "hexokay"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AhbSignalMapping {
@@ -878,6 +879,7 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
             &sample_plan,
             dump_start_raw,
             from_raw - 1,
+            dump_time.dump_tick_zs,
             |timestamp| {
                 if let Some((time, sample_time, samples)) = sample_rising_edge(
                     &waveform,
@@ -905,6 +907,7 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
         &sample_plan,
         from_raw,
         to_raw,
+        dump_time.dump_tick_zs,
         |timestamp| {
             let Some((time, sample_time, samples)) = sample_rising_edge(
                 &waveform,
@@ -1055,6 +1058,7 @@ fn visit_candidate_chunks<F>(
     plan: &SamplePlan,
     from_raw: u64,
     to_raw: u64,
+    dump_tick_zs: u128,
     mut visit: F,
 ) -> Result<(), WavepeekError>
 where
@@ -1064,7 +1068,9 @@ where
         return Ok(());
     }
     let mut cursor = from_raw;
-    let mut span = CANDIDATE_CHUNK_RAW;
+    let base_span = candidate_chunk_raw_span(dump_tick_zs);
+    let max_span = base_span.saturating_mul(MAX_CANDIDATE_CHUNK_MULTIPLIER);
+    let mut span = base_span;
     loop {
         let chunk_end = cursor.saturating_add(span - 1).min(to_raw);
         let candidates = waveform
@@ -1099,12 +1105,16 @@ where
         }
         cursor = chunk_end + 1;
         span = if empty {
-            span.saturating_mul(2)
-                .clamp(CANDIDATE_CHUNK_RAW, MAX_CANDIDATE_CHUNK_RAW)
+            span.saturating_mul(2).clamp(base_span, max_span)
         } else {
-            CANDIDATE_CHUNK_RAW
+            base_span
         };
     }
+}
+
+fn candidate_chunk_raw_span(dump_tick_zs: u128) -> u64 {
+    let raw_span = CANDIDATE_CHUNK_ZS.div_ceil(dump_tick_zs);
+    u64::try_from(raw_span).unwrap_or(u64::MAX).max(1)
 }
 
 fn sample_rising_edge(
@@ -1510,45 +1520,10 @@ fn candidate_matching_standards(
     standards: &[&'static str],
 ) -> Vec<&'static str> {
     if is_mapping_decoy(candidate_name) {
-        return Vec::new();
+        Vec::new()
+    } else {
+        signal_mapping::candidate_matching_standards(candidate_name, standards, &[])
     }
-    let tokens = candidate_core_tokens(candidate_name);
-    let suffix_matches = standards
-        .iter()
-        .filter(|standard| {
-            (0..tokens.len()).any(|start| {
-                tokens[start..]
-                    .iter()
-                    .flat_map(|token| token.chars())
-                    .eq(standard.chars())
-            })
-        })
-        .copied()
-        .collect::<Vec<_>>();
-    let [suffix_standard] = suffix_matches.as_slice() else {
-        return suffix_matches;
-    };
-    let suffix_start = (0..tokens.len())
-        .find(|start| {
-            tokens[*start..]
-                .iter()
-                .flat_map(|token| token.chars())
-                .eq(suffix_standard.chars())
-        })
-        .expect("suffix match has a start");
-    standards
-        .iter()
-        .filter(|standard| {
-            *standard == suffix_standard
-                || (0..suffix_start).any(|start| {
-                    tokens[start..suffix_start]
-                        .iter()
-                        .flat_map(|token| token.chars())
-                        .eq(standard.chars())
-                })
-        })
-        .copied()
-        .collect()
 }
 
 fn is_mapping_decoy(name: &str) -> bool {
@@ -1568,17 +1543,6 @@ fn is_mapping_decoy(name: &str) -> bool {
         })
 }
 
-fn candidate_core_tokens(name: &str) -> Vec<String> {
-    let mut tokens = tokenize_candidate(name);
-    while tokens
-        .last()
-        .is_some_and(|token| is_candidate_suffix_affix(token))
-    {
-        tokens.pop();
-    }
-    tokens
-}
-
 fn tokenize_candidate(name: &str) -> Vec<String> {
     let base = name.rsplit('.').next().unwrap_or(name);
     let mut tokens = Vec::new();
@@ -1596,24 +1560,26 @@ fn tokenize_candidate(name: &str) -> Vec<String> {
     tokens
 }
 
-fn is_candidate_suffix_affix(token: &str) -> bool {
-    matches!(
-        token,
-        "i" | "o" | "in" | "out" | "input" | "output" | "d" | "q" | "r" | "reg"
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::{
         AHB_LITE_SIGNALS, AHB5_SIGNALS, AhbSignalMapping, Direction, EdgeSamples, Inclusion,
-        PipelineState, SignalCandidate, Walker, auto_mappings, candidate_matching_standards,
-        is_mapping_decoy, parse_cli_maps, parse_profile, profile_specs,
+        PipelineState, SignalCandidate, Walker, auto_mappings, candidate_chunk_raw_span,
+        candidate_matching_standards, is_mapping_decoy, parse_cli_maps, parse_profile,
+        profile_specs,
     };
     use std::collections::HashMap;
 
     fn edge(values: &[(&str, &str)]) -> EdgeSamples {
         EdgeSamples::for_test(values)
+    }
+
+    #[test]
+    fn candidate_chunk_span_tracks_physical_time() {
+        assert_eq!(candidate_chunk_raw_span(1_000_000_000), 1_000_000_000);
+        assert_eq!(candidate_chunk_raw_span(1_000_000_000_000), 1_000_000);
+        assert_eq!(candidate_chunk_raw_span(1_000_000_000_000_000), 1_000);
+        assert_eq!(candidate_chunk_raw_span(2_000_000_000_000_000_000), 1);
     }
 
     #[test]

@@ -28,6 +28,49 @@ Use this command to inspect accepted AHB transfers and their pipeline completion
     )]
     Ahb(Box<AhbArgs>),
     #[command(
+        about = "Extract APB Setup and Access event rows.",
+        long_about = r#"Extract APB Setup and Access event rows.
+
+Behavior:
+- Supports APB3, APB4, and APB5 profiles from Arm IHI 0024E; APB4 is the default.
+- Generated schemas accept canonical lowercase profile and PREADY-mode values only.
+- Emits setup and access-complete rows by default; --include-wait adds one access-wait row per waited Access cycle.
+- Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.
+- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
+- Maps one concrete Completer PSELx as canonical psel.
+- Samples reset, event predicates, direction, and payload values at the pre-edge sample point.
+- In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps and conflicts with their CLI flags.
+- Contract for source-file mode is defined by `wavepeek schema --input`.
+- JSON output includes APB metadata, mappings, and event rows.
+- Reports independent sampled events only; it does not correlate or validate transactions.
+
+Use this command to inspect APB activity without writing generic Setup and Access predicates."#,
+        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+    )]
+    Apb(Box<ApbArgs>),
+    #[command(
+        about = "Extract ATB transfer, flush, and synchronization-request events.",
+        long_about = r#"Extract ATB transfer, flush, and synchronization-request events.
+
+Behavior:
+- Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.
+- Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; generated schemas accept canonical hyphenated profile names only.
+- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
+- Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.
+- Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.
+- Samples reset, predicates, and mapped transfer payload at the pre-edge sample point.
+- Emits same-edge events in transfer, flush, then sync-request order.
+- Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.
+- In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
+- Contract for source-file mode is defined by `wavepeek schema --input`.
+- JSON output includes ATB metadata, mappings, and event rows.
+- Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
+
+Use this command to inspect one ATB interface without writing separate generic extraction sources."#,
+        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+    )]
+    Atb(Box<AtbArgs>),
+    #[command(
         about = "Extract AXI ready/valid transfer rows.",
         long_about = r#"Extract AXI ready/valid transfer rows.
 
@@ -50,6 +93,26 @@ Use this command to inspect AXI-family handshakes without writing one generic so
         after_long_help = "See also:\n  wavepeek docs show commands/extract"
     )]
     Axi(Box<AxiArgs>),
+    #[command(
+        name = "axistream",
+        about = "Extract AXI-Stream transfer rows.",
+        long_about = r#"Extract AXI-Stream transfer rows.
+
+Behavior:
+- Supports AXI4-Stream and AXI5-Stream profiles from Arm IHI 0051B Issue B.
+- The default profile is AXI4-Stream.
+- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
+- Mapped TREADY mode requires tvalid and tready; implicit-high mode explicitly declares that physical TREADY is omitted.
+- Samples reset, handshake predicates, and payload values at the pre-edge sample point for posedge aclk.
+- One invocation maps one stream interface and emits one row per completed transfer without a synthetic channel.
+- AXI5-Stream wake-up and parity/check signals are outside this transfer extractor.
+- In source-file mode, --source provides profile, TREADY mode, name, includes, and maps and conflicts with --profile, --tready-mode, --name, --map, and --include.
+- Contract for source-file mode is defined by `wavepeek schema --input`.
+
+Use this command to inspect AXI-Stream transfers without writing a generic extraction source."#,
+        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+    )]
+    AxiStream(Box<AxiStreamArgs>),
     #[command(
         about = "Extract protocol-neutral event rows from waveform signals.",
         long_about = r#"Extract protocol-neutral event rows from waveform signals.
@@ -172,6 +235,226 @@ pub struct AhbArgs {
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum ApbProfileArg {
+    Apb3,
+    Apb4,
+    Apb5,
+}
+
+impl ApbProfileArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Apb3 => "apb3",
+            Self::Apb4 => "apb4",
+            Self::Apb5 => "apb5",
+        }
+    }
+}
+
+impl std::fmt::Display for ApbProfileArg {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum PreadyModeArg {
+    Mapped,
+    #[value(name = "implicit-high", alias = "implicit_high")]
+    ImplicitHigh,
+}
+
+impl PreadyModeArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mapped => "mapped",
+            Self::ImplicitHigh => "implicit-high",
+        }
+    }
+}
+
+impl std::fmt::Display for PreadyModeArg {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ApbArgs {
+    /// Path to VCD/FST/FSDB waveform file
+    #[arg(long, value_name = "FILE", help_heading = "Input options")]
+    pub waves: PathBuf,
+    /// APB profile from Arm IHI 0024E
+    #[arg(
+        long,
+        value_name = "PROFILE",
+        value_enum,
+        ignore_case = true,
+        default_value_t = ApbProfileArg::Apb4,
+        conflicts_with = "source",
+        help_heading = "Input options"
+    )]
+    pub profile: ApbProfileArg,
+    /// PREADY handling mode
+    #[arg(
+        long,
+        value_name = "MODE",
+        value_enum,
+        ignore_case = true,
+        default_value_t = PreadyModeArg::Mapped,
+        conflicts_with = "source",
+        help_heading = "Input options"
+    )]
+    pub pready_mode: PreadyModeArg,
+    /// Emit one access-wait row per waited Access cycle
+    #[arg(long, conflicts_with = "source", help_heading = "Input options")]
+    pub include_wait: bool,
+    /// JSON APB source file with profile, mode, wait capture, name, includes, and maps
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with_all = [
+            "profile",
+            "pready_mode",
+            "include_wait",
+            "name",
+            "maps",
+            "includes"
+        ],
+        help_heading = "Input options"
+    )]
+    pub source: Option<PathBuf>,
+    /// APB port name metadata for output (defaults to apb)
+    #[arg(long, help_heading = "Input options")]
+    pub name: Option<String>,
+    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    #[arg(long, help_heading = "Selection options")]
+    pub from: Option<String>,
+    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    #[arg(long, help_heading = "Selection options")]
+    pub to: Option<String>,
+    /// Canonical scope path for scope-relative APB signal names and include regexes
+    #[arg(long, help_heading = "Selection options")]
+    pub scope: Option<String>,
+    /// Explicit APB mapping STD_NAME=WAVES_NAME, e.g. psel=uart_psel; may be repeated
+    #[arg(
+        long = "map",
+        value_name = "STD=WAVES",
+        help_heading = "Signal mapping options"
+    )]
+    pub maps: Vec<String>,
+    /// Regex selecting waveform signal candidates for APB auto-mapping, e.g. '^uart_apb_'; may be repeated
+    #[arg(
+        long = "include",
+        value_name = "REGEX",
+        help_heading = "Signal mapping options"
+    )]
+    pub includes: Vec<String>,
+    /// Maximum number of extracted event rows (`unlimited` disables truncation, value must be > 0)
+    #[arg(long, default_value = "50", help_heading = "Output options")]
+    pub max: LimitArg,
+    /// Print canonical mapping and payload paths in human output
+    #[arg(long, help_heading = "Output options")]
+    pub abs: bool,
+    /// Machine-readable JSON output
+    #[arg(long, help_heading = "Output options")]
+    pub json: bool,
+    /// Stream newline-delimited JSON output
+    #[arg(long, conflicts_with = "json", help_heading = "Output options")]
+    pub jsonl: bool,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum AtbProfileArg {
+    #[value(name = "atb-a", aliases = ["atb_a", "atbv1.0"])]
+    AtbA,
+    #[value(name = "atb-b", aliases = ["atb_b", "atbv1.1"])]
+    AtbB,
+    #[value(name = "atb-c", alias = "atb_c")]
+    AtbC,
+}
+
+impl AtbProfileArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::AtbA => "atb-a",
+            Self::AtbB => "atb-b",
+            Self::AtbC => "atb-c",
+        }
+    }
+}
+
+impl std::fmt::Display for AtbProfileArg {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct AtbArgs {
+    /// Path to VCD/FST/FSDB waveform file
+    #[arg(long, value_name = "FILE", help_heading = "Input options")]
+    pub waves: PathBuf,
+    /// ATB profile from Arm IHI 0032C Issue C
+    #[arg(
+        long,
+        value_name = "PROFILE",
+        value_enum,
+        ignore_case = true,
+        default_value_t = AtbProfileArg::AtbC,
+        conflicts_with = "source",
+        help_heading = "Input options"
+    )]
+    pub profile: AtbProfileArg,
+    /// JSON ATB source file with profile, name, includes, and maps
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with_all = ["profile", "name", "maps", "includes"],
+        help_heading = "Input options"
+    )]
+    pub source: Option<PathBuf>,
+    /// ATB interface name metadata for output (defaults to atb)
+    #[arg(long, help_heading = "Input options")]
+    pub name: Option<String>,
+    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    #[arg(long, help_heading = "Selection options")]
+    pub from: Option<String>,
+    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    #[arg(long, help_heading = "Selection options")]
+    pub to: Option<String>,
+    /// Canonical scope path for scope-relative ATB signal names and include regexes
+    #[arg(long, help_heading = "Selection options")]
+    pub scope: Option<String>,
+    /// Explicit ATB mapping STD_NAME=WAVES_NAME, e.g. atvalid=etm_atvalid; may be repeated
+    #[arg(
+        long = "map",
+        value_name = "STD=WAVES",
+        help_heading = "Signal mapping options"
+    )]
+    pub maps: Vec<String>,
+    /// Regex selecting waveform signal candidates for ATB auto-mapping, e.g. '^etm_(at|af)'; may be repeated
+    #[arg(
+        long = "include",
+        value_name = "REGEX",
+        help_heading = "Signal mapping options"
+    )]
+    pub includes: Vec<String>,
+    /// Maximum number of extracted event rows (`unlimited` disables truncation, value must be > 0)
+    #[arg(long, default_value = "50", help_heading = "Output options")]
+    pub max: LimitArg,
+    /// Print canonical mapping and payload paths in human output
+    #[arg(long, help_heading = "Output options")]
+    pub abs: bool,
+    /// Machine-readable JSON output
+    #[arg(long, help_heading = "Output options")]
+    pub json: bool,
+    /// Stream newline-delimited JSON output
+    #[arg(long, conflicts_with = "json", help_heading = "Output options")]
+    pub jsonl: bool,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum AxiProfileArg {
     Axi3,
     Axi4,
@@ -222,6 +505,51 @@ impl std::fmt::Display for AxiProfileArg {
     }
 }
 
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum AxiStreamProfileArg {
+    #[value(name = "axi4-stream", alias = "axi4_stream")]
+    Axi4Stream,
+    #[value(name = "axi5-stream", alias = "axi5_stream")]
+    Axi5Stream,
+}
+
+impl AxiStreamProfileArg {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Axi4Stream => "axi4-stream",
+            Self::Axi5Stream => "axi5-stream",
+        }
+    }
+}
+
+impl std::fmt::Display for AxiStreamProfileArg {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum TreadyModeArg {
+    Mapped,
+    #[value(name = "implicit-high", alias = "implicit_high")]
+    ImplicitHigh,
+}
+
+impl TreadyModeArg {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Mapped => "mapped",
+            Self::ImplicitHigh => "implicit-high",
+        }
+    }
+}
+
+impl std::fmt::Display for TreadyModeArg {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct AxiArgs {
     /// Path to VCD/FST/FSDB waveform file
@@ -266,6 +594,81 @@ pub struct AxiArgs {
     )]
     pub maps: Vec<String>,
     /// Regex selecting waveform signal candidates for AXI auto-mapping, e.g. '^axi_(aw|w|b|ar|r)_'; may be repeated
+    #[arg(
+        long = "include",
+        value_name = "REGEX",
+        help_heading = "Signal mapping options"
+    )]
+    pub includes: Vec<String>,
+    /// Maximum number of extracted transfer rows (`unlimited` disables truncation, value must be > 0)
+    #[arg(long, default_value = "50", help_heading = "Output options")]
+    pub max: LimitArg,
+    /// Print canonical mapping and payload paths in human output
+    #[arg(long, help_heading = "Output options")]
+    pub abs: bool,
+    /// Machine-readable JSON output
+    #[arg(long, help_heading = "Output options")]
+    pub json: bool,
+    /// Stream newline-delimited JSON output
+    #[arg(long, conflicts_with = "json", help_heading = "Output options")]
+    pub jsonl: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct AxiStreamArgs {
+    /// Path to VCD/FST/FSDB waveform file
+    #[arg(long, value_name = "FILE", help_heading = "Input options")]
+    pub waves: PathBuf,
+    /// AXI-Stream profile from Arm IHI 0051B Issue B
+    #[arg(
+        long,
+        value_name = "PROFILE",
+        value_enum,
+        ignore_case = true,
+        default_value_t = AxiStreamProfileArg::Axi4Stream,
+        conflicts_with = "source",
+        help_heading = "Input options"
+    )]
+    pub profile: AxiStreamProfileArg,
+    /// Whether TREADY is mapped or physically omitted and implicitly HIGH
+    #[arg(
+        long,
+        value_name = "MODE",
+        value_enum,
+        ignore_case = true,
+        default_value_t = TreadyModeArg::Mapped,
+        conflicts_with = "source",
+        help_heading = "Input options"
+    )]
+    pub tready_mode: TreadyModeArg,
+    /// JSON AXI-Stream source file with profile, TREADY mode, name, includes, and maps
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with_all = ["profile", "tready_mode", "name", "maps", "includes"],
+        help_heading = "Input options"
+    )]
+    pub source: Option<PathBuf>,
+    /// Stream-port name metadata for output (defaults to axistream)
+    #[arg(long, help_heading = "Input options")]
+    pub name: Option<String>,
+    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    #[arg(long, help_heading = "Selection options")]
+    pub from: Option<String>,
+    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    #[arg(long, help_heading = "Selection options")]
+    pub to: Option<String>,
+    /// Canonical scope path for scope-relative AXI-Stream signal names and include regexes
+    #[arg(long, help_heading = "Selection options")]
+    pub scope: Option<String>,
+    /// Explicit AXI-Stream mapping STD_NAME=WAVES_NAME, e.g. tvalid=video_tvalid; may be repeated
+    #[arg(
+        long = "map",
+        value_name = "STD=WAVES",
+        help_heading = "Signal mapping options"
+    )]
+    pub maps: Vec<String>,
+    /// Regex selecting waveform signal candidates for AXI-Stream auto-mapping; may be repeated
     #[arg(
         long = "include",
         value_name = "REGEX",

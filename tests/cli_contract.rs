@@ -546,6 +546,7 @@ fn extract_command_without_subcommand_prints_help() {
         assert!(help.contains("Usage: wavepeek extract"));
         assert!(help.contains("Commands:"));
         assert!(help.contains("axi"));
+        assert!(help.contains("axistream"));
         assert!(help.contains("generic"));
         assert!(!help.contains("fatal: args:"));
     }
@@ -1002,6 +1003,58 @@ fn extract_ahb_help_is_self_descriptive() {
 }
 
 #[test]
+fn extract_apb_help_is_self_descriptive() {
+    let long_help = successful_stdout_text(&["extract", "apb", "--help"]);
+    for fragment in [
+        "Extract APB Setup and Access event rows.",
+        "Supports APB3, APB4, and APB5 profiles from Arm IHI 0024E; APB4 is the default.",
+        "Emits setup and access-complete rows by default; --include-wait adds one access-wait row per waited Access cycle.",
+        "Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.",
+        "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
+        "Maps one concrete Completer PSELx as canonical psel.",
+        "Generated schemas accept canonical lowercase profile and PREADY-mode values only.",
+        "[default: apb4]",
+        "[possible values: apb3, apb4, apb5]",
+        "[default: mapped]",
+        "[possible values: mapped, implicit-high]",
+        "In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps",
+        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "JSON output includes APB metadata, mappings, and event rows.",
+        "Reports independent sampled events only; it does not correlate or validate transactions.",
+        "wavepeek docs show commands/extract",
+    ] {
+        assert!(
+            long_help.contains(fragment),
+            "extract apb long help should contain `{fragment}`"
+        );
+    }
+}
+
+#[test]
+fn extract_atb_help_is_self_descriptive() {
+    let long_help = successful_stdout_text(&["extract", "atb", "--help"]);
+    for fragment in [
+        "Extract ATB transfer, flush, and synchronization-request events.",
+        "Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.",
+        "Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; generated schemas accept canonical hyphenated profile names only.",
+        "Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.",
+        "Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.",
+        "Emits same-edge events in transfer, flush, then sync-request order.",
+        "Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.",
+        "[default: atb-c]",
+        "[possible values: atb-a, atb-b, atb-c]",
+        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.",
+        "wavepeek docs show commands/extract",
+    ] {
+        assert!(
+            long_help.contains(fragment),
+            "extract atb long help should contain `{fragment}`"
+        );
+    }
+}
+
+#[test]
 fn extract_axi_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "axi", "--help"]);
     for fragment in [
@@ -1025,6 +1078,32 @@ fn extract_axi_help_is_self_descriptive() {
         assert!(
             long_help.contains(fragment),
             "extract axi long help should contain `{fragment}`"
+        );
+    }
+}
+
+#[test]
+fn extract_axistream_help_is_self_descriptive() {
+    let long_help = successful_stdout_text(&["extract", "axistream", "--help"]);
+    for fragment in [
+        "Extract AXI-Stream transfer rows.",
+        "Supports AXI4-Stream and AXI5-Stream profiles from Arm IHI 0051B Issue B.",
+        "The default profile is AXI4-Stream.",
+        "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
+        "Mapped TREADY mode requires tvalid and tready; implicit-high mode explicitly declares that physical TREADY is omitted.",
+        "Samples reset, handshake predicates, and payload values at the pre-edge sample point for posedge aclk.",
+        "One invocation maps one stream interface and emits one row per completed transfer without a synthetic channel.",
+        "AXI5-Stream wake-up and parity/check signals are outside this transfer extractor.",
+        "[default: axi4-stream]",
+        "[possible values: axi4-stream, axi5-stream]",
+        "[default: mapped]",
+        "[possible values: mapped, implicit-high]",
+        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "wavepeek docs show commands/extract",
+    ] {
+        assert!(
+            long_help.contains(fragment),
+            "extract axistream long help should contain `{fragment}`"
         );
     }
 }

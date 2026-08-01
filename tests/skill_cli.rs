@@ -60,6 +60,16 @@ fn packaged_skill_guidance_matches_current_runtime_capabilities() {
     assert!(packaged.contains(
         "Event/transaction rows, handshakes, beats, and counts with payload values: `extract`."
     ));
+    assert!(
+        packaged
+            .contains("`extract apb` supports APB3, APB4, and APB5 from Arm IHI 0024E Issue E.")
+    );
+    assert!(packaged.contains(
+        "Use implicit-HIGH mode only when PREADY is physically absent; it forbids both a `pready` mapping and wait capture."
+    ));
+    assert!(packaged.contains(
+        "APB rows are sampled events, not assembled or protocol-validated transactions."
+    ));
     assert!(packaged.contains(
         "`extract ahb` supports manager-facing AHB-Lite and AHB5 pipeline events from Arm IHI 0033C, Issue C."
     ));
@@ -80,6 +90,12 @@ fn packaged_skill_guidance_matches_current_runtime_capabilities() {
     assert!(packaged.contains("ACE5-LiteDVM adds DVM `ac` and `cr` channels without `cd`."));
     assert!(packaged.contains(
         "`extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state."
+    ));
+    assert!(packaged.contains("Use `extract axistream` for AXI4-Stream or AXI5-Stream"));
+    assert!(packaged.contains("--tready-mode mapped"));
+    assert!(packaged.contains("The AXI-Stream profiles both use Arm IHI 0051B Issue B."));
+    assert!(packaged.contains(
+        "`extract axistream` reports one-interface transfer rows without a synthetic channel"
     ));
     assert!(!packaged.contains("protocol transaction enumeration"));
     assert!(!packaged.contains("Event/transaction enumeration and counting: `property --capture match`, then `value --at <sample_time>`"));

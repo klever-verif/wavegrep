@@ -162,7 +162,10 @@ def validate_output_schema(schema: dict[str, Any]) -> None:
             "change",
             "property",
             "extract ahb",
+            "extract apb",
+            "extract atb",
             "extract axi",
+            "extract axistream",
             "extract generic",
             "docs topics",
             "docs search",
@@ -185,14 +188,66 @@ def validate_output_schema(schema: dict[str, Any]) -> None:
 
 def validate_stream_schema(schema: dict[str, Any]) -> None:
     require(schema.get("$id") == EXPECTED_STREAM_URL, "stream schema $id must be exact URL")
-    begin_branches = schema["$defs"]["beginRecord"].get("oneOf", [])
-    require(len(begin_branches) == 3, "stream begin record must use three command branches")
     require(
-        all(
-            branch["properties"]["$schema"].get("const") == EXPECTED_STREAM_URL
-            for branch in begin_branches
-        ),
+        schema["$defs"]["beginRecord"]["properties"]["$schema"].get("const")
+        == EXPECTED_STREAM_URL,
         "stream begin record must require exact $schema URL with const",
+    )
+    begin_branches = schema["$defs"]["beginRecord"].get("oneOf")
+    require(
+        isinstance(begin_branches, list) and len(begin_branches) == 6,
+        "stream begin record must couple commands to protocol context",
+    )
+    ahb_branch, apb_branch, atb_branch, axi_branch, axistream_branch, context_free_branch = begin_branches
+    require(
+        ahb_branch.get("required") == ["command", "context"]
+        and ahb_branch["properties"]["command"].get("const") == "extract ahb"
+        and ahb_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAhbContext"},
+        "extract ahb begin records must require AHB context",
+    )
+    require(
+        apb_branch.get("required") == ["command", "context"]
+        and apb_branch["properties"]["command"].get("const") == "extract apb"
+        and apb_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractApbContext"},
+        "extract apb begin records must require APB context",
+    )
+    require(
+        atb_branch.get("required") == ["command", "context"]
+        and atb_branch["properties"]["command"].get("const") == "extract atb"
+        and atb_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAtbContext"},
+        "extract atb begin records must require ATB context",
+    )
+    require(
+        axi_branch.get("required") == ["command", "context"]
+        and axi_branch["properties"]["command"].get("const") == "extract axi"
+        and axi_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAxiContext"},
+        "extract axi begin records must require AXI context",
+    )
+    require(
+        axistream_branch.get("required") == ["command", "context"]
+        and axistream_branch["properties"]["command"].get("const")
+        == "extract axistream"
+        and axistream_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAxiStreamContext"},
+        "extract axistream begin records must require AXI-Stream context",
+    )
+    require(
+        context_free_branch.get("not") == {"required": ["context"]}
+        and context_free_branch["properties"]["command"].get("enum")
+        == [
+            "info",
+            "scope",
+            "signal",
+            "value",
+            "change",
+            "property",
+            "extract generic",
+        ],
+        "context-free begin records must reject protocol context",
     )
     require(
         schema["$defs"]["streamCommand"]["enum"]
@@ -204,7 +259,10 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
             "change",
             "property",
             "extract ahb",
+            "extract apb",
+            "extract atb",
             "extract axi",
+            "extract axistream",
             "extract generic",
         ],
         "stream command enum is not the expected stable list",
@@ -239,9 +297,12 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
         == [
             {"$ref": "#/$defs/extractGenericSourcesInput"},
             {"$ref": "#/$defs/extractAhbSourceInput"},
+            {"$ref": "#/$defs/extractApbSourceInput"},
+            {"$ref": "#/$defs/extractAtbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"},
+            {"$ref": "#/$defs/extractAxiStreamSourceInput"},
         ],
-        "input schema root must accept generic, AHB, and AXI source documents",
+        "input schema root must accept generic, APB, ATB, AXI, and AXI-Stream source documents",
     )
     generic_def = schema["$defs"]["extractGenericSourcesInput"]
     require(
@@ -282,6 +343,58 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
         "allOf" in ahb_def,
         "AHB input source must include profile-aware constraints",
     )
+    apb_def = schema["$defs"]["extractApbSourceInput"]
+    require(
+        apb_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "APB input source must require exact $schema URL with const",
+    )
+    require(
+        apb_def["properties"]["kind"].get("const") == "extract.apb.source",
+        "input schema must require exact extract APB kind",
+    )
+    require(
+        schema["$defs"]["apbProfile"].get("enum") == ["apb3", "apb4", "apb5"],
+        "APB input profile enum is not the expected stable list",
+    )
+    require(
+        apb_def["properties"]["profile"] == {"$ref": "#/$defs/apbProfile"},
+        "APB input profile must reuse the shared profile definition",
+    )
+    require(
+        apb_def["properties"]["pready_mode"]
+        == {"$ref": "#/$defs/apbPreadyMode"},
+        "APB input PREADY mode must reuse the shared mode definition",
+    )
+    require(
+        apb_def["properties"]["maps"]["additionalProperties"].get("pattern")
+        == "\\S",
+        "APB input map values must require non-whitespace text",
+    )
+    require(
+        "allOf" in apb_def,
+        "APB input source must include profile-aware constraints",
+    )
+    atb_def = schema["$defs"]["extractAtbSourceInput"]
+    require(
+        atb_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "ATB input source must require exact $schema URL with const",
+    )
+    require(
+        atb_def["properties"]["kind"].get("const") == "extract.atb.source",
+        "input schema must require exact extract ATB kind",
+    )
+    require(
+        schema["$defs"]["atbProfile"].get("enum") == ["atb-a", "atb-b", "atb-c"],
+        "ATB input profile enum is not the expected stable list",
+    )
+    require(
+        atb_def["properties"]["profile"] == {"$ref": "#/$defs/atbProfile"},
+        "ATB input profile must reuse the shared profile definition",
+    )
+    require(
+        "allOf" in atb_def,
+        "ATB input source must include profile-aware constraints",
+    )
     axi_def = schema["$defs"]["extractAxiSourceInput"]
     require(
         axi_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
@@ -315,6 +428,40 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
     require(
         "allOf" in axi_def,
         "AXI input source must include profile-aware constraints",
+    )
+    axistream_def = schema["$defs"]["extractAxiStreamSourceInput"]
+    require(
+        axistream_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "AXI-Stream input source must require exact $schema URL with const",
+    )
+    require(
+        axistream_def["properties"]["kind"].get("const")
+        == "extract.axistream.source",
+        "input schema must require exact extract AXI-Stream kind",
+    )
+    require(
+        schema["$defs"]["axiStreamProfile"].get("enum")
+        == ["axi4-stream", "axi5-stream"],
+        "AXI-Stream input profile enum is not the expected stable list",
+    )
+    require(
+        schema["$defs"]["treadyMode"].get("enum")
+        == ["mapped", "implicit-high"],
+        "AXI-Stream input TREADY mode enum is not the expected stable list",
+    )
+    require(
+        axistream_def["properties"]["profile"]
+        == {"$ref": "#/$defs/axiStreamProfile"},
+        "AXI-Stream input profile must reuse the shared profile definition",
+    )
+    require(
+        axistream_def["properties"]["tready_mode"]
+        == {"$ref": "#/$defs/treadyMode"},
+        "AXI-Stream input TREADY mode must reuse the shared mode definition",
+    )
+    require(
+        "allOf" in axistream_def,
+        "AXI-Stream input source must include profile- and mode-aware constraints",
     )
 
 
