@@ -2149,16 +2149,24 @@ fn schema_input_command_output_is_valid_json() {
         value["oneOf"],
         json!([
             {"$ref": "#/$defs/extractGenericSourcesInput"},
+            {"$ref": "#/$defs/extractAhbSourceInput"},
             {"$ref": "#/$defs/extractApbSourceInput"},
             {"$ref": "#/$defs/extractAtbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"},
             {"$ref": "#/$defs/extractAxiStreamSourceInput"}
-
         ])
     );
     assert_eq!(
         value["$defs"]["extractGenericSourcesInput"]["properties"]["kind"]["const"],
         "extract.generic.sources"
+    );
+    assert_eq!(
+        value["$defs"]["extractAhbSourceInput"]["properties"]["kind"]["const"],
+        "extract.ahb.source"
+    );
+    assert_eq!(
+        value["$defs"]["ahbProfile"]["enum"],
+        json!(["ahb-lite", "ahb5"])
     );
     assert_eq!(
         value["$defs"]["extractAtbSourceInput"]["properties"]["kind"]["const"],
@@ -2571,6 +2579,7 @@ fn schema_stream_command_exposes_waveform_command_contract() {
             "value",
             "change",
             "property",
+            "extract ahb",
             "extract apb",
             "extract atb",
             "extract axi",
@@ -2609,6 +2618,50 @@ fn schema_stream_command_exposes_waveform_command_contract() {
             .get("pattern")
             .is_none()
     );
+}
+
+#[test]
+fn schema_stream_validator_requires_command_specific_begin_context() {
+    let validator = stream_schema_validator();
+    let valid_ahb = json!({
+        "type": "begin",
+        "seq": 0,
+        "command": "extract ahb",
+        "$schema": expected_stream_schema_url(),
+        "context": {
+            "name": "ahb",
+            "profile": "ahb-lite",
+            "issue": "C",
+            "include_stall": false,
+            "include_idle": false,
+            "include_busy": false,
+            "initial_data_phase": {"state": "desynchronized"},
+            "mappings": {
+                "hclk": {"path": "top.hclk"},
+                "htrans": {"path": "top.htrans"},
+                "hready": {"path": "top.hready"},
+                "hwrite": {"path": "top.hwrite"}
+            }
+        }
+    });
+    validator
+        .validate(&valid_ahb)
+        .unwrap_or_else(|error| panic!("valid AHB begin rejected: {error}\n{valid_ahb}"));
+
+    let mut missing_context = valid_ahb.clone();
+    missing_context
+        .as_object_mut()
+        .expect("begin object")
+        .remove("context");
+    assert!(validator.validate(&missing_context).is_err());
+
+    let mut mismatched_context = valid_ahb.clone();
+    mismatched_context["command"] = json!("extract axi");
+    assert!(validator.validate(&mismatched_context).is_err());
+
+    let mut unrelated_context = valid_ahb.clone();
+    unrelated_context["command"] = json!("info");
+    assert!(validator.validate(&unrelated_context).is_err());
 }
 
 #[test]

@@ -161,6 +161,7 @@ def validate_output_schema(schema: dict[str, Any]) -> None:
             "value",
             "change",
             "property",
+            "extract ahb",
             "extract apb",
             "extract atb",
             "extract axi",
@@ -194,10 +195,17 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
     )
     begin_branches = schema["$defs"]["beginRecord"].get("oneOf")
     require(
-        isinstance(begin_branches, list) and len(begin_branches) == 5,
+        isinstance(begin_branches, list) and len(begin_branches) == 6,
         "stream begin record must couple commands to protocol context",
     )
-    apb_branch, atb_branch, axi_branch, axistream_branch, context_free_branch = begin_branches
+    ahb_branch, apb_branch, atb_branch, axi_branch, axistream_branch, context_free_branch = begin_branches
+    require(
+        ahb_branch.get("required") == ["command", "context"]
+        and ahb_branch["properties"]["command"].get("const") == "extract ahb"
+        and ahb_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAhbContext"},
+        "extract ahb begin records must require AHB context",
+    )
     require(
         apb_branch.get("required") == ["command", "context"]
         and apb_branch["properties"]["command"].get("const") == "extract apb"
@@ -250,6 +258,7 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
             "value",
             "change",
             "property",
+            "extract ahb",
             "extract apb",
             "extract atb",
             "extract axi",
@@ -287,6 +296,7 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
         schema.get("oneOf")
         == [
             {"$ref": "#/$defs/extractGenericSourcesInput"},
+            {"$ref": "#/$defs/extractAhbSourceInput"},
             {"$ref": "#/$defs/extractApbSourceInput"},
             {"$ref": "#/$defs/extractAtbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"},
@@ -311,6 +321,27 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
     require(
         source_def["properties"]["payload"].get("minItems") == 1,
         "input payload must require at least one signal",
+    )
+    ahb_def = schema["$defs"]["extractAhbSourceInput"]
+    require(
+        ahb_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "AHB input source must require exact $schema URL with const",
+    )
+    require(
+        ahb_def["properties"]["kind"].get("const") == "extract.ahb.source",
+        "input schema must require exact extract AHB kind",
+    )
+    require(
+        schema["$defs"]["ahbProfile"].get("enum") == ["ahb-lite", "ahb5"],
+        "AHB input profile enum is not the expected stable list",
+    )
+    require(
+        ahb_def["properties"]["profile"] == {"$ref": "#/$defs/ahbProfile"},
+        "AHB input profile must reuse the shared profile definition",
+    )
+    require(
+        "allOf" in ahb_def,
+        "AHB input source must include profile-aware constraints",
     )
     apb_def = schema["$defs"]["extractApbSourceInput"]
     require(

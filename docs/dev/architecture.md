@@ -84,6 +84,7 @@ src/
 │   ├── value_format.rs  # Shared Verilog literal formatting helpers
 │   ├── property.rs      # Property runtime entrypoint and capture-mode execution
 │   ├── extract.rs       # Generic event-row extraction runtime
+│   ├── ahb.rs           # Stateful AHB address/data pipeline extraction
 │   ├── apb.rs           # Stateless APB profile mapping and event adaptation
 │   ├── atb.rs           # Stateless ATB profile mapping and event adaptation
 │   ├── axi.rs           # Stateless AXI-family profile mapping and transfer adaptation
@@ -204,6 +205,12 @@ The dispatcher chooses between those engines from internal workload estimates su
 The reason for the multi-engine design is simple: a single internal strategy could not keep latency consistently low across both tiny and large-window scenarios.
 
 For `--jsonl`, `change` emits snapshots through a sink while the selected engine runs instead of collecting the complete result set solely for output. The human and `--json` paths use the same sink interface with a collector so they preserve the existing complete-result behavior. `property` uses the same pattern for captured rows.
+
+## Protocol Extraction Architecture
+
+`src/engine/axi.rs` maps supported AXI-family profiles and ready/valid channels into the protocol-neutral runtime in `src/engine/extract.rs`. `src/engine/ahb.rs` is a dedicated stateful walker because an accepted AHB address phase completes on a later edge, can remain pending across wait states, and requires warm-up before a lower time bound. Both engines use the shared waveform facade, pre-edge sampling model, time/limit helpers, contract DTOs, and output sinks; they do not share a speculative protocol framework.
+
+AHB machine contracts are specialized in `src/contract/ahb_schema.rs`. Profile/event payload objects are closed and signal-validity-aware, while the top-level envelope and structured source object retain the extension policy used by the existing schema families.
 
 ## Testing Strategy
 

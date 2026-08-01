@@ -93,6 +93,18 @@ Avoid `--on "*" --sample-mode native` for synchronous protocol counts unless you
 
 When the user asks for every occurrence, count, timestamp list, handshake, request, response, beat, or transaction, do not use `change` on payload signals as the primary counter.
 
+`extract ahb` supports manager-facing AHB-Lite and AHB5 pipeline events from Arm IHI 0033C, Issue C. Use it when the user needs accepted address phases, real data completions, reset/synchronization boundaries, or optional stall/IDLE/BUSY cycles:
+
+    wavepeek extract ahb \
+      --waves <FILE> \
+      --scope <SCOPE> \
+      --profile ahb-lite \
+      --map hclk=<CLK> \
+      --map hresetn=<RESET_N> \
+      --include '<AHB_SIGNAL_REGEX>' \
+      --json
+
+Map selected manager-facing `HREADY`; do not substitute subordinate-local `HREADYOUT` or `HSELx`. AHB output separates address and data-complete events, orders an old completion before a same-edge new address, and warms pipeline state before `--from`. Do not join those rows into a transaction or infer a completion while context is desynchronized.
 `extract apb` supports APB3, APB4, and APB5 from Arm IHI 0024E Issue E. Use it for independent sampled Setup, waited Access, and completed Access rows:
 
     wavepeek extract apb \
@@ -152,7 +164,7 @@ Use `extract generic` on a clocked predicate when payload values are needed for 
       --payload <PAYLOAD_AND_CONTEXT_SIGNALS> \
       --json
 
-`extract` emits every matching row, including repeated transfers with identical payload values. The row `time` is the event edge and `sample_time` is where the predicate and payload were sampled. `extract apb` does not pair Setup and Access rows or validate APB sequencing. `extract atb` reports stateless interface events only. `extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state. `extract axistream` reports one-interface transfer rows without a synthetic channel and does not reconstruct packets from `tlast`.
+`extract` emits every matching row, including repeated transfers with identical payload values. The row `time` is the event edge and `sample_time` is where the predicate and payload were sampled. `extract ahb` reports pipeline events without transaction joining or burst reconstruction. `extract apb` does not pair Setup and Access rows or validate APB sequencing. `extract atb` reports stateless interface events only. `extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state. `extract axistream` reports one-interface transfer rows without a synthetic channel and does not reconstruct packets from `tlast`.
 
 Use `property --capture match` when you only need timestamp rows or when you need property capture modes rather than payload extraction. Use `value --at <sample_time>` as a fallback follow-up when a payload set is decided after the property query.
 

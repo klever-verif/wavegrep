@@ -7,9 +7,10 @@ use crate::error::WavepeekError;
 
 use super::common::ContractDiagnostic;
 use super::output::{
-    ChangeSnapshot, ExtractApbEvent, ExtractApbMapping, ExtractAtbEvent, ExtractAtbMapping,
-    ExtractAxiMapping, ExtractAxiStreamMapping, ExtractAxiStreamTransfer, ExtractAxiTransfer,
-    ExtractGenericRow, InfoData, PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
+    ChangeSnapshot, ExtractAhbEvent, ExtractAhbInitialDataPhase, ExtractAhbMapping,
+    ExtractApbEvent, ExtractApbMapping, ExtractAtbEvent, ExtractAtbMapping, ExtractAxiMapping,
+    ExtractAxiStreamMapping, ExtractAxiStreamTransfer, ExtractAxiTransfer, ExtractGenericRow,
+    InfoData, PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
 };
 use super::schema::STREAM_SCHEMA_URL;
 
@@ -176,10 +177,43 @@ struct StreamSummary {
 #[schemars(rename = "streamContextData")]
 #[serde(untagged)]
 pub enum StreamContextData<'a> {
+    Ahb(ExtractAhbContext<'a>),
     Apb(ExtractApbContext<'a>),
     Atb(ExtractAtbContext<'a>),
     Axi(ExtractAxiContext<'a>),
     AxiStream(ExtractAxiStreamContext<'a>),
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
+#[schemars(rename = "extractAhbContext")]
+pub struct ExtractAhbContext<'a> {
+    name: &'a str,
+    profile: &'a str,
+    issue: &'a str,
+    include_stall: bool,
+    include_idle: bool,
+    include_busy: bool,
+    initial_data_phase: ExtractAhbInitialDataPhase<'a>,
+    mappings: std::collections::BTreeMap<&'a str, ExtractAhbMapping<'a>>,
+}
+
+impl<'a> From<&'a crate::engine::ahb::AhbContext> for ExtractAhbContext<'a> {
+    fn from(context: &'a crate::engine::ahb::AhbContext) -> Self {
+        Self {
+            name: context.name.as_str(),
+            profile: context.profile.as_str(),
+            issue: context.issue.as_str(),
+            include_stall: context.include_stall,
+            include_idle: context.include_idle,
+            include_busy: context.include_busy,
+            initial_data_phase: ExtractAhbInitialDataPhase::from(&context.initial_data_phase),
+            mappings: context
+                .mappings
+                .iter()
+                .map(|mapping| (mapping.standard.as_str(), ExtractAhbMapping::from(mapping)))
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, JsonSchema, Serialize)]
@@ -265,6 +299,13 @@ pub trait StreamContext {
     fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError>;
 }
 
+impl StreamContext for crate::engine::ahb::AhbContext {
+    fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAhb)?;
+        Ok(StreamContextData::Ahb(ExtractAhbContext::from(self)))
+    }
+}
+
 impl StreamContext for crate::engine::apb::ApbContext {
     fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractApb)?;
@@ -337,6 +378,7 @@ pub enum StreamItemData<'a> {
     Value(ValueSnapshot<'a>),
     Change(ChangeSnapshot<'a>),
     Property(PropertyRow<'a>),
+    ExtractAhb(ExtractAhbEvent<'a>),
     ExtractApb(ExtractApbEvent<'a>),
     ExtractAtb(ExtractAtbEvent<'a>),
     ExtractAxi(ExtractAxiTransfer<'a>),
@@ -387,6 +429,13 @@ impl StreamItem for crate::engine::property::PropertyCaptureRow {
     fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
         require_item_command(command, CommandName::Property)?;
         Ok(StreamItemData::Property(PropertyRow::from(self)))
+    }
+}
+
+impl StreamItem for crate::engine::ahb::AhbEvent {
+    fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAhb)?;
+        Ok(StreamItemData::ExtractAhb(ExtractAhbEvent::from(self)))
     }
 }
 
@@ -485,6 +534,7 @@ fn require_stream_command(command: CommandName) -> Result<(), WavepeekError> {
         | CommandName::Value
         | CommandName::Change
         | CommandName::Property
+        | CommandName::ExtractAhb
         | CommandName::ExtractApb
         | CommandName::ExtractAtb
         | CommandName::ExtractAxi
