@@ -164,6 +164,7 @@ def validate_output_schema(schema: dict[str, Any]) -> None:
             "extract apb",
             "extract atb",
             "extract axi",
+            "extract axistream",
             "extract generic",
             "docs topics",
             "docs search",
@@ -193,10 +194,10 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
     )
     begin_branches = schema["$defs"]["beginRecord"].get("oneOf")
     require(
-        isinstance(begin_branches, list) and len(begin_branches) == 4,
+        isinstance(begin_branches, list) and len(begin_branches) == 5,
         "stream begin record must couple commands to protocol context",
     )
-    apb_branch, atb_branch, axi_branch, context_free_branch = begin_branches
+    apb_branch, atb_branch, axi_branch, axistream_branch, context_free_branch = begin_branches
     require(
         apb_branch.get("required") == ["command", "context"]
         and apb_branch["properties"]["command"].get("const") == "extract apb"
@@ -217,6 +218,14 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
         and axi_branch["properties"]["context"]
         == {"$ref": "#/$defs/extractAxiContext"},
         "extract axi begin records must require AXI context",
+    )
+    require(
+        axistream_branch.get("required") == ["command", "context"]
+        and axistream_branch["properties"]["command"].get("const")
+        == "extract axistream"
+        and axistream_branch["properties"]["context"]
+        == {"$ref": "#/$defs/extractAxiStreamContext"},
+        "extract axistream begin records must require AXI-Stream context",
     )
     require(
         context_free_branch.get("not") == {"required": ["context"]}
@@ -244,6 +253,7 @@ def validate_stream_schema(schema: dict[str, Any]) -> None:
             "extract apb",
             "extract atb",
             "extract axi",
+            "extract axistream",
             "extract generic",
         ],
         "stream command enum is not the expected stable list",
@@ -280,8 +290,9 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
             {"$ref": "#/$defs/extractApbSourceInput"},
             {"$ref": "#/$defs/extractAtbSourceInput"},
             {"$ref": "#/$defs/extractAxiSourceInput"},
+            {"$ref": "#/$defs/extractAxiStreamSourceInput"},
         ],
-        "input schema root must accept generic, APB, ATB, and AXI source documents",
+        "input schema root must accept generic, APB, ATB, AXI, and AXI-Stream source documents",
     )
     generic_def = schema["$defs"]["extractGenericSourcesInput"]
     require(
@@ -386,6 +397,40 @@ def validate_input_schema(schema: dict[str, Any]) -> None:
     require(
         "allOf" in axi_def,
         "AXI input source must include profile-aware constraints",
+    )
+    axistream_def = schema["$defs"]["extractAxiStreamSourceInput"]
+    require(
+        axistream_def["properties"]["$schema"].get("const") == EXPECTED_INPUT_URL,
+        "AXI-Stream input source must require exact $schema URL with const",
+    )
+    require(
+        axistream_def["properties"]["kind"].get("const")
+        == "extract.axistream.source",
+        "input schema must require exact extract AXI-Stream kind",
+    )
+    require(
+        schema["$defs"]["axiStreamProfile"].get("enum")
+        == ["axi4-stream", "axi5-stream"],
+        "AXI-Stream input profile enum is not the expected stable list",
+    )
+    require(
+        schema["$defs"]["treadyMode"].get("enum")
+        == ["mapped", "implicit-high"],
+        "AXI-Stream input TREADY mode enum is not the expected stable list",
+    )
+    require(
+        axistream_def["properties"]["profile"]
+        == {"$ref": "#/$defs/axiStreamProfile"},
+        "AXI-Stream input profile must reuse the shared profile definition",
+    )
+    require(
+        axistream_def["properties"]["tready_mode"]
+        == {"$ref": "#/$defs/treadyMode"},
+        "AXI-Stream input TREADY mode must reuse the shared mode definition",
+    )
+    require(
+        "allOf" in axistream_def,
+        "AXI-Stream input source must include profile- and mode-aware constraints",
     )
 
 

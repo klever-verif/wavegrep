@@ -11,7 +11,7 @@ see_also:
 ---
 # Extract handshakes from synchronous bus
 
-Use `extract` commands when you need a compact table of transfer-like events from a waveform. Use `extract apb` for APB3, APB4, or APB5 Setup and Access states from Arm IHI 0024E Issue E. Use `extract axi` for AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP ready/valid channels. AXI5 and ACE5-LiteDVM can include DVM `ac` and `cr` transfers without `cd`; AXI5-Lite, ACE5-Lite, and ACE5-LiteACP use only the five base channels. Use `extract generic` for other protocol-neutral handshakes.
+Use `extract` commands when you need a compact table of transfer-like events from a waveform. Use `extract apb` for APB3, APB4, or APB5 Setup and Access states from Arm IHI 0024E Issue E. Use `extract atb` for AMBA ATB transfer, flush, and synchronization-request events. Use `extract axi` for AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP ready/valid channels. Use `extract axistream` for one AXI4-Stream or AXI5-Stream interface. AXI5 and ACE5-LiteDVM can include DVM `ac` and `cr` transfers without `cd`; AXI5-Lite, ACE5-Lite, and ACE5-LiteACP use only the five base channels. Use `extract generic` for other protocol-neutral handshakes.
 
 For APB, select the concrete Completer interface and optionally keep waited Access cycles:
 
@@ -43,6 +43,7 @@ events:
 
 The APB rows above are independent sampled states, not assembled transactions. Omit `--include-wait` when only Setup and completion matter. Use `--pready-mode implicit-high` only when PREADY is physically absent; that mode forbids both a `pready` mapping and wait capture.
 
+
 For AXI, map the clock and let include regexes find standard channel signals:
 
 ```text
@@ -64,6 +65,31 @@ mappings:
 transfers:
 @25ns sample@24999ps [aw] awaddr=32'h00000040
 ```
+
+For AXI-Stream, map one interface. The default mapped mode requires `tready`:
+
+```text
+$ wavepeek extract axistream --waves path/to/dump.vcd \
+    --scope top.dut \
+    --profile axi4-stream \
+    --map aclk=clk \
+    --map aresetn=rst_n \
+    --include '^video_out_'
+name: axistream
+profile: axi4-stream
+issue: B
+tready_mode: mapped
+mappings:
+  aclk = clk
+  aresetn = rst_n
+  tvalid = video_out_tvalid
+  tready = video_out_tready
+  tdata = video_out_tdata
+transfers:
+@25ns sample@24999ps tdata=32'hdeadbeef
+```
+
+Use `--tready-mode implicit-high` only when the physical stream interface omits `TREADY`; do not map `tready` in that mode. The AXI-Stream adapter emits every handshake row, including identical consecutive payloads, and does not reconstruct packets from `tlast`.
 
 For generic handshakes, start by selecting a scope and an edge-only event:
 
@@ -89,4 +115,4 @@ $ wavepeek extract generic --waves path/to/dump.vcd \
     --jsonl
 ```
 
-For several generic source types, or for a reusable APB or AXI profile/mapping setup, write a source file and pass `--source`. Use `wavepeek schema --input` to fetch the exact input schema for that file.
+For several generic source types, or for a reusable APB, ATB, AXI, or AXI-Stream profile/mapping setup, write a source file and pass `--source`. Use `wavepeek schema --input` to fetch the exact input schema for that file.

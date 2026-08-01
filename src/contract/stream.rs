@@ -8,8 +8,8 @@ use crate::error::WavepeekError;
 use super::common::ContractDiagnostic;
 use super::output::{
     ChangeSnapshot, ExtractApbEvent, ExtractApbMapping, ExtractAtbEvent, ExtractAtbMapping,
-    ExtractAxiMapping, ExtractAxiTransfer, ExtractGenericRow, InfoData, PropertyRow, ScopeEntry,
-    SignalEntry, ValueSnapshot,
+    ExtractAxiMapping, ExtractAxiStreamMapping, ExtractAxiStreamTransfer, ExtractAxiTransfer,
+    ExtractGenericRow, InfoData, PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
 };
 use super::schema::STREAM_SCHEMA_URL;
 
@@ -179,6 +179,7 @@ pub enum StreamContextData<'a> {
     Apb(ExtractApbContext<'a>),
     Atb(ExtractAtbContext<'a>),
     Axi(ExtractAxiContext<'a>),
+    AxiStream(ExtractAxiStreamContext<'a>),
 }
 
 #[derive(Debug, JsonSchema, Serialize)]
@@ -286,6 +287,47 @@ impl StreamContext for crate::engine::axi::AxiContext {
 }
 
 #[derive(Debug, JsonSchema, Serialize)]
+#[schemars(rename = "extractAxiStreamContext")]
+#[schemars(extend("additionalProperties" = true))]
+pub struct ExtractAxiStreamContext<'a> {
+    name: &'a str,
+    profile: &'a str,
+    issue: &'a str,
+    tready_mode: &'a str,
+    mappings: std::collections::BTreeMap<&'a str, ExtractAxiStreamMapping<'a>>,
+}
+
+impl<'a> From<&'a crate::engine::axistream::AxiStreamContext> for ExtractAxiStreamContext<'a> {
+    fn from(context: &'a crate::engine::axistream::AxiStreamContext) -> Self {
+        Self {
+            name: context.name.as_str(),
+            profile: context.profile.as_str(),
+            issue: context.issue.as_str(),
+            tready_mode: context.tready_mode.as_str(),
+            mappings: context
+                .mappings
+                .iter()
+                .map(|mapping| {
+                    (
+                        mapping.standard.as_str(),
+                        ExtractAxiStreamMapping::from(mapping),
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
+impl StreamContext for crate::engine::axistream::AxiStreamContext {
+    fn stream_context(&self, command: CommandName) -> Result<StreamContextData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAxiStream)?;
+        Ok(StreamContextData::AxiStream(ExtractAxiStreamContext::from(
+            self,
+        )))
+    }
+}
+
+#[derive(Debug, JsonSchema, Serialize)]
 #[schemars(rename = "streamItemData")]
 #[serde(untagged)]
 pub enum StreamItemData<'a> {
@@ -298,6 +340,7 @@ pub enum StreamItemData<'a> {
     ExtractApb(ExtractApbEvent<'a>),
     ExtractAtb(ExtractAtbEvent<'a>),
     ExtractAxi(ExtractAxiTransfer<'a>),
+    ExtractAxiStream(ExtractAxiStreamTransfer<'a>),
     ExtractGeneric(ExtractGenericRow<'a>),
 }
 
@@ -365,6 +408,15 @@ impl StreamItem for crate::engine::axi::AxiTransfer {
     fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
         require_item_command(command, CommandName::ExtractAxi)?;
         Ok(StreamItemData::ExtractAxi(ExtractAxiTransfer::from(self)))
+    }
+}
+
+impl StreamItem for crate::engine::axistream::AxiStreamTransfer {
+    fn stream_item(&self, command: CommandName) -> Result<StreamItemData<'_>, WavepeekError> {
+        require_item_command(command, CommandName::ExtractAxiStream)?;
+        Ok(StreamItemData::ExtractAxiStream(
+            ExtractAxiStreamTransfer::from(self),
+        ))
     }
 }
 
@@ -436,6 +488,7 @@ fn require_stream_command(command: CommandName) -> Result<(), WavepeekError> {
         | CommandName::ExtractApb
         | CommandName::ExtractAtb
         | CommandName::ExtractAxi
+        | CommandName::ExtractAxiStream
         | CommandName::ExtractGeneric => Ok(()),
         _ => Err(WavepeekError::Args(
             "--jsonl is available only for waveform commands".to_string(),
