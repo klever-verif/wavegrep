@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-01
+
 ### Added
 - Added `wavepeek extract ahb` for manager-facing AHB-Lite and AHB5 Issue C pipeline extraction with accepted address, data completion, reset, desynchronization, optional stall/IDLE/BUSY events, lower-bound state warm-up, source-file mode, and human, JSON, and JSONL output ([issue #67](https://github.com/kleverhq/wavepeek/issues/67)).
 - Added `wavepeek extract apb` for stateless APB3, APB4, and APB5 Setup, waited Access, and completed Access event extraction with mapped or implicit-HIGH PREADY handling, explicit maps, include-based auto-mapping, source-file mode, and human, JSON, and JSONL output ([issue #66](https://github.com/kleverhq/wavepeek/issues/66)).
@@ -163,7 +165,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release of `wavepeek` CLI.
 
-[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.0
 [2.1.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.1.0
 [2.0.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.0.0
 [1.0.1]: https://github.com/kleverhq/wavepeek/releases/tag/v1.0.1
