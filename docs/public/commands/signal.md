@@ -135,7 +135,7 @@ Some FSDB producers can expose distinct signal records under the same canonical 
 ```text
 $ wavepeek signal --waves path/to/dump.fsdb --scope top
 clk kind=wire width=1
-warning[WPK-W0005]: omitted 1 ambiguous FSDB signal path: 'top.opcode'; no candidate was selected
+warning[WPK-W0005]: omitted ambiguous FSDB signal paths: count=1, first='top.opcode'; no candidate was selected
 ```
 
 Other scopes and signals remain available. A command that explicitly references `top.opcode` fails with candidate metadata so it cannot silently return the wrong value.

@@ -79,12 +79,10 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
     } else {
         waveform.signals_in_scope_report(scope.as_str())?
     };
-    debug.event("signal.list.done", || {
-        serde_json::json!({
-            "signals": listing.entries.len(),
-            "ambiguous_signals_omitted": listing.omitted_ambiguous_paths.len(),
-        })
-    });
+    debug.event(
+        "signal.list.done",
+        || serde_json::json!({"signals": listing.entries.len()}),
+    );
     if !listing.omitted_ambiguous_paths.is_empty() {
         diagnostics.push(ambiguous_signal_warning(
             listing.omitted_ambiguous_paths.as_slice(),
@@ -150,23 +148,12 @@ fn signal_display_name(recursive: bool, scope_prefix: &str, path: &str, name: &s
 }
 
 fn ambiguous_signal_warning(paths: &[String]) -> Diagnostic {
-    const DISPLAY_LIMIT: usize = 5;
-
-    let mut displayed = paths
-        .iter()
-        .take(DISPLAY_LIMIT)
-        .map(|path| format!("'{path}'"))
-        .collect::<Vec<_>>();
-    if paths.len() > DISPLAY_LIMIT {
-        displayed.push(format!("and {} more", paths.len() - DISPLAY_LIMIT));
-    }
-    let plural = if paths.len() == 1 { "" } else { "s" };
     Diagnostic::warning(
         WarningDiagnosticCode::AmbiguousSignalsOmitted,
         format!(
-            "omitted {} ambiguous FSDB signal path{plural}: {}; no candidate was selected",
+            "omitted ambiguous FSDB signal paths: count={}, first='{}'; no candidate was selected",
             paths.len(),
-            displayed.join(", ")
+            paths[0]
         ),
     )
 }
@@ -177,19 +164,13 @@ mod tests {
 
     #[test]
     fn ambiguous_signal_warning_is_stable_and_bounded() {
-        let diagnostic = ambiguous_signal_warning(&["top.opcode".to_string()]);
+        let diagnostic =
+            ambiguous_signal_warning(&["top.opcode".to_string(), "top.second_opcode".to_string()]);
+
         assert_eq!(diagnostic.code(), Some("WPK-W0005"));
         assert_eq!(
             diagnostic.message(),
-            "omitted 1 ambiguous FSDB signal path: 'top.opcode'; no candidate was selected"
-        );
-
-        let paths = (0..7)
-            .map(|index| format!("top.signal{index}"))
-            .collect::<Vec<_>>();
-        assert_eq!(
-            ambiguous_signal_warning(paths.as_slice()).message(),
-            "omitted 7 ambiguous FSDB signal paths: 'top.signal0', 'top.signal1', 'top.signal2', 'top.signal3', 'top.signal4', and 2 more; no candidate was selected"
+            "omitted ambiguous FSDB signal paths: count=2, first='top.opcode'; no candidate was selected"
         );
     }
 }

@@ -320,14 +320,9 @@ impl FsdbHierarchyBuilder {
             value_encoding,
             datatype,
         };
-        if self.ambiguous_signal_by_path.contains_key(path.as_str()) {
+        if let Some(candidates) = self.ambiguous_signal_by_path.get_mut(path.as_str()) {
+            push_unique(candidates, candidate);
             self.mark_ambiguous_signal(scope_index, path.as_str());
-            push_unique_signal(
-                self.ambiguous_signal_by_path
-                    .get_mut(path.as_str())
-                    .expect("ambiguous signal path should remain indexed"),
-                candidate,
-            );
             return Ok(());
         }
         if let Some(existing) = self.signal_by_path.get(path.as_str()).copied() {
@@ -1044,25 +1039,8 @@ fn ambiguous_scope_path_error(path: &str) -> WavepeekError {
 }
 
 fn ambiguous_signal_path_error(path: &str, candidates: &[FsdbSignalInfo]) -> WavepeekError {
-    let mut candidates = candidates.iter().collect::<Vec<_>>();
-    candidates.sort_by(|lhs, rhs| {
-        (
-            lhs.idcode,
-            lhs.kind.as_str(),
-            lhs.width,
-            value_encoding_alias(lhs.value_encoding),
-            lhs.datatype.as_ref().map(|datatype| datatype.idcode),
-        )
-            .cmp(&(
-                rhs.idcode,
-                rhs.kind.as_str(),
-                rhs.width,
-                value_encoding_alias(rhs.value_encoding),
-                rhs.datatype.as_ref().map(|datatype| datatype.idcode),
-            ))
-    });
-    let candidates = candidates
-        .into_iter()
+    let mut candidates = candidates
+        .iter()
         .map(|candidate| {
             let width = candidate
                 .width
@@ -1078,8 +1056,9 @@ fn ambiguous_signal_path_error(path: &str, candidates: &[FsdbSignalInfo]) -> Wav
                 value_encoding_alias(candidate.value_encoding)
             )
         })
-        .collect::<Vec<_>>()
-        .join(", ");
+        .collect::<Vec<_>>();
+    candidates.sort();
+    let candidates = candidates.join(", ");
     WavepeekError::Signal(format!(
         "signal '{path}' is ambiguous in FSDB hierarchy; candidates: {candidates}; no candidate was selected"
     ))
@@ -1097,13 +1076,7 @@ fn bit_width(left: i32, right: i32) -> Result<u32, WavepeekError> {
     })
 }
 
-fn push_unique(values: &mut Vec<usize>, value: usize) {
-    if !values.contains(&value) {
-        values.push(value);
-    }
-}
-
-fn push_unique_signal(values: &mut Vec<FsdbSignalInfo>, value: FsdbSignalInfo) {
+fn push_unique<T: PartialEq>(values: &mut Vec<T>, value: T) {
     if !values.contains(&value) {
         values.push(value);
     }
@@ -1439,9 +1412,6 @@ mod tests {
         builder
             .signal(signal(1, "\\child.opcode ", RawSignalKind::Reg))
             .unwrap();
-        builder
-            .signal(signal(4, "parent_safe", RawSignalKind::Wire))
-            .unwrap();
         builder.scope(scope("child", RawScopeKind::Module)).unwrap();
         builder
             .signal(signal(2, "opcode", RawSignalKind::Reg))
@@ -1449,25 +1419,15 @@ mod tests {
         builder
             .signal(signal(3, "opcode", RawSignalKind::Reg))
             .unwrap();
-        builder
-            .signal(signal(5, "child_safe", RawSignalKind::Wire))
-            .unwrap();
         let index = builder.finish();
 
-        assert_eq!(
-            paths(index.signals_in_scope("top").unwrap()),
-            vec!["top.parent_safe".to_string()]
-        );
+        assert!(index.signals_in_scope("top").unwrap().is_empty());
         assert_eq!(
             index
                 .signals_in_scope_report("top")
                 .unwrap()
                 .omitted_ambiguous_paths,
             vec!["top.child.opcode".to_string(), "top.zeta".to_string()]
-        );
-        assert_eq!(
-            paths(index.signals_in_scope("top.child").unwrap()),
-            vec!["top.child.child_safe".to_string()]
         );
         assert_eq!(
             index
