@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Kept FSDB dumps usable when distinct records map to the same canonical signal path by quarantining only ambiguous signals and reporting them without selecting a waveform ([issue #75](https://github.com/kleverhq/wavepeek/issues/75)).
+
 ## [2.2.0] - 2026-08-01
 
 ### Added
