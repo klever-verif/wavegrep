@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-08-09
+
 ### Fixed
 - Kept FSDB dumps usable when distinct records map to the same canonical signal path by quarantining only ambiguous signals and reporting them without selecting a waveform ([issue #75](https://github.com/kleverhq/wavepeek/issues/75)).
 
@@ -168,7 +170,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release of `wavepeek` CLI.
 
-[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.1
 [2.2.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.0
 [2.1.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.1.0
 [2.0.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.0.0
