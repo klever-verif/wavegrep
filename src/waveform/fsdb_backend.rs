@@ -17,7 +17,7 @@ use super::fsdb_native::{
 use super::fsdb_time::{normalize_raw_time, parse_scale_unit};
 use super::types::{
     ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    ScopeEntry, SignalEntry, SignalId, SignalOffsetData, WaveformMetadata,
+    ScopeEntry, SignalEntry, SignalId, SignalListing, SignalOffsetData, WaveformMetadata,
 };
 
 #[derive(Debug)]
@@ -162,13 +162,20 @@ impl FsdbBackend {
         self.hierarchy()?.signals_in_scope(scope_path)
     }
 
-    pub(super) fn signals_in_scope_recursive(
+    pub(super) fn signals_in_scope_report(
+        &self,
+        scope_path: &str,
+    ) -> Result<SignalListing, WavepeekError> {
+        self.hierarchy()?.signals_in_scope_report(scope_path)
+    }
+
+    pub(super) fn signals_in_scope_recursive_report(
         &self,
         scope_path: &str,
         max_depth: Option<usize>,
-    ) -> Result<Vec<SignalEntry>, WavepeekError> {
+    ) -> Result<SignalListing, WavepeekError> {
         self.hierarchy()?
-            .signals_in_scope_recursive(scope_path, max_depth)
+            .signals_in_scope_recursive_report(scope_path, max_depth)
     }
 
     pub(super) fn resolve_signals(

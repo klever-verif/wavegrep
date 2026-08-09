@@ -128,6 +128,18 @@ warning[WPK-W0001]: limit disabled: --max-depth=unlimited
 
 In human mode diagnostics go to stderr. In JSON mode they appear in the `diagnostics` array.
 
+## Ambiguous FSDB signals
+
+Some FSDB producers can expose distinct signal records under the same canonical path. wavepeek omits that path rather than choosing a waveform and reports the omission:
+
+```text
+$ wavepeek signal --waves path/to/dump.fsdb --scope top
+clk kind=wire width=1
+warning[WPK-W0005]: omitted ambiguous FSDB signal paths: count=1, first='top.opcode'; no candidate was selected
+```
+
+Other scopes and signals remain available. A command that explicitly references `top.opcode` fails with candidate metadata so it cannot silently return the wrong value.
+
 ## Non-obvious behavior
 
 - `signal` does not discover scopes. Use `wavepeek scope` beforehand if you are not sure about the exact `--scope` path.

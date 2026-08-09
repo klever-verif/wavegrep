@@ -43,6 +43,12 @@ pub struct SignalEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SignalListing {
+    pub entries: Vec<SignalEntry>,
+    pub omitted_ambiguous_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SampledSignal {
     pub path: String,
     pub width: u32,

@@ -13,6 +13,7 @@ pub enum WarningDiagnosticCode {
     OutputTruncated,
     EmptyResult,
     UnmatchedExtractCandidate,
+    AmbiguousSignalsOmitted,
 }
 
 impl WarningDiagnosticCode {
@@ -22,6 +23,7 @@ impl WarningDiagnosticCode {
             Self::OutputTruncated => "WPK-W0002",
             Self::EmptyResult => "WPK-W0003",
             Self::UnmatchedExtractCandidate => "WPK-W0004",
+            Self::AmbiguousSignalsOmitted => "WPK-W0005",
         }
     }
 }

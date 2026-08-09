@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use crate::error::WavepeekError;
 use crate::expr::{EnumLabelInfo, ExprStorage, ExprType, ExprTypeKind, IntegerLikeKind};
 
-use super::types::{ExprResolvedSignal, ResolvedSignal, ScopeEntry, SignalEntry, SignalId};
+use super::types::{
+    ExprResolvedSignal, ResolvedSignal, ScopeEntry, SignalEntry, SignalId, SignalListing,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RawScopeKind {
@@ -124,6 +126,7 @@ pub(super) struct FsdbHierarchyBuilder {
     scope_by_path: HashMap<String, usize>,
     scope_origins: HashMap<String, ScopePathOrigin>,
     signal_by_path: HashMap<String, usize>,
+    ambiguous_signal_by_path: HashMap<String, Vec<FsdbSignalInfo>>,
     signals: Vec<FsdbSignalInfo>,
     roots: Vec<usize>,
     stack: Vec<StackEntry>,
@@ -138,6 +141,7 @@ pub(super) struct FsdbHierarchyIndex {
     roots: Vec<usize>,
     scope_by_path: HashMap<String, usize>,
     signal_by_path: HashMap<String, usize>,
+    ambiguous_signal_by_path: HashMap<String, Vec<FsdbSignalInfo>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -149,6 +153,7 @@ struct ScopeNode {
     parent: Option<usize>,
     children: Vec<usize>,
     signals: Vec<usize>,
+    ambiguous_signals: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -157,6 +162,7 @@ pub(super) struct FsdbSignalInfo {
     path: String,
     kind: String,
     width: Option<u32>,
+    scope_index: usize,
     idcode: u64,
     value_encoding: FsdbValueEncoding,
     datatype: Option<RawDatatypeRecord>,
@@ -189,6 +195,7 @@ impl FsdbHierarchyBuilder {
             scope_by_path: HashMap::new(),
             scope_origins: HashMap::new(),
             signal_by_path: HashMap::new(),
+            ambiguous_signal_by_path: HashMap::new(),
             signals: Vec::new(),
             roots: Vec::new(),
             stack: Vec::new(),
@@ -249,6 +256,7 @@ impl FsdbHierarchyBuilder {
                 parent,
                 children: Vec::new(),
                 signals: Vec::new(),
+                ambiguous_signals: Vec::new(),
             });
             self.scope_by_path.insert(path.clone(), scope_index);
             self.scope_origins.insert(
@@ -307,15 +315,30 @@ impl FsdbHierarchyBuilder {
             path: path.clone(),
             kind,
             width,
+            scope_index,
             idcode: record.idcode,
             value_encoding,
             datatype,
         };
+        if let Some(candidates) = self.ambiguous_signal_by_path.get_mut(path.as_str()) {
+            push_unique(candidates, candidate);
+            self.mark_ambiguous_signal(scope_index, path.as_str());
+            return Ok(());
+        }
         if let Some(existing) = self.signal_by_path.get(path.as_str()).copied() {
             if self.signals[existing] == candidate {
                 return Ok(());
             }
-            return Err(ambiguous_signal_path_error(path.as_str()));
+            self.signal_by_path.remove(path.as_str());
+            let existing_scope_index = self.signals[existing].scope_index;
+            self.scopes[existing_scope_index]
+                .signals
+                .retain(|signal_index| *signal_index != existing);
+            self.mark_ambiguous_signal(existing_scope_index, path.as_str());
+            self.mark_ambiguous_signal(scope_index, path.as_str());
+            self.ambiguous_signal_by_path
+                .insert(path, vec![self.signals[existing].clone(), candidate]);
+            return Ok(());
         }
 
         let signal_index = self.signals.len();
@@ -323,6 +346,13 @@ impl FsdbHierarchyBuilder {
         self.signal_by_path.insert(path, signal_index);
         self.scopes[scope_index].signals.push(signal_index);
         Ok(())
+    }
+
+    fn mark_ambiguous_signal(&mut self, scope_index: usize, path: &str) {
+        let paths = &mut self.scopes[scope_index].ambiguous_signals;
+        if !paths.iter().any(|candidate| candidate == path) {
+            paths.push(path.to_string());
+        }
     }
 
     pub(super) fn datatype(&mut self, record: RawDatatypeRecord) -> Result<(), WavepeekError> {
@@ -369,6 +399,7 @@ impl FsdbHierarchyBuilder {
             parent: Some(parent),
             children: Vec::new(),
             signals: Vec::new(),
+            ambiguous_signals: Vec::new(),
         });
         self.scope_by_path.insert(path.clone(), scope_index);
         self.scope_origins.insert(
@@ -444,6 +475,7 @@ impl FsdbHierarchyBuilder {
         for scope in &mut self.scopes {
             sort_indices_by_keys(&scope_sort_keys, &mut scope.children);
             sort_indices_by_keys(&signal_sort_keys, &mut scope.signals);
+            scope.ambiguous_signals.sort();
         }
         sort_indices_by_keys(&scope_sort_keys, &mut self.roots);
 
@@ -453,6 +485,7 @@ impl FsdbHierarchyBuilder {
             roots: self.roots,
             scope_by_path: self.scope_by_path,
             signal_by_path: self.signal_by_path,
+            ambiguous_signal_by_path: self.ambiguous_signal_by_path,
         }
     }
 
@@ -511,12 +544,23 @@ impl FsdbHierarchyIndex {
         &self,
         scope_path: &str,
     ) -> Result<Vec<SignalEntry>, WavepeekError> {
+        Ok(self.signals_in_scope_report(scope_path)?.entries)
+    }
+
+    pub(super) fn signals_in_scope_report(
+        &self,
+        scope_path: &str,
+    ) -> Result<SignalListing, WavepeekError> {
         let scope_index = self.scope_index(scope_path)?;
-        Ok(self.scopes[scope_index]
-            .signals
-            .iter()
-            .map(|signal_index| signal_entry(&self.signals[*signal_index]))
-            .collect())
+        let scope = &self.scopes[scope_index];
+        Ok(SignalListing {
+            entries: scope
+                .signals
+                .iter()
+                .map(|signal_index| signal_entry(&self.signals[*signal_index]))
+                .collect(),
+            omitted_ambiguous_paths: scope.ambiguous_signals.clone(),
+        })
     }
 
     pub(super) fn signals_in_scope_recursive(
@@ -524,10 +568,25 @@ impl FsdbHierarchyIndex {
         scope_path: &str,
         max_depth: Option<usize>,
     ) -> Result<Vec<SignalEntry>, WavepeekError> {
+        Ok(self
+            .signals_in_scope_recursive_report(scope_path, max_depth)?
+            .entries)
+    }
+
+    pub(super) fn signals_in_scope_recursive_report(
+        &self,
+        scope_path: &str,
+        max_depth: Option<usize>,
+    ) -> Result<SignalListing, WavepeekError> {
         let scope_index = self.scope_index(scope_path)?;
-        let mut entries = Vec::new();
-        self.collect_signal_entries(scope_index, 0, max_depth, &mut entries);
-        Ok(entries)
+        let mut report = SignalListing {
+            entries: Vec::new(),
+            omitted_ambiguous_paths: Vec::new(),
+        };
+        self.collect_signal_listing(scope_index, 0, max_depth, &mut report);
+        report.omitted_ambiguous_paths.sort();
+        report.omitted_ambiguous_paths.dedup();
+        Ok(report)
     }
 
     pub(super) fn resolve_signal(
@@ -562,7 +621,7 @@ impl FsdbHierarchyIndex {
     }
 
     pub(super) fn signal_count(&self) -> usize {
-        self.signals.len()
+        self.signal_by_path.len()
     }
 
     pub(super) fn scope_count(&self) -> usize {
@@ -594,12 +653,12 @@ impl FsdbHierarchyIndex {
         }
     }
 
-    fn collect_signal_entries(
+    fn collect_signal_listing(
         &self,
         scope_index: usize,
         depth: usize,
         max_depth: Option<usize>,
-        entries: &mut Vec<SignalEntry>,
+        report: &mut SignalListing,
     ) {
         if let Some(max_depth) = max_depth
             && depth > max_depth
@@ -608,17 +667,20 @@ impl FsdbHierarchyIndex {
         }
 
         let scope = &self.scopes[scope_index];
-        entries.extend(
+        report.entries.extend(
             scope
                 .signals
                 .iter()
                 .map(|signal_index| signal_entry(&self.signals[*signal_index])),
         );
+        report
+            .omitted_ambiguous_paths
+            .extend(scope.ambiguous_signals.iter().cloned());
         if max_depth == Some(depth) {
             return;
         }
         for child in &scope.children {
-            self.collect_signal_entries(*child, depth + 1, max_depth, entries);
+            self.collect_signal_listing(*child, depth + 1, max_depth, report);
         }
     }
 
@@ -630,6 +692,9 @@ impl FsdbHierarchyIndex {
     }
 
     fn signal_info(&self, canonical_path: &str) -> Result<&FsdbSignalInfo, WavepeekError> {
+        if let Some(candidates) = self.ambiguous_signal_by_path.get(canonical_path) {
+            return Err(ambiguous_signal_path_error(canonical_path, candidates));
+        }
         self.signal_by_path
             .get(canonical_path)
             .map(|index| &self.signals[*index])
@@ -973,9 +1038,29 @@ fn ambiguous_scope_path_error(path: &str) -> WavepeekError {
     ))
 }
 
-fn ambiguous_signal_path_error(path: &str) -> WavepeekError {
-    WavepeekError::File(format!(
-        "FSDB hierarchy contains ambiguous canonical signal path '{path}'"
+fn ambiguous_signal_path_error(path: &str, candidates: &[FsdbSignalInfo]) -> WavepeekError {
+    let mut candidates = candidates
+        .iter()
+        .map(|candidate| {
+            let width = candidate
+                .width
+                .map_or_else(|| "unknown".to_string(), |width| width.to_string());
+            let datatype = candidate.datatype.as_ref().map_or_else(
+                || "none".to_string(),
+                |datatype| datatype.idcode.to_string(),
+            );
+            format!(
+                "idcode={} kind={} width={width} encoding={} datatype={datatype}",
+                candidate.idcode,
+                candidate.kind,
+                value_encoding_alias(candidate.value_encoding)
+            )
+        })
+        .collect::<Vec<_>>();
+    candidates.sort();
+    let candidates = candidates.join(", ");
+    WavepeekError::Signal(format!(
+        "signal '{path}' is ambiguous in FSDB hierarchy; candidates: {candidates}; no candidate was selected"
     ))
 }
 
@@ -991,7 +1076,7 @@ fn bit_width(left: i32, right: i32) -> Result<u32, WavepeekError> {
     })
 }
 
-fn push_unique(values: &mut Vec<usize>, value: usize) {
+fn push_unique<T: PartialEq>(values: &mut Vec<T>, value: T) {
     if !values.contains(&value) {
         values.push(value);
     }
@@ -1016,6 +1101,14 @@ fn scope_kind_alias(kind: RawScopeKind) -> &'static str {
         RawScopeKind::Package => "package",
         RawScopeKind::Program => "program",
         RawScopeKind::Unknown => "unknown",
+    }
+}
+
+fn value_encoding_alias(encoding: FsdbValueEncoding) -> &'static str {
+    match encoding {
+        FsdbValueEncoding::BitVector => "bit-vector",
+        FsdbValueEncoding::Unsupported => "unsupported",
+        FsdbValueEncoding::DatatypeCandidate => "datatype-candidate",
     }
 }
 
@@ -1255,21 +1348,107 @@ mod tests {
     }
 
     #[test]
-    fn fsdb_hierarchy_rejects_duplicate_signal_paths() {
+    fn fsdb_hierarchy_quarantines_ambiguous_signal_paths() {
         let mut builder = FsdbHierarchyBuilder::new();
         builder.scope(scope("top", RawScopeKind::Module)).unwrap();
         builder
-            .signal(signal(1, "clk", RawSignalKind::Wire))
+            .signal(signal_with_range(1, "opcode", RawSignalKind::Reg, 0, 0))
             .unwrap();
-
-        let error = builder
-            .signal(signal(2, "\\clk ", RawSignalKind::Reg))
-            .expect_err("canonical signal collisions should be rejected")
-            .to_string();
+        let duplicate = signal_with_range(2, "opcode", RawSignalKind::Reg, 0, 0);
+        builder.signal(duplicate.clone()).unwrap();
+        builder.signal(duplicate).unwrap();
+        builder
+            .signal(signal(3, "safe", RawSignalKind::Wire))
+            .unwrap();
+        let index = builder.finish();
 
         assert_eq!(
-            error,
-            "fatal: file: FSDB hierarchy contains ambiguous canonical signal path 'top.clk'"
+            paths(index.signals_in_scope("top").unwrap()),
+            vec!["top.safe".to_string()]
+        );
+        assert_eq!(
+            index
+                .signals_in_scope_report("top")
+                .unwrap()
+                .omitted_ambiguous_paths,
+            vec!["top.opcode".to_string()]
+        );
+        let recursive = index
+            .signals_in_scope_recursive_report("top", None)
+            .unwrap();
+        assert_eq!(paths(recursive.entries), vec!["top.safe".to_string()]);
+        assert_eq!(
+            recursive.omitted_ambiguous_paths,
+            vec!["top.opcode".to_string()]
+        );
+        assert_eq!(
+            index.resolve_signal("top.safe").unwrap().id,
+            SignalId::from_backend_index(3)
+        );
+        let expected = "fatal: signal: signal 'top.opcode' is ambiguous in FSDB hierarchy; candidates: idcode=1 kind=reg width=1 encoding=bit-vector datatype=none, idcode=2 kind=reg width=1 encoding=bit-vector datatype=none; no candidate was selected";
+        assert_eq!(
+            index.resolve_signal("top.opcode").unwrap_err().to_string(),
+            expected
+        );
+        assert_eq!(
+            index
+                .resolve_expr_signal("top.opcode")
+                .unwrap_err()
+                .to_string(),
+            expected
+        );
+    }
+
+    #[test]
+    fn fsdb_hierarchy_quarantines_collisions_across_owning_scopes() {
+        let mut builder = FsdbHierarchyBuilder::new();
+        builder.scope(scope("top", RawScopeKind::Module)).unwrap();
+        builder
+            .signal(signal(10, "zeta", RawSignalKind::Wire))
+            .unwrap();
+        builder
+            .signal(signal(11, "zeta", RawSignalKind::Wire))
+            .unwrap();
+        builder
+            .signal(signal(1, "\\child.opcode ", RawSignalKind::Reg))
+            .unwrap();
+        builder.scope(scope("child", RawScopeKind::Module)).unwrap();
+        builder
+            .signal(signal(2, "opcode", RawSignalKind::Reg))
+            .unwrap();
+        builder
+            .signal(signal(3, "opcode", RawSignalKind::Reg))
+            .unwrap();
+        let index = builder.finish();
+
+        assert!(index.signals_in_scope("top").unwrap().is_empty());
+        assert_eq!(
+            index
+                .signals_in_scope_report("top")
+                .unwrap()
+                .omitted_ambiguous_paths,
+            vec!["top.child.opcode".to_string(), "top.zeta".to_string()]
+        );
+        assert_eq!(
+            index
+                .signals_in_scope_report("top.child")
+                .unwrap()
+                .omitted_ambiguous_paths,
+            vec!["top.child.opcode".to_string()]
+        );
+        assert_eq!(
+            index
+                .signals_in_scope_recursive_report("top", None)
+                .unwrap()
+                .omitted_ambiguous_paths,
+            vec!["top.child.opcode".to_string(), "top.zeta".to_string()]
+        );
+        assert_eq!(
+            index
+                .resolve_signal("top.child.opcode")
+                .unwrap_err()
+                .to_string(),
+            "fatal: signal: signal 'top.child.opcode' is ambiguous in FSDB hierarchy; candidates: idcode=1 kind=reg width=unknown encoding=bit-vector datatype=none, idcode=2 kind=reg width=unknown encoding=bit-vector datatype=none, idcode=3 kind=reg width=unknown encoding=bit-vector datatype=none; no candidate was selected"
         );
     }
 

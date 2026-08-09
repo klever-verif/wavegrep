@@ -96,6 +96,7 @@ Behavior:
 - Default mode lists only direct signals in the selected scope.
 - Recursive mode walks child scopes depth-first in stable lexicographic order; `--max-depth` limits recursion when set.
 - Includes stable signal kind aliases (not only wires); excluded backend-specific VHDL spellings are normalized to the stable contract surface.
+- Ambiguous FSDB signal paths are omitted with a coded diagnostic; no backing record is selected.
 - Truncation and disabled-limit conditions emit coded diagnostics.
 - `--json` uses the machine contract defined by `wavepeek schema`.
 

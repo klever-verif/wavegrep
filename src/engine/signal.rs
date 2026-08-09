@@ -74,16 +74,22 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
             "format": waveform.format_name(),
         })
     });
-    let waveform_entries = if recursive {
-        waveform.signals_in_scope_recursive(scope.as_str(), effective_max_depth)?
+    let listing = if recursive {
+        waveform.signals_in_scope_recursive_report(scope.as_str(), effective_max_depth)?
     } else {
-        waveform.signals_in_scope(scope.as_str())?
+        waveform.signals_in_scope_report(scope.as_str())?
     };
     debug.event(
         "signal.list.done",
-        || serde_json::json!({"signals": waveform_entries.len()}),
+        || serde_json::json!({"signals": listing.entries.len()}),
     );
-    let mut entries = waveform_entries
+    if !listing.omitted_ambiguous_paths.is_empty() {
+        diagnostics.push(ambiguous_signal_warning(
+            listing.omitted_ambiguous_paths.as_slice(),
+        ));
+    }
+    let mut entries = listing
+        .entries
         .into_iter()
         .filter(|entry| filter.is_match(entry.name.as_str()))
         .map(|entry| SignalEntry {
@@ -139,4 +145,32 @@ fn signal_display_name(recursive: bool, scope_prefix: &str, path: &str, name: &s
     }
 
     path.strip_prefix(scope_prefix).unwrap_or(name).to_string()
+}
+
+fn ambiguous_signal_warning(paths: &[String]) -> Diagnostic {
+    Diagnostic::warning(
+        WarningDiagnosticCode::AmbiguousSignalsOmitted,
+        format!(
+            "omitted ambiguous FSDB signal paths: count={}, first='{}'; no candidate was selected",
+            paths.len(),
+            paths[0]
+        ),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ambiguous_signal_warning_is_stable_and_bounded() {
+        let diagnostic =
+            ambiguous_signal_warning(&["top.opcode".to_string(), "top.second_opcode".to_string()]);
+
+        assert_eq!(diagnostic.code(), Some("WPK-W0005"));
+        assert_eq!(
+            diagnostic.message(),
+            "omitted ambiguous FSDB signal paths: count=2, first='top.opcode'; no candidate was selected"
+        );
+    }
 }

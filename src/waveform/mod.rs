@@ -30,8 +30,8 @@ use crate::expr::SampledValue;
 pub(crate) use types::{
     ChangeCandidateCollectionMode, EXCLUDED_SCOPE_KIND_ALIASES, EXCLUDED_SIGNAL_KIND_ALIASES,
     ExprResolvedSignal, ResolvedSignal, STABLE_SCOPE_KIND_ALIASES, STABLE_SIGNAL_KIND_ALIASES,
-    SampledSignal, SampledSignalState, ScopeEntry, SignalEntry, SignalId, SignalOffsetData,
-    WaveformMetadata,
+    SampledSignal, SampledSignalState, ScopeEntry, SignalEntry, SignalId, SignalListing,
+    SignalOffsetData, WaveformMetadata,
 };
 
 #[derive(Debug)]
@@ -151,15 +151,45 @@ impl Waveform {
         }
     }
 
+    pub(crate) fn signals_in_scope_report(
+        &self,
+        scope_path: &str,
+    ) -> Result<SignalListing, WavepeekError> {
+        match &self.backend {
+            Backend::Wellen(backend) => Ok(SignalListing {
+                entries: backend.signals_in_scope(scope_path)?,
+                omitted_ambiguous_paths: Vec::new(),
+            }),
+            #[cfg(feature = "fsdb")]
+            Backend::Fsdb(backend) => backend.signals_in_scope_report(scope_path),
+        }
+    }
+
+    #[cfg(test)]
     pub fn signals_in_scope_recursive(
         &self,
         scope_path: &str,
         max_depth: Option<usize>,
     ) -> Result<Vec<SignalEntry>, WavepeekError> {
+        Ok(self
+            .signals_in_scope_recursive_report(scope_path, max_depth)?
+            .entries)
+    }
+
+    pub(crate) fn signals_in_scope_recursive_report(
+        &self,
+        scope_path: &str,
+        max_depth: Option<usize>,
+    ) -> Result<SignalListing, WavepeekError> {
         match &self.backend {
-            Backend::Wellen(backend) => backend.signals_in_scope_recursive(scope_path, max_depth),
+            Backend::Wellen(backend) => Ok(SignalListing {
+                entries: backend.signals_in_scope_recursive(scope_path, max_depth)?,
+                omitted_ambiguous_paths: Vec::new(),
+            }),
             #[cfg(feature = "fsdb")]
-            Backend::Fsdb(backend) => backend.signals_in_scope_recursive(scope_path, max_depth),
+            Backend::Fsdb(backend) => {
+                backend.signals_in_scope_recursive_report(scope_path, max_depth)
+            }
         }
     }
 
