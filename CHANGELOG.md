@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-08-11
+
 ### Fixed
 - Accepted exact repeated FSDB scope records emitted within one hierarchy tree by Verdi 2021 while retaining collision checks for distinct raw paths and scope kinds ([issue #87](https://github.com/kleverhq/wavepeek/issues/87)).
 
@@ -173,7 +175,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release of `wavepeek` CLI.
 
-[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.2...HEAD
+[2.2.2]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.2
 [2.2.1]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.1
 [2.2.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.0
 [2.1.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.1.0
