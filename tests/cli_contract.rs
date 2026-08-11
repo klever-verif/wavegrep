@@ -1,3 +1,5 @@
+use std::io;
+
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 
@@ -114,6 +116,38 @@ fn assert_human_flag_rejected(args: &[&str], command_name: &str) {
         .stderr(predicate::str::contains(format!(
             "See 'wavepeek {command_name} --help'."
         )));
+}
+
+#[test]
+fn closed_stdout_is_silent_success() {
+    for args in [
+        &["schema"][..],
+        &["docs", "topics", "--json"],
+        &["--help"],
+        &["-V"],
+        &["--version"],
+    ] {
+        let (reader, writer) = io::pipe().expect("pipe should open");
+        drop(reader);
+
+        let output = wavepeek_cmd()
+            .args(args)
+            .stdout(writer)
+            .output()
+            .expect("wavepeek should run");
+
+        assert!(
+            output.status.success(),
+            "expected success for args {args:?}, got {:?}: {}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "expected empty stderr for args {args:?}, got: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 #[test]
