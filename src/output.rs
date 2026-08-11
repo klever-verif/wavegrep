@@ -77,8 +77,8 @@ impl<W: Write> JsonlWriter<W> {
 
     fn write_record<T: Serialize>(&mut self, record: &T) -> Result<(), WavepeekError> {
         serde_json::to_writer(&mut self.writer, record).map_err(map_jsonl_serde_error)?;
-        self.writer.write_all(b"\n").map_err(map_jsonl_io_error)?;
-        self.writer.flush().map_err(map_jsonl_io_error)?;
+        self.writer.write_all(b"\n").map_err(map_stdout_io_error)?;
+        self.writer.flush().map_err(map_stdout_io_error)?;
         self.next_seq += 1;
         Ok(())
     }
@@ -89,15 +89,14 @@ pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
         OutputMode::Human => {
             let output = render_human(&result.data, result.human_options);
             if !output.is_empty() {
-                write_stdout(output.as_str());
+                write_stdout(output.as_str())?;
             }
             emit_human_diagnostics(&result.diagnostics);
             Ok(())
         }
         OutputMode::Json => {
             let json = render_json(result)?;
-            println!("{json}");
-            Ok(())
+            write_stdout(&json)
         }
         OutputMode::Jsonl => {
             let stdout = io::stdout();
@@ -212,11 +211,11 @@ fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
     }
 }
 
-fn map_jsonl_io_error(error: io::Error) -> WavepeekError {
+pub(crate) fn map_stdout_io_error(error: io::Error) -> WavepeekError {
     if error.kind() == io::ErrorKind::BrokenPipe {
         WavepeekError::BrokenPipe
     } else {
-        WavepeekError::Internal(format!("failed to write JSONL output: {error}"))
+        WavepeekError::Internal(format!("failed to write stdout: {error}"))
     }
 }
 
@@ -625,12 +624,10 @@ fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
     }
 }
 
-fn write_stdout(output: &str) {
-    if output.ends_with('\n') {
-        print!("{output}");
-    } else {
-        println!("{output}");
-    }
+pub(crate) fn write_stdout(output: &str) -> Result<(), WavepeekError> {
+    let stdout = io::stdout();
+    let mut writer = stdout.lock();
+    writeln!(writer, "{}", output.strip_suffix('\n').unwrap_or(output)).map_err(map_stdout_io_error)
 }
 
 #[cfg(test)]

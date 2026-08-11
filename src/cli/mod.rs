@@ -257,12 +257,12 @@ pub fn run() -> Result<(), WavepeekError> {
     };
 
     if cli.version_semver {
-        println!(env!("CARGO_PKG_VERSION"));
+        output::write_stdout(env!("CARGO_PKG_VERSION"))?;
         return Ok(());
     }
 
     if cli.version_full {
-        println!("wavepeek v{}", env!("CARGO_PKG_VERSION"));
+        output::write_stdout(concat!("wavepeek v", env!("CARGO_PKG_VERSION")))?;
         return Ok(());
     }
 
@@ -341,9 +341,9 @@ fn with_other_help_options(command: clap::Command) -> clap::Command {
 
 fn handle_parse_error(error: clap::Error) -> Result<(), WavepeekError> {
     match error.kind() {
-        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => error.print().map_err(|io_error| {
-            WavepeekError::Internal(format!("failed to print help: {io_error}"))
-        }),
+        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
+            error.print().map_err(output::map_stdout_io_error)
+        }
         _ => Err(WavepeekError::Args(normalize_clap_error(&error))),
     }
 }
