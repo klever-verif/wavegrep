@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Handled downstream stdout closure without panicking or reporting a fatal error ([issue #78](https://github.com/kleverhq/wavepeek/issues/78)).
+- Resolved descendant-relative signal paths consistently across scoped `value`, `change`, `property`, and generic extraction commands ([issue #80](https://github.com/kleverhq/wavepeek/issues/80)).
 
 ## [2.2.2] - 2026-08-11
 

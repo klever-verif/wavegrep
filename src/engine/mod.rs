@@ -26,6 +26,20 @@ use crate::error::WavepeekError;
 use crate::output::{self, JsonlWriter};
 use crate::output_mode::OutputMode;
 
+pub(crate) fn scoped_signal_path(name: &str, scope: Option<&str>) -> Option<String> {
+    match scope {
+        Some(scope)
+            if name
+                .strip_prefix(scope)
+                .is_some_and(|suffix| suffix.starts_with('.')) =>
+        {
+            None
+        }
+        Some(scope) => Some(format!("{scope}.{name}")),
+        None => Some(name.to_string()),
+    }
+}
+
 #[derive(Debug)]
 pub enum Command {
     Schema(cli::schema::SchemaArgs),
@@ -239,7 +253,20 @@ pub fn run_jsonl<W: std::io::Write>(
 
 #[cfg(test)]
 mod tests {
-    use super::CommandName;
+    use super::{CommandName, scoped_signal_path};
+
+    #[test]
+    fn scoped_signal_path_resolves_relative_names() {
+        for (name, scope, expected) in [
+            ("top.cpu.valid", None, Some("top.cpu.valid")),
+            ("valid", Some("top.cpu"), Some("top.cpu.valid")),
+            ("cpu.valid", Some("top"), Some("top.cpu.valid")),
+            ("top.cpu.valid", Some("top"), None),
+            ("topology.valid", Some("top"), Some("top.topology.valid")),
+        ] {
+            assert_eq!(scoped_signal_path(name, scope).as_deref(), expected);
+        }
+    }
 
     #[test]
     fn command_name_strings_exercise_all_variants() {
