@@ -124,13 +124,12 @@ pub(super) struct RawDatatypeRecord {
 pub(super) struct FsdbHierarchyBuilder {
     scopes: Vec<ScopeNode>,
     scope_by_path: HashMap<String, usize>,
-    scope_origins: HashMap<String, ScopePathOrigin>,
+    scope_origins: HashMap<String, Vec<String>>,
     signal_by_path: HashMap<String, usize>,
     ambiguous_signal_by_path: HashMap<String, Vec<FsdbSignalInfo>>,
     signals: Vec<FsdbSignalInfo>,
     roots: Vec<usize>,
     stack: Vec<StackEntry>,
-    current_tree_generation: usize,
     datatypes: HashMap<u32, RawDatatypeRecord>,
 }
 
@@ -169,12 +168,6 @@ pub(super) struct FsdbSignalInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ScopePathOrigin {
-    raw_components: Vec<String>,
-    last_tree_generation: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 struct StackEntry {
     scope_index: Option<usize>,
     hidden: bool,
@@ -199,14 +192,12 @@ impl FsdbHierarchyBuilder {
             signals: Vec::new(),
             roots: Vec::new(),
             stack: Vec::new(),
-            current_tree_generation: 0,
             datatypes: HashMap::new(),
         }
     }
 
     pub(super) fn begin_tree(&mut self) {
         self.stack.clear();
-        self.current_tree_generation = self.current_tree_generation.saturating_add(1);
     }
 
     pub(super) fn scope(&mut self, record: RawScopeRecord) -> Result<(), WavepeekError> {
@@ -241,7 +232,7 @@ impl FsdbHierarchyBuilder {
         let depth = parent.map_or(0, |parent_idx| self.scopes[parent_idx].depth + 1);
 
         let scope_index = if let Some(existing) = self.scope_by_path.get(path.as_str()).copied() {
-            self.merge_existing_scope_path(path.as_str(), raw_components.as_slice())?;
+            self.validate_scope_path_origin(path.as_str(), raw_components.as_slice())?;
             if self.scopes[existing].kind != kind {
                 return Err(ambiguous_scope_path_error(path.as_str()));
             }
@@ -259,13 +250,7 @@ impl FsdbHierarchyBuilder {
                 ambiguous_signals: Vec::new(),
             });
             self.scope_by_path.insert(path.clone(), scope_index);
-            self.scope_origins.insert(
-                path,
-                ScopePathOrigin {
-                    raw_components: raw_components.clone(),
-                    last_tree_generation: self.current_tree_generation,
-                },
-            );
+            self.scope_origins.insert(path, raw_components.clone());
             match parent {
                 Some(parent_idx) => push_unique(&mut self.scopes[parent_idx].children, scope_index),
                 None => push_unique(&mut self.roots, scope_index),
@@ -377,7 +362,7 @@ impl FsdbHierarchyBuilder {
         let mut raw_components = self
             .scope_origins
             .get(self.scopes[parent].path.as_str())
-            .map(|origin| origin.raw_components.clone())
+            .cloned()
             .unwrap_or_else(|| vec![self.scopes[parent].name.clone()]);
         raw_components.push(name.to_string());
         if let Some(existing) = self.scope_by_path.get(path.as_str()).copied() {
@@ -402,13 +387,7 @@ impl FsdbHierarchyBuilder {
             ambiguous_signals: Vec::new(),
         });
         self.scope_by_path.insert(path.clone(), scope_index);
-        self.scope_origins.insert(
-            path,
-            ScopePathOrigin {
-                raw_components,
-                last_tree_generation: self.current_tree_generation,
-            },
-        );
+        self.scope_origins.insert(path, raw_components);
         push_unique(&mut self.scopes[parent].children, scope_index);
         Ok(scope_index)
     }
@@ -420,33 +399,25 @@ impl FsdbHierarchyBuilder {
         parent: usize,
         raw_components: &[String],
     ) -> Result<(), WavepeekError> {
+        if self.scopes[existing].parent != Some(parent) {
+            return Err(ambiguous_scope_path_error(path));
+        }
+        self.validate_scope_path_origin(path, raw_components)
+    }
+
+    fn validate_scope_path_origin(
+        &self,
+        path: &str,
+        raw_components: &[String],
+    ) -> Result<(), WavepeekError> {
         let origin = self.scope_origins.get(path).ok_or_else(|| {
             WavepeekError::Internal(format!(
                 "FSDB hierarchy scope path '{path}' is missing origin metadata"
             ))
         })?;
-        if self.scopes[existing].parent != Some(parent) || origin.raw_components != raw_components {
+        if origin != raw_components {
             return Err(ambiguous_scope_path_error(path));
         }
-        Ok(())
-    }
-
-    fn merge_existing_scope_path(
-        &mut self,
-        path: &str,
-        raw_components: &[String],
-    ) -> Result<(), WavepeekError> {
-        let origin = self.scope_origins.get_mut(path).ok_or_else(|| {
-            WavepeekError::Internal(format!(
-                "FSDB hierarchy scope path '{path}' is missing origin metadata"
-            ))
-        })?;
-        if origin.raw_components != raw_components
-            || origin.last_tree_generation == self.current_tree_generation
-        {
-            return Err(ambiguous_scope_path_error(path));
-        }
-        origin.last_tree_generation = self.current_tree_generation;
         Ok(())
     }
 
@@ -1302,13 +1273,78 @@ mod tests {
         builder.upscope().unwrap();
 
         let error = builder
-            .scope(scope("top.a", RawScopeKind::Interface))
+            .scope(scope("top.a", RawScopeKind::Module))
             .expect_err("canonical scope collisions should be rejected")
             .to_string();
 
         assert_eq!(
             error,
             "fatal: file: FSDB hierarchy contains ambiguous canonical scope path 'top.a'"
+        );
+    }
+
+    #[test]
+    fn fsdb_hierarchy_rejects_repeated_scope_kind_mismatches() {
+        let mut builder = FsdbHierarchyBuilder::new();
+        builder.begin_tree();
+        builder.scope(scope("top", RawScopeKind::Module)).unwrap();
+        builder.upscope().unwrap();
+
+        let error = builder
+            .scope(scope("top", RawScopeKind::Interface))
+            .expect_err("scope kind mismatches should be rejected")
+            .to_string();
+
+        assert_eq!(
+            error,
+            "fatal: file: FSDB hierarchy contains ambiguous canonical scope path 'top'"
+        );
+    }
+
+    #[test]
+    fn fsdb_hierarchy_merges_matching_scope_paths_within_one_tree() {
+        let mut builder = FsdbHierarchyBuilder::new();
+        builder.begin_tree();
+        builder.scope(scope("top", RawScopeKind::Module)).unwrap();
+        builder
+            .scope(scope("wrapped", RawScopeKind::Module))
+            .unwrap();
+        builder
+            .scope(scope("vif", RawScopeKind::Interface))
+            .unwrap();
+        builder.upscope().unwrap();
+        builder.upscope().unwrap();
+        builder
+            .scope(scope("bus[0]", RawScopeKind::Interface))
+            .unwrap();
+        builder
+            .signal(signal(1, "value", RawSignalKind::Reg))
+            .unwrap();
+        builder.upscope().unwrap();
+        builder.upscope().unwrap();
+        builder.scope(scope("top", RawScopeKind::Module)).unwrap();
+        builder
+            .scope(scope("bus[0]", RawScopeKind::Interface))
+            .unwrap();
+        builder
+            .signal(signal(1, "value", RawSignalKind::Reg))
+            .unwrap();
+        builder.upscope().unwrap();
+        builder.upscope().unwrap();
+        builder.end_tree();
+        let index = builder.finish();
+
+        assert_eq!(
+            index
+                .scopes_depth_first(None)
+                .into_iter()
+                .map(|scope| scope.path)
+                .collect::<Vec<_>>(),
+            ["top", "top.bus[0]", "top.wrapped", "top.wrapped.vif"]
+        );
+        assert_eq!(
+            paths(index.signals_in_scope_recursive("top", None).unwrap()),
+            ["top.bus[0].value"]
         );
     }
 
