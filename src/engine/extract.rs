@@ -22,7 +22,9 @@ use crate::engine::time::{
     validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{
+    CommandData, CommandName, CommandResult, HumanRenderOptions, scoped_signal_path,
+};
 use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, BoundLogicalExpr, EventEvalFrame};
 use crate::waveform::{
@@ -711,15 +713,11 @@ fn resolve_payload_signals(
     let mut display_names = Vec::with_capacity(payload.len());
     let mut canonical_paths = Vec::with_capacity(payload.len());
     for token in payload {
-        if scope.is_some() && token.contains('.') {
-            return Err(WavepeekError::Args(format!(
+        let path = scoped_signal_path(token, scope).ok_or_else(|| {
+            WavepeekError::Args(format!(
                 "payload signal '{token}' must be relative when --scope is set. See 'wavepeek extract generic --help'."
-            )));
-        }
-        let path = match scope {
-            Some(scope) => format!("{scope}.{token}"),
-            None => token.clone(),
-        };
+            ))
+        })?;
         display_names.push(token.clone());
         canonical_paths.push(path);
     }

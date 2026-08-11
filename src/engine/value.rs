@@ -7,7 +7,7 @@ use crate::engine::time::{
     validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{CommandData, CommandName, CommandResult};
+use crate::engine::{CommandData, CommandName, CommandResult, scoped_signal_path};
 use crate::error::WavepeekError;
 use crate::waveform::{Waveform, WaveformMetadata};
 
@@ -147,10 +147,9 @@ fn resolve_requested_signals(
             ));
         }
 
-        let path = match scope {
-            Some(scope) => format!("{scope}.{display}"),
-            None => display.to_string(),
-        };
+        let path = scoped_signal_path(display, scope).ok_or_else(|| {
+            WavepeekError::Signal(format!("signal '{display}' not found in dump"))
+        })?;
         resolved.push(RequestedSignal {
             display: display.to_string(),
             path,

@@ -44,7 +44,7 @@ Commands without time-window flags do not participate in this model. `value` use
 
 wavepeek uses canonical dump-derived paths as the stable naming model. Without `--scope`, signal-like names are interpreted as canonical full paths.
 
-Commands that support `--scope` allow shorter names relative to the selected scope. In those scoped modes, name resolution happens inside the declared scope rather than against the full hierarchy root. Human-readable output may render short or relative names for compactness, but machine-readable output keeps canonical paths where the contract defines them.
+Commands that support `--scope` allow shorter names relative to the selected scope. Relative names may include child-scope components: with `--scope top`, `cpu.valid` resolves to `top.cpu.valid`, while repeating the selected scope as `top.cpu.valid` remains invalid. In scoped modes, name resolution happens inside the declared scope rather than against the full hierarchy root. Human-readable output may render short or relative names for compactness, but machine-readable output keeps canonical paths where the contract defines them.
 
 The commands that depend on this model are:
 

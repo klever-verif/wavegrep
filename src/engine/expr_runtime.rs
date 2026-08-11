@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::rc::Rc;
 
+use crate::engine::scoped_signal_path;
 use crate::error::WavepeekError;
 use crate::expr::sema::{
     BoundEventKind, BoundInsideItem, BoundLogicalKind, BoundLogicalNode, BoundSelection,
@@ -33,11 +34,8 @@ impl<'a> ScopedExprHost<'a> {
 
 impl ExpressionHost for ScopedExprHost<'_> {
     fn resolve_signal(&self, name: &str) -> Result<SignalHandle, ExprDiagnostic> {
-        let resolved_name = match self.scope {
-            Some(_) if name.contains('.') => return Err(unknown_signal_diagnostic(name)),
-            Some(scope) => format!("{scope}.{name}"),
-            None => name.to_string(),
-        };
+        let resolved_name =
+            scoped_signal_path(name, self.scope).ok_or_else(|| unknown_signal_diagnostic(name))?;
         self.inner.resolve_signal(resolved_name.as_str())
     }
 
@@ -333,6 +331,8 @@ mod tests {
                 "top.ev" => Ok(SignalHandle(3)),
                 "top.temp" => Ok(SignalHandle(4)),
                 "top.msg" => Ok(SignalHandle(5)),
+                "top.cpu.valid" => Ok(SignalHandle(6)),
+                "top.top.clk" => Ok(SignalHandle(7)),
                 other => Err(ExprDiagnostic {
                     layer: crate::expr::DiagnosticLayer::Semantic,
                     code: "HOST-UNKNOWN-SIGNAL",
@@ -392,13 +392,19 @@ mod tests {
     }
 
     #[test]
-    fn scoped_host_rejects_dotted_names_when_scope_is_active() {
+    fn scoped_host_resolves_descendants_and_rejects_active_scope_prefix() {
         let host = StubHost;
         let scoped = ScopedExprHost::new(&host, Some("top"));
+        assert_eq!(
+            scoped
+                .resolve_signal("cpu.valid")
+                .expect("scoped descendant should resolve"),
+            SignalHandle(6)
+        );
+
         let error = scoped
             .resolve_signal("top.clk")
-            .expect_err("dotted scoped token should fail");
-
+            .expect_err("active scope prefix should fail");
         assert_eq!(error.code, "HOST-UNKNOWN-SIGNAL");
         assert_eq!(error.message, "unknown signal 'top.clk'");
     }

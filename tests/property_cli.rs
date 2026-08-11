@@ -1058,9 +1058,36 @@ fn property_explicit_wildcard_signal_free_eval_reports_tracking_error() {
 }
 
 #[test]
-fn property_scope_rejects_dotted_names_in_scoped_mode() {
+fn property_scope_resolves_descendants_and_rejects_canonical_names() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
+        .args([
+            "property",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge cpu.valid",
+            "--eval",
+            "cpu.valid",
+            "--capture",
+            "assert",
+            "--sample-mode",
+            "native",
+            "--json",
+        ])
+        .output()
+        .expect("property should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        parse_json(&output.stdout)["data"],
+        json!([{"time": "5ns", "sample_time": "5ns", "kind": "assert"}])
+    );
 
     wavepeek_cmd()
         .args([

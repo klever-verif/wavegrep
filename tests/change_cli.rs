@@ -394,6 +394,36 @@ fn change_named_non_edge_trigger_emits_expected_single_row() {
 }
 
 #[test]
+fn change_scoped_descendant_names_resolve() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--signals",
+            "cpu.valid",
+            "--on",
+            "posedge cpu.valid",
+            "--sample-mode",
+            "native",
+            "--json",
+        ])
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let value = parse_json(&output.stdout);
+    assert_eq!(value["data"][0]["time"], "5ns");
+    assert_eq!(value["data"][0]["signals"][0]["path"], "top.cpu.valid");
+}
+
+#[test]
 fn change_zero_delta_path_returns_empty_data_with_warning() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();

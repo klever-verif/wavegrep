@@ -7,7 +7,8 @@ use tempfile::NamedTempFile;
 
 mod common;
 use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, wavepeek_cmd,
+    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
+    wavepeek_cmd,
 };
 
 fn parse_json(stdout: &[u8]) -> Value {
@@ -621,6 +622,38 @@ fn extract_generic_reports_empty_result_diagnostic() {
 }
 
 #[test]
+fn extract_generic_scoped_descendant_names_resolve() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge cpu.valid",
+            "--when",
+            "!mem.ready",
+            "--payload",
+            "cpu.valid,mem.ready",
+            "--json",
+        ])
+        .output()
+        .expect("extract should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let value = parse_json(&output.stdout);
+    assert_eq!(value["data"][0]["time"], "5ns");
+    assert_eq!(value["data"][0]["payload"][0]["path"], "top.cpu.valid");
+    assert_eq!(value["data"][0]["payload"][1]["path"], "top.mem.ready");
+}
+
+#[test]
 fn extract_generic_rejects_unsupported_trigger_forms() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-bad-on.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
@@ -653,6 +686,8 @@ fn extract_generic_rejects_unsupported_trigger_forms() {
 fn extract_generic_rejects_bad_sources_and_scoped_payload_paths() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-invalid.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
+    let ambiguous_fixture = fixture_path("change_scope_ambiguous.vcd");
+    let ambiguous_fixture = ambiguous_fixture.to_string_lossy().into_owned();
     let duplicate_names = write_source(&format!(
         r#"{{"$schema":"{}","kind":"extract.generic.sources","sources":[{{"name":"dup","on":"posedge clk","when":"valid","payload":["data"]}},{{"name":"dup","on":"posedge clk","when":"valid","payload":["last"]}}]}}"#,
         expected_input_schema_url()
@@ -713,15 +748,15 @@ fn extract_generic_rejects_bad_sources_and_scoped_payload_paths() {
             "extract",
             "generic",
             "--waves",
-            fixture.as_str(),
+            ambiguous_fixture.as_str(),
             "--scope",
             "top",
             "--on",
             "posedge clk",
             "--when",
-            "valid",
+            "1",
             "--payload",
-            "top.data",
+            "top.clk",
         ])
         .assert()
         .failure()

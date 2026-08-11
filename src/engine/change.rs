@@ -17,7 +17,9 @@ use crate::engine::time::{
     parse_dump_time_context, validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{
+    CommandData, CommandName, CommandResult, HumanRenderOptions, scoped_signal_path,
+};
 use crate::error::WavepeekError;
 use crate::expr::{
     BoundEventExpr, EventEvalFrame, ExprTypeKind, ExpressionHost, SampledValue, SignalHandle,
@@ -1652,7 +1654,9 @@ fn resolve_requested_signals(
             ));
         }
 
-        let path = resolve_token_to_path(display, scope)?;
+        let path = scoped_signal_path(display, scope).ok_or_else(|| {
+            WavepeekError::Signal(format!("signal '{display}' not found in dump"))
+        })?;
         resolved.push(RequestedSignal {
             display: display.to_string(),
             path,
@@ -1660,21 +1664,6 @@ fn resolve_requested_signals(
     }
 
     Ok(resolved)
-}
-
-fn resolve_token_to_path(token: &str, scope: Option<&str>) -> Result<String, WavepeekError> {
-    let token = token.trim();
-    match scope {
-        Some(scope) => {
-            if token.contains('.') {
-                return Err(WavepeekError::Signal(format!(
-                    "signal '{token}' not found in dump"
-                )));
-            }
-            Ok(format!("{scope}.{token}"))
-        }
-        None => Ok(token.to_string()),
-    }
 }
 
 #[cfg(test)]
@@ -1868,9 +1857,8 @@ mod tests {
         RollingSignalState, SampleCache, build_candidate_schedule, build_edge_fast_event_eval_host,
         build_fused_event_eval_host, build_snapshot, cached_event_handles, cached_event_sources,
         cached_sample_value, candidate_times_to_indices, parse_bound_time,
-        resolve_requested_signals, resolve_token_to_path, run, run_baseline, run_edge_fast,
-        run_fused, run_with_sink, select_engine_mode, should_use_stream_candidates_in_fused,
-        time_window_indices,
+        resolve_requested_signals, run, run_baseline, run_edge_fast, run_fused, run_with_sink,
+        select_engine_mode, should_use_stream_candidates_in_fused, time_window_indices,
     };
     use crate::cli::change::{ChangeArgs, TuneChangeCandidateMode, TuneChangeEngineMode};
     use crate::cli::limits::LimitArg;
@@ -2013,21 +2001,6 @@ mod tests {
 
     #[test]
     fn request_resolution_and_snapshot_helpers_exercise_validation() {
-        assert_eq!(
-            resolve_token_to_path("sig", Some("top")).expect("scoped token"),
-            "top.sig"
-        );
-        assert_eq!(
-            resolve_token_to_path("top.sig", None).expect("canonical token"),
-            "top.sig"
-        );
-        assert!(
-            resolve_token_to_path("top.sig", Some("top"))
-                .expect_err("dotted scoped token should fail")
-                .to_string()
-                .contains("signal 'top.sig' not found in dump")
-        );
-
         let fixture = write_fixture(TEST_VCD, "change-helper.vcd");
         let waveform = Waveform::open(fixture.path()).expect("waveform should open");
         let args = ChangeArgs {

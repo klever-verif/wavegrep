@@ -486,33 +486,35 @@ fn value_mixed_mode_names_fail_without_scope() {
 }
 
 #[test]
-fn value_mixed_mode_names_resolve_with_scope() {
+fn value_scoped_descendant_name_resolves() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    let mut command = wavepeek_cmd();
-    command
+    let output = wavepeek_cmd()
         .args([
             "value",
             "--waves",
             fixture.as_str(),
             "--at",
-            "10ns",
+            "5ns",
             "--scope",
             "top",
             "--signals",
-            "clk,data",
+            "cpu.valid",
+            "--json",
         ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("clk=1'h1"))
-        .stdout(predicate::str::contains("data=8'h0f"))
-        .stderr(predicate::str::is_empty());
+        .output()
+        .expect("value should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let value: Value = serde_json::from_slice(&output.stdout).expect("stdout should be json");
+    assert_eq!(value["data"][0]["signals"][0]["path"], "top.cpu.valid");
 }
 
 #[test]
 fn value_full_paths_are_not_accepted_when_scope_is_set() {
-    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture_path("change_scope_ambiguous.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     let mut command = wavepeek_cmd();
@@ -522,7 +524,7 @@ fn value_full_paths_are_not_accepted_when_scope_is_set() {
             "--waves",
             fixture.as_str(),
             "--at",
-            "10ns",
+            "5ns",
             "--scope",
             "top",
             "--signals",
