@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Accepted exact repeated FSDB scope records emitted within one hierarchy tree by Verdi 2021 while retaining collision checks for distinct raw paths and scope kinds ([issue #87](https://github.com/kleverhq/wavepeek/issues/87)).
+
 ## [2.2.1] - 2026-08-09
 
 ### Fixed
