@@ -48,7 +48,7 @@ By default, `build.rs` embeds the selected Reader library directory as an ELF rp
 
 ## Devcontainer behavior
 
-When host `VERDI_HOME` is set, the root `./dev` wrapper validates the FSDB Reader SDK and mounts the installation at `/opt/verdi`. When it is unset, `/opt/verdi` is not mounted and optional FSDB gates skip. Invalid paths or incomplete SDKs fail before container startup.
+When host `VERDI_HOME` is set, the root `./dev` wrapper validates the FSDB Reader SDK and mounts the installation at `/opt/verdi`. It forwards `WAVEPEEK_FSDB_ABI`; an explicit `WAVEPEEK_FSDB_READER_LIBDIR` is mounted at `/opt/fsdb-reader`. When `VERDI_HOME` is unset, `/opt/verdi` is not mounted and optional FSDB gates skip. Invalid paths or incomplete SDKs fail before container startup.
 
 Use the helper probe to distinguish available, skipped, and broken states:
 
