@@ -19,9 +19,11 @@ if [ "${1-}" = "--install-hooks" ]; then
     }
     repo_id="$(printf '%s' "$common_dir" | sha256sum | cut -d ' ' -f 1)"
     hooks_dir="$(realpath -m -- "$data_home/wavepeek/git-hooks/$repo_id")"
+    worktrees=()
     while read -r worktree; do
         [ -d "$worktree" ] || continue
         worktree="$(cd "$worktree" && pwd -P)"
+        worktrees+=("$worktree")
         case "$hooks_dir/" in
             "$worktree/"*)
                 printf '%s\n' "error: dev: host Git hooks must be outside registered worktrees" >&2
@@ -35,7 +37,9 @@ if [ "${1-}" = "--install-hooks" ]; then
             exit 1
             ;;
     esac
-    containers="$(docker ps -aq --filter "label=devcontainer.local_folder=$root")" || {
+    containers="$(for worktree in "${worktrees[@]}"; do
+        docker ps -aq --filter "label=devcontainer.local_folder=$worktree" || exit
+    done)" || {
         printf '%s\n' "error: dev: cannot inspect existing worktree containers" >&2
         exit 1
     }
