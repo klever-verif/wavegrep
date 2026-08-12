@@ -21,7 +21,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 - [x] (2026-08-12 16:42Z) Mapped schema production, runtime, input, test, automation, documentation, and Pages-publication paths; verified that historical schemas survive because publication stages and exports the existing complete `gh-pages` tree.
 - [x] (2026-08-12 16:48Z) Made all six structured extraction families independent of `$schema`, preserved unknown legacy-field compatibility through Serde, updated benchmark inputs, and passed 95 focused extraction tests, 93 benchmark helper tests, and Clippy.
 - [x] (2026-08-12 16:58Z) Removed the schema CLI, engine, builders, artifacts, dependencies, and validator-only tests while retaining direct JSON/JSONL shape and sequencing checks; `cargo check --all-targets` and 14 focused integration suites passed.
-- [ ] Remove schema generation, freshness, pre-commit, CI-label, publication, deployment-check, release-versioning, and helper-test paths while preserving historical Pages files; run auxiliary/workflow checks and commit the slice.
+- [x] (2026-08-12 17:05Z) Removed generation gates and current schema publication/deployment checks; 51 docs-helper tests include a synthetic v3 staging case that preserves a historical v2.2 file and creates no v3 schema, and `just test-aux` plus `just check-actions` passed.
 - [ ] Replace public schema discovery with concise machine-output forms and examples; update maintainer docs, README, breadcrumbs, and changelog; run docs checks and commit the slice.
 - [ ] Run `just ci`, conduct parallel correctness, docs, and mandatory KISS/YAGNI/ponytail challenge reviews, fix findings, rerun affected checks, and obtain a clean independent control review.
 - [ ] Remove this branch-local plan, run `just check`, commit cleanup, push the branch, and open a pull request targeting `dev3`.
@@ -32,7 +32,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
   Evidence: `schema_cli` reported `cannot open 'tests/fixtures/generated/m2_core.vcd'`; after `./dev just prepare-waveform-fixtures`, all 40 `schema_cli` and all 10 `jsonl_cli` tests passed.
 
 - Observation: Existing Pages publication updates and exports the complete `gh-pages` tree, so old root schema files remain available without retaining a compatibility publisher in current source.
-  Evidence: `tools/docs/publish_docs.py` stages into an existing Pages worktree and later copies the whole staged tree into the Pages artifact. Published v1, v2.0, v2.1, and v2.2 files are present on `origin/gh-pages`.
+  Evidence: The new `test_stage_publication_preserves_historical_files` stages v3 installers over a Pages branch containing `schema-output-v2.2.json`, then verifies the historical bytes remain and no v3 schema path exists; all 51 docs-helper tests pass.
 
 - Observation: Runtime structured-input types are separate from the schema-only input DTO tree and use Serde's default unknown-field behavior.
   Evidence: After deleting explicit schema fields and checks, all 95 extraction integration tests passed; `extract_generic_source_file_ignores_schema_url` and `extract_axi_source_ignores_legacy_schema_url` passed with arbitrary or old `$schema` properties.
@@ -61,7 +61,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are complete. Structured input executes without schema metadata across generic, AHB, APB, ATB, AXI, and AXI-Stream engines. The schema command, builders, snapshots, generators, schema derives, dependencies, validator-only tests, and output `$schema` fields are gone. Direct JSON shapes and JSONL sequencing remain covered. Automation, publication, and documentation remain for subsequent milestones.
+Milestones 1 through 3 are complete. Structured input executes without schema metadata; the core schema subsystem and obsolete gates are gone; publication now stages only documentation and installers while exporting the complete Pages tree. Direct machine-output tests and a synthetic historical-file preservation test cover retained behavior. Public and maintainer documentation remain for the next milestone.
 
 ## Context and Orientation
 

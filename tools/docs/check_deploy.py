@@ -19,8 +19,6 @@ VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 DEFAULT_BASE_URL = "https://kleverhq.github.io/wavepeek"
 USER_AGENT = "wavepeek-docs-deploy-check"
-STREAM_SCHEMA_MIN_VERSION = (1, 1, 0)
-INPUT_SCHEMA_MIN_VERSION = (2, 1, 0)
 
 
 class DeployCheckError(Exception):
@@ -49,9 +47,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     )
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
-    parser.add_argument("--schema-artifact")
-    parser.add_argument("--stream-schema-artifact")
-    parser.add_argument("--input-schema-artifact")
     parser.add_argument("--timeout", type=float, default=20.0)
     return parser.parse_args(list(argv))
 
@@ -64,43 +59,6 @@ def validate_version(version: str) -> str:
     if VERSION_RE.fullmatch(version) is None:
         fail(f"version must be SemVer X.Y.Z, got {version!r}")
     return version
-
-
-def version_tuple(version: str) -> tuple[int, int, int]:
-    validate_version(version)
-    major, minor, patch = version.split(".")
-    return int(major), int(minor), int(patch)
-
-
-def stream_schema_required(version: str) -> bool:
-    return version_tuple(version) >= STREAM_SCHEMA_MIN_VERSION
-
-
-def input_schema_required(version: str) -> bool:
-    return version_tuple(version) >= INPUT_SCHEMA_MIN_VERSION
-
-
-def schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if (major, minor) >= (2, 1):
-        return f"schema-output-v{major}.{minor}.json"
-    if major >= 2:
-        return f"wavepeek_v{major}.{minor}.json"
-    return f"wavepeek_v{major}.json"
-
-
-def stream_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if (major, minor) >= (2, 1):
-        return f"schema-stream-v{major}.{minor}.json"
-    if major >= 2:
-        return f"wavepeek-stream-v{major}.{minor}.json"
-    return f"wavepeek-stream-v{major}.json"
-
-
-def input_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    return f"schema-input-v{major}.{minor}.json"
 
 
 def normalize_base_url(base_url: str) -> str:
@@ -219,23 +177,13 @@ def validate_pages_site(site: Any, base_url: str) -> None:
 def check_deploy(args: argparse.Namespace) -> None:
     version = validate_version(args.version)
     base_url = normalize_base_url(args.base_url)
-    output_artifact = args.schema_artifact or schema_artifact_name(version)
-    stream_artifact = args.stream_schema_artifact or stream_schema_artifact_name(version)
-    input_artifact = args.input_schema_artifact or input_schema_artifact_name(version)
-
     endpoints = [
         ("site root", page_url(base_url)),
         ("version docs", page_url(base_url, f"{version}/")),
         ("versions.json", page_url(base_url, "versions.json")),
-        (output_artifact, page_url(base_url, output_artifact)),
     ]
     if args.expect_latest:
         endpoints.insert(2, ("latest docs", page_url(base_url, "latest/")))
-    if args.stream_schema_artifact is not None or stream_schema_required(version):
-        endpoints.append((stream_artifact, page_url(base_url, stream_artifact)))
-    if args.input_schema_artifact is not None or input_schema_required(version):
-        endpoints.append((input_artifact, page_url(base_url, input_artifact)))
-
     for label, url in endpoints:
         fetch_bytes(
             url,
