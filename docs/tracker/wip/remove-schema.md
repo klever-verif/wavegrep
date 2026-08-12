@@ -23,7 +23,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 - [x] (2026-08-12 16:58Z) Removed the schema CLI, engine, builders, artifacts, dependencies, and validator-only tests while retaining direct JSON/JSONL shape and sequencing checks; `cargo check --all-targets` and 14 focused integration suites passed.
 - [x] (2026-08-12 17:05Z) Removed generation gates and current schema publication/deployment checks; 51 docs-helper tests include a synthetic v3 staging case that preserves a historical v2.2 file and creates no v3 schema, and `just test-aux` plus `just check-actions` passed.
 - [x] (2026-08-12 17:11Z) Replaced schema discovery with concise object/list/event/transfer/JSONL examples, removed stale public and maintainer references, updated README/breadcrumbs/changelog, and passed 79 focused docs/CLI tests plus strict docs-site generation.
-- [ ] Run `just ci` (completed: full source coverage, docs, auxiliary, action, build, and available FSDB gates passed at 93.54% region / 93.06% function / 94.02% line coverage); conduct parallel correctness, docs, and mandatory KISS/YAGNI/ponytail challenge reviews and fix findings (completed: correctness clean; docs found and fixed two fictitious protocol examples; simplicity cleanup removed schema-era test helpers and duplicate negative assertions); obtain a clean independent control review (remaining).
+- [x] (2026-08-12 17:25Z) Re-ran `just ci` after fixes (700 library tests; 93.53% regions, 93.03% functions, 94.01% lines; auxiliary, docs, action, build, and available FSDB gates passed), completed correctness/docs/KISS-YAGNI-ponytail reviews, fixed findings, and received a clean independent control review.
 - [ ] Remove this branch-local plan, run `just check`, commit cleanup, push the branch, and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -64,7 +64,9 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 
 ## Outcomes & Retrospective
 
-Milestones 1 through 4 are complete. Structured input executes without schema metadata; the core subsystem and obsolete gates are gone; publication stages only documentation and installers while preserving the complete Pages tree. Public discovery now uses concise runtime JSON/JSONL examples, and maintainer guidance describes direct contract tests. Final CI and review remain.
+All implementation and review milestones are complete. WavePeek no longer exposes, builds, validates, or publishes current JSON Schemas; JSON and JSONL retain deterministic runtime shapes without `$schema`; all six structured-input paths work without schema metadata and ignore compatible legacy metadata. Publication continues to export the complete Pages tree, with a synthetic v3 test proving a historical v2.2 file survives unchanged and no v3 schema appears. Public machine-output docs now show real object, list, event, transfer, and stream examples.
+
+The final `just ci` passed 700 library tests, all integration and auxiliary suites, strict docs generation, action lint, coverage at 93.53% regions / 93.03% functions / 94.01% lines, and available FSDB gates. Runtime correctness review was clean. Docs review found two hand-shortened protocol examples that runtime could not emit; they were replaced with fixture-derived output. The mandatory KISS/YAGNI/ponytail challenge removed schema-era test helpers, duplicate absence assertions, and an unnecessary docs-helper result wrapper. A fresh independent control review reported no substantive findings. Bundled skill recipe work remains intentionally deferred to #77/#79.
 
 ## Context and Orientation
 
