@@ -29,16 +29,9 @@ common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
 common_dir="$(cd "$common_dir" && pwd -P)"
 workspace="/workspaces/$(basename "$root")"
 
-normalize_path() {
-    case "$1" in
-        /*) realpath -m -- "$1" ;;
-        *) realpath -m -- "$PWD/$1" ;;
-    esac
-}
-
 map_path() {
     local path
-    path="$(normalize_path "$1")"
+    path="$(realpath -m -- "$1")"
     case "$path" in
         "$root") printf '%s\n' "$workspace" ;;
         "$root"/*) printf '%s\n' "$workspace/${path#"$root"/}" ;;
@@ -58,7 +51,6 @@ mapped_index="$(map_path "$index")"
 if [ "$hook" = "commit-msg" ]; then
     mapped_message="$(map_path "$1")"
 fi
-skip="${SKIP-}"
 while IFS= read -r name; do
     [[ "$name" == GIT_* ]] && unset "$name"
 done < <(compgen -e)
@@ -69,8 +61,8 @@ env_args=(
     "GIT_COMMON_DIR=$mapped_common_dir"
     "GIT_INDEX_FILE=$mapped_index"
 )
-if [ -n "$skip" ]; then
-    env_args+=("SKIP=$skip")
+if [ -n "${SKIP-}" ]; then
+    env_args+=("SKIP=$SKIP")
 fi
 
 installed_dir="$(cd "$(dirname "$0")" && pwd -P)"

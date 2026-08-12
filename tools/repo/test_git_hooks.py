@@ -9,17 +9,6 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-GIT_ENV = (
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    "GIT_COMMON_DIR",
-    "GIT_DIR",
-    "GIT_INDEX_FILE",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_PREFIX",
-    "GIT_WORK_TREE",
-)
-
-
 class GitHookTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -27,6 +16,7 @@ class GitHookTests(unittest.TestCase):
         self.tmp = Path(self.temp.name)
         self.home = self.tmp / "home"
         self.home.mkdir()
+        self.data_home = self.tmp / "data"
         self.main = self.tmp / "main"
         self.linked = self.tmp / "linked"
         self.fake_bin = self.tmp / "bin"
@@ -39,10 +29,9 @@ class GitHookTests(unittest.TestCase):
         self._init_repository()
 
     def _env(self, **updates: str) -> dict[str, str]:
-        env = os.environ.copy()
-        for name in GIT_ENV:
-            env.pop(name, None)
+        env = {name: value for name, value in os.environ.items() if not name.startswith("GIT_")}
         env["HOME"] = str(self.home)
+        env["XDG_DATA_HOME"] = str(self.data_home)
         env["PATH"] = f"{self.fake_bin}{os.pathsep}{env['PATH']}"
         env["FAKE_LOG"] = str(self.log)
         env["FAKE_ROOT"] = str(self.main)
@@ -104,19 +93,15 @@ if marker:
 data = sys.stdin.read()
 print(f"stdout:{data}", end="")
 print("stderr", file=sys.stderr)
-if "--commit-msg-filename" in sys.argv:
-    message = pathlib.Path(sys.argv[sys.argv.index("--commit-msg-filename") + 1]).read_text()
-    if not message.startswith("chore:"):
-        raise SystemExit(1)
 raise SystemExit(int(os.environ.get("FAKE_STATUS", "0")))
 """
         )
         script.chmod(0o755)
 
-    def _install(self, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    def _install(self) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str((cwd or self.main) / "dev"), "--install-hooks"],
-            cwd=cwd or self.main,
+            [str(self.main / "dev"), "--install-hooks"],
+            cwd=self.main,
             env=self._env(),
             text=True,
             stdout=subprocess.PIPE,
@@ -126,7 +111,8 @@ raise SystemExit(int(os.environ.get("FAKE_STATUS", "0")))
 
     @property
     def hooks_dir(self) -> Path:
-        return self.main / ".git" / "wavepeek-hooks"
+        configured = self._git("config", "--local", "--get", "core.hooksPath").stdout.strip()
+        return Path(configured)
 
     def _replace_installed_dev(self) -> None:
         installed = self.hooks_dir / "dev"
@@ -188,6 +174,9 @@ os.execvpe(args[0], args, env)
             self._git("config", "--local", "--get", "core.hooksPath").stdout.strip(),
             str(self.hooks_dir),
         )
+        self.assertTrue(self.hooks_dir.is_relative_to(self.data_home))
+        self.assertFalse(self.hooks_dir.is_relative_to(self.main))
+        self.assertEqual(self.hooks_dir.stat().st_mode & 0o777, 0o700)
         self.assertEqual((self.hooks_dir / "dev").read_bytes(), (self.main / "dev").read_bytes())
         source = (self.main / "tools/repo/git-hook").read_bytes()
         for name in ("pre-commit", "commit-msg"):
@@ -303,10 +292,6 @@ os.execvpe(args[0], args, env)
                 "/workspaces/main/.git/message with spaces",
             ],
         )
-        message.write_text("invalid\n")
-        result = self._run_hook(self.main, "commit-msg", str(message))
-        self.assertEqual(result.returncode, 1)
-
         outside = self.tmp / "outside"
         outside.write_text("chore: valid\n")
         result = self._run_hook(self.main, "commit-msg", str(outside))

@@ -6,18 +6,9 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PRE_COMMIT_SKIPS = ",".join(
-    (
-        "rust-format",
-        "rust-lint",
-        "rust-check",
-        "justfile-format-check",
-        "schema-contract",
-        "github-actions-lint",
-        "rust-test",
-        "aux-test",
-        "bench-e2e-smoke-commit",
-    )
+PRE_COMMIT_SKIPS = (
+    "rust-format,rust-lint,rust-check,justfile-format-check,schema-contract,"
+    "github-actions-lint,rust-test,aux-test,bench-e2e-smoke-commit"
 )
 
 
@@ -32,17 +23,13 @@ class DockerGitHookSmokeTests(unittest.TestCase):
             root = Path(temporary)
             main = root / "main"
             linked = root / "linked"
-            env = os.environ.copy()
-            for name in (
-                "GIT_COMMON_DIR",
-                "GIT_DIR",
-                "GIT_INDEX_FILE",
-                "GIT_WORK_TREE",
-                "VERDI_HOME",
-                "WAVEPEEK_FSDB_ABI",
-                "WAVEPEEK_FSDB_READER_LIBDIR",
-            ):
-                env.pop(name, None)
+            env = {
+                name: value
+                for name, value in os.environ.items()
+                if not name.startswith(("GIT_", "WAVEPEEK_FSDB_"))
+                and name != "VERDI_HOME"
+            }
+            env["XDG_DATA_HOME"] = str(root / "data")
             containers: list[str] = []
             try:
                 branch = subprocess.run(
@@ -99,6 +86,10 @@ class DockerGitHookSmokeTests(unittest.TestCase):
                 self.assertEqual(len(set(containers)), 2)
 
                 self._run(main, env, "./dev", "--install-hooks")
+                hooks_dir = self._git(
+                    main, env, "config", "--local", "--get", "core.hooksPath"
+                ).stdout.strip()
+                self._run(main, env, "./dev", "--exec-only", "test", "!", "-e", hooks_dir)
                 commit_env = env | {"SKIP": PRE_COMMIT_SKIPS}
                 for worktree, name in ((main, "main"), (linked, "linked")):
                     (worktree / f"{name}-hook-smoke").write_text("smoke\n")
@@ -112,10 +103,8 @@ class DockerGitHookSmokeTests(unittest.TestCase):
                     )
                     self.assertIn("Commit style check", result.stdout + result.stderr)
 
-                (linked / "invalid-hook-smoke").write_text("smoke\n")
-                self._git(linked, commit_env, "add", "invalid-hook-smoke")
                 invalid = subprocess.run(
-                    ["git", "commit", "-m", "invalid"],
+                    ["git", "commit", "--allow-empty", "-m", "invalid"],
                     cwd=linked,
                     env=commit_env,
                     text=True,

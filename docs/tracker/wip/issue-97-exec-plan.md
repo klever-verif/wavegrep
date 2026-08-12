@@ -20,7 +20,7 @@ This work does not add another wrapper for ordinary development commands, start 
 - [x] (2026-08-12 13:27Z) Fixed commit-message filename handling and made `./dev --exec-only` failures actionable without allowing lifecycle operations.
 - [x] (2026-08-12 13:27Z) Added Docker-free focused tests and an opt-in Docker-backed main/linked-worktree smoke test.
 - [x] (2026-08-12 13:27Z) Updated maintainer documentation and breadcrumbs to describe the host/container boundary and normal workflow.
-- [ ] Run focused and full gates, commit logical milestones, conduct parallel correctness/docs and mandatory KISS+YAGNI+ponytail challenge reviews, fix findings, and run an independent control review. (Completed: focused helper tests and full Pre-commit gate pass; remaining: Docker smoke, `check`, `ci`, commits, and reviews.)
+- [ ] Run focused and full gates, commit logical milestones, conduct parallel correctness/docs and mandatory KISS+YAGNI+ponytail challenge reviews, fix findings, and run an independent control review. (Completed: all gates and initial parallel reviews; corrected the critical container-writable active-hook location and accepted KISS reductions; remaining: re-review, control review, and final cleanup.)
 - [ ] Remove this branch-local plan, push the branch, and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -31,11 +31,13 @@ This work does not add another wrapper for ordinary development commands, start 
   Evidence: this worktree reports `/home/esynr3z/projects/wavepeek/.git/worktrees/dev3-97-git-hooks` as its Git directory and `/home/esynr3z/projects/wavepeek/.git` as its common directory; `dev` adds the latter as a same-path bind mount.
 - Observation: the existing auxiliary test discovery can include an opt-in Docker smoke test without adding a recipe, while skipping it inside the normal container gate.
   Evidence: `./dev just test-aux` discovered 20 `tools/repo` tests and reported one Docker smoke skip.
+- Observation: the Git common directory is writable from linked-worktree containers, so it cannot safely hold active host hook executables.
+  Evidence: the correctness reviewer identified host-code execution from container-modified hooks; installation now targets host data storage, and both focused and Docker tests prove that path is outside container mounts.
 
 ## Decision Log
 
-- Decision: Add `./dev --install-hooks` as the sole explicit host installation command and install copies under `<git-common-dir>/wavepeek-hooks` with an absolute repository-local `core.hooksPath`.
-  Rationale: Git and `./dev` already exist on the host; this avoids a dependency or another ordinary-command wrapper, shares activation across linked worktrees, and prevents branch switches from replacing active host hook code before reinstall.
+- Decision: Add `./dev --install-hooks` as the sole explicit host installation command and install copies under `${XDG_DATA_HOME:-$HOME/.local/share}/wavepeek/git-hooks/<repository-id>` with an absolute repository-local `core.hooksPath`.
+  Rationale: Git and `./dev` already exist on the host; this avoids a dependency or another ordinary-command wrapper, shares activation across linked worktrees, prevents branch switches from replacing active hook code before reinstall, and keeps active host executables outside every container-writable mount.
   Date/Author: 2026-08-12 / Pi
 - Decision: Use one reviewed Bash dispatcher copied as both `pre-commit` and `commit-msg`, alongside a copied `dev` dispatcher.
   Rationale: The two hooks differ only in the Pre-commit stage arguments, and Bash/Git are already required by the host workflow.
@@ -54,7 +56,7 @@ The root `dev` Bash script is the only host entrypoint for container commands. I
 
 `.pre-commit-config.yaml` defines repository-local Pre-commit and commit-message stages. The root `justfile` owns their commands. Today `just dev-setup` calls `pre-commit install` inside the container, which creates host-visible launchers in the bind-mounted Git directory with a container-only Python path. The commit-message hook also suppresses filenames, while `just check-commit` always guesses `COMMIT_EDITMSG` instead of accepting Git's supplied file.
 
-The reviewed hook source will live at `tools/repo/git-hook`. `./dev --install-hooks` will copy that source and `dev` itself into the Git common directory, outside tracked worktree files, then activate the copies through `core.hooksPath`. Focused host-side tests live with existing repository helper tests under `tools/repo/`; the standard `just test-aux` discovery already includes `test_*.py` there.
+The reviewed hook source lives at `tools/repo/git-hook`. `./dev --install-hooks` copies that source and `dev` itself into per-repository host data storage outside tracked worktree files and container mounts, then activates the copies through `core.hooksPath`. Focused host-side tests live with existing repository helper tests under `tools/repo/`; the standard `just test-aux` discovery already includes `test_*.py` there.
 
 ## Open Questions
 
@@ -62,7 +64,7 @@ There are no product questions. Implementation will use the smallest path mappin
 
 ## Plan of Work
 
-First, extend `dev` with a host-only installation mode before its normal command and container logic. Resolve the physical common directory, refuse an effective `core.hooksPath` that is neither empty nor the exact managed location, copy reviewed executable files idempotently, and write the absolute repository-local configuration. Remove generated-hook installation from `just dev-setup` and from container lifecycle documentation.
+First, extend `dev` with a host-only installation mode before its normal command and container logic. Resolve the physical common directory, derive a stable per-repository directory under host data storage, refuse an effective `core.hooksPath` that is neither empty nor the exact managed location, copy reviewed executable files idempotently, and write the absolute repository-local configuration. Remove generated-hook installation from `just dev-setup` and from container lifecycle documentation.
 
 Next, add `tools/repo/git-hook`. It will identify its stage from its installed filename, derive and normalize the host worktree, Git directory, common directory, index, and commit-message paths, translate worktree descendants to `/workspaces/<basename>` while preserving same-path common-directory descendants, reject outside paths, clear all inherited `GIT_*` variables, and execute its sibling `dev --exec-only`. The inner command will set only reconstructed Git paths plus optional `SKIP`, then run the correct Pre-commit stage. `exec` and the existing `dev` process bridge preserve streams, signals, and exit status.
 
@@ -110,9 +112,9 @@ The final repository gates `./dev just test-aux`, `./dev just pre-commit`, `./de
 
 The installed layout is:
 
-    <git-common-dir>/wavepeek-hooks/dev
-    <git-common-dir>/wavepeek-hooks/pre-commit
-    <git-common-dir>/wavepeek-hooks/commit-msg
+    ${XDG_DATA_HOME:-$HOME/.local/share}/wavepeek/git-hooks/<repository-id>/dev
+    ${XDG_DATA_HOME:-$HOME/.local/share}/wavepeek/git-hooks/<repository-id>/pre-commit
+    ${XDG_DATA_HOME:-$HOME/.local/share}/wavepeek/git-hooks/<repository-id>/commit-msg
 
 The source remains reviewable at root `dev` and `tools/repo/git-hook`; branch switches do not alter the active copies until `./dev --install-hooks` is rerun.
 

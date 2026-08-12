@@ -1,6 +1,7 @@
 import json
 import os
 import pty
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -452,29 +453,22 @@ os.execvp(command[0], command)
 
     def test_missing_host_tools_have_startup_guidance(self) -> None:
         for name in ("bash", "git"):
-            (self.fake_bin / name).symlink_to(subprocess.run(
-                ["which", name], check=True, capture_output=True, text=True
-            ).stdout.strip())
+            (self.fake_bin / name).symlink_to(shutil.which(name))
         isolated_path = str(self.fake_bin)
-        docker = self.fake_bin / "docker"
-        docker.rename(self.fake_bin / "docker.missing")
-        result = self._run(
-            self.main, "--exec-only", "true", env_updates={"PATH": isolated_path}
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Docker is unavailable", result.stderr)
-        self.assertIn("./dev true", result.stderr)
-
-        docker = self.fake_bin / "docker.missing"
-        docker.rename(self.fake_bin / "docker")
-        devcontainer = self.fake_bin / "devcontainer"
-        devcontainer.rename(self.fake_bin / "devcontainer.missing")
-        result = self._run(
-            self.main, "--exec-only", "true", env_updates={"PATH": isolated_path}
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Devcontainer CLI is unavailable", result.stderr)
-        self.assertIn("./dev true", result.stderr)
+        for executable, diagnostic in (
+            ("docker", "Docker is unavailable"),
+            ("devcontainer", "Devcontainer CLI is unavailable"),
+        ):
+            tool = self.fake_bin / executable
+            missing = self.fake_bin / f"{executable}.missing"
+            tool.rename(missing)
+            result = self._run(
+                self.main, "--exec-only", "true", env_updates={"PATH": isolated_path}
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(diagnostic, result.stderr)
+            self.assertIn("./dev true", result.stderr)
+            missing.rename(tool)
 
     def test_requires_command_and_git_worktree(self) -> None:
         result = self._run(self.main)
