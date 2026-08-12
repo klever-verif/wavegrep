@@ -67,8 +67,15 @@ elif args[:2] == ["exec", "container-1"]:
             if value.startswith("/tmp/wavepeek-dev-"):
                 command[index] = os.environ["FAKE_ROOT"] + "/" + pathlib.Path(value).name
         os.execvp(command[0], command)
-    if args[2:4] == ["kill", "-s"]:
-        os.kill(int(args[5]), getattr(signal, f"SIG{args[4]}"))
+    if args[2:4] == ["bash", "-c"]:
+        command = args[2:]
+        for index, value in enumerate(command):
+            if value.startswith("/tmp/wavepeek-dev-"):
+                command[index] = os.environ["FAKE_ROOT"] + "/" + pathlib.Path(value).name
+        token, pid, _ = pathlib.Path(command[4]).read_text().split()
+        if token != command[5]:
+            raise SystemExit(1)
+        os.killpg(int(pid), getattr(signal, f"SIG{command[6]}"))
     else:
         raise SystemExit(2)
 else:
@@ -88,7 +95,7 @@ if args[:1] == ["up"]:
     raise SystemExit(int(os.environ.get("FAKE_UP_STATUS", "0")))
 if args[:1] != ["exec"]:
     raise SystemExit(2)
-command = args[args.index("bash"):]
+command = args[args.index("setsid"):]
 workspace = f"/workspaces/{pathlib.Path(os.environ['FAKE_ROOT']).name}"
 for index, value in enumerate(command):
     if value == workspace or value.startswith(workspace + "/"):
