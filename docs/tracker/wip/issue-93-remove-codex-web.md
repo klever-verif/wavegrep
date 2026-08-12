@@ -19,8 +19,8 @@ This work does not remove the Codex command-line tool from the development conta
 - [x] (2026-08-12 05:35Z) Deleted the Codex Web helpers and removed their `justfile` variables and recipes.
 - [x] (2026-08-12 05:35Z) Updated current maintainer documentation, comments, breadcrumbs, and the Unreleased changelog while preserving published history and Codex CLI state support.
 - [x] (2026-08-12 05:38Z) Validated focused acceptance checks, `just dev-setup`, `just check`, and `just ci` in the development container.
-- [ ] Commit implementation milestones and remove this branch-local plan before handoff (completed: plan and implementation commits; remaining: post-review fixes if any and plan removal).
-- [ ] Run parallel correctness/docs and KISS+YAGNI+ponytail reviews, address findings, and run a fresh control review.
+- [ ] Commit implementation milestones and remove this branch-local plan before handoff (completed: plan and implementation commits; remaining: plan removal).
+- [ ] Run parallel correctness/docs and KISS+YAGNI+ponytail reviews, address findings, and run a fresh control review (completed: all three parallel reviewers returned no substantive findings; remaining: fresh control review).
 - [ ] Push the branch and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -54,7 +54,7 @@ This work does not remove the Codex command-line tool from the development conta
 
 ## Outcomes & Retrospective
 
-The repository-owned Codex Web scripts, recipes, setup instructions, and coupling comments are removed. Focused checks confirm the directory is absent, the recipes are not listed, retained Codex CLI installation and state paths remain, and the local devcontainer completes `just dev-setup`. Both `just check` and `just ci` pass, including Codex state preparation tests and FSDB-enabled checks. Independent review remains.
+The repository-owned Codex Web scripts, recipes, setup instructions, and coupling comments are removed. Focused checks confirm the directory is absent, the recipes are not listed, retained Codex CLI installation and state paths remain, and the local devcontainer completes `just dev-setup`. Both `just check` and `just ci` pass, including Codex state preparation tests and FSDB-enabled checks. Parallel correctness, documentation, and KISS+YAGNI+ponytail reviews found no substantive issues; the fresh control review remains.
 
 ## Context and Orientation
 
@@ -132,3 +132,5 @@ Revision note (2026-08-12 05:27Z): Created the initial self-contained execution 
 Revision note (2026-08-12 05:35Z): Recorded implementation completion, focused acceptance evidence, successful devcontainer setup, and the linked-worktree mount requirement discovered during validation.
 
 Revision note (2026-08-12 05:38Z): Recorded successful `just check` and `just ci` results and narrowed remaining work to review, cleanup, and pull-request handoff.
+
+Revision note (2026-08-12 05:40Z): Recorded clean parallel correctness, documentation, and mandatory KISS+YAGNI+ponytail review results.
