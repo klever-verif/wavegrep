@@ -24,7 +24,15 @@ class GitHookTests(unittest.TestCase):
         self.fake_bin.mkdir()
         self._write_fake_pre_commit()
         docker = self.fake_bin / "docker"
-        docker.write_text("#!/bin/sh\necho docker-called >>\"$FAKE_LOG\"\nexit 99\n")
+        docker.write_text(
+            "#!/bin/sh\n"
+            "[ \"${FAKE_DOCKER_MOUNT-}\" ] || exit 99\n"
+            "echo docker-called >>\"$FAKE_LOG\"\n"
+            "case \"$1\" in\n"
+            "  ps) echo container-1 ;;\n"
+            "  inspect) printf '%s\\ttrue\\n' \"$FAKE_DOCKER_MOUNT\" ;;\n"
+            "esac\n"
+        )
         docker.chmod(0o755)
         self._init_repository()
 
@@ -210,6 +218,15 @@ os.execvpe(args[0], args, env)
             result = self._install(XDG_DATA_HOME=str(data_home))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must be outside", result.stderr)
+
+    def test_install_rejects_existing_writable_container_mount(self) -> None:
+        mount = self.tmp / "mounted"
+        mount.mkdir()
+        result = self._install(
+            XDG_DATA_HOME=str(mount), FAKE_DOCKER_MOUNT=str(mount)
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("outside writable container mounts", result.stderr)
 
     def test_install_respects_effective_global_custom_path(self) -> None:
         self._git("config", "--global", "core.hooksPath", "/custom/hooks")

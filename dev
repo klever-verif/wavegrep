@@ -35,6 +35,19 @@ if [ "${1-}" = "--install-hooks" ]; then
             exit 1
             ;;
     esac
+    mapfile -t containers < <(docker ps -aq --filter "label=devcontainer.local_folder=$root")
+    if [ "${#containers[@]}" -eq 1 ]; then
+        while IFS=$'\t' read -r source writable; do
+            [ "$writable" = true ] || continue
+            source="$(realpath -m -- "$source")"
+            case "$hooks_dir/" in
+                "$source/"*)
+                    printf '%s\n' "error: dev: host Git hooks must be outside writable container mounts" >&2
+                    exit 1
+                    ;;
+            esac
+        done < <(docker inspect --format '{{range .Mounts}}{{printf "%s\t%t\n" .Source .RW}}{{end}}' "${containers[0]}")
+    fi
     configured="$(git config --get core.hooksPath || true)"
     if [ -n "$configured" ]; then
         configured="$(realpath -m -- "$configured")"
