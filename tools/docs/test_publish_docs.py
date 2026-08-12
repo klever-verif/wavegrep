@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import contextmanager
+from unittest import mock
 
 TOOLS_DIR = pathlib.Path(__file__).parent
 sys.path.insert(0, str(TOOLS_DIR))
@@ -90,6 +91,41 @@ class PublishDocsTests(unittest.TestCase):
             publish_docs.require_ref_matches_version("v0.5.1", "0.5.0")
         with self.assertRaisesRegex(publish_docs.PublishError, "release tag"):
             publish_docs.require_ref_matches_version("main", "0.5.0")
+
+    def test_materialize_skill_uses_locked_dependencies(self) -> None:
+        runner = RecordingRunner()
+
+        publish_docs.materialize_skill(self.root, self.paths, runner)
+
+        self.assertIn("--locked", runner.commands[0])
+
+    def test_source_worktree_is_removed_on_version_mismatch(self) -> None:
+        source = self.root / "source"
+        source.mkdir()
+        (source / "Cargo.toml").write_text(
+            '[package]\nname = "wavepeek"\nversion = "0.4.0"\n', encoding="utf-8"
+        )
+        runner = RecordingRunner()
+        with (
+            mock.patch.object(publish_docs, "resolve_source_root", return_value=source),
+            mock.patch.object(publish_docs, "remove_git_worktree") as remove,
+            self.assertRaisesRegex(publish_docs.PublishError, "does not match"),
+        ):
+            publish_docs.perform_check(
+                version="0.5.0",
+                source_ref="v0.5.0",
+                run_paths=self.paths,
+                runner=runner,
+                for_stage=True,
+            )
+        remove.assert_called_once_with(self.paths.source_worktree, runner)
+
+    def test_read_stage_metadata_requires_object_root(self) -> None:
+        self.paths.work_dir.mkdir(parents=True)
+        self.paths.metadata.write_text("[]", encoding="utf-8")
+
+        with self.assertRaisesRegex(publish_docs.PublishError, "root must be an object"):
+            publish_docs.read_stage_metadata(self.paths, "0.5.0", False)
 
     def test_read_stage_metadata_requires_matching_flags(self) -> None:
         self.paths.work_dir.mkdir(parents=True)

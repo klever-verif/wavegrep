@@ -104,12 +104,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-05-15
 
 ### Added
-- Added layered help plus embedded local topics with browsing, search, and export.
+- Added layered help plus embedded local docs: `wavepeek -h` is now compact, `wavepeek --help` and `wavepeek help <command-path...>` provide the detailed reference layer, and `wavepeek docs` exposes packaged topics, search, and export.
 - Expanded the packaged docs corpus with practical command guides for `info`, `scope`, `signal`, `value`, `change`, `property`, and `schema`, plus troubleshooting topics for empty results, scoped versus canonical names, time alignment, and unsupported signal encodings.
 
 ### Changed
-- Promoted the packaged agent skill from a nested helper to the top-level `wavepeek skill` command.
-- Refined top-level and per-command help text, and improved packaged topic listing and search for clearer offline discovery and navigation.
+- Promoted the packaged agent skill from `wavepeek docs skill` to the top-level `wavepeek skill` helper command.
+- Refined top-level and per-command help text, and improved `wavepeek docs` topic listing/search behavior for clearer offline discovery and navigation.
 
 ## [0.4.0] - 2026-04-05
 

@@ -234,7 +234,7 @@ test-aux: require-container
 # Build the generated MkDocs site from the bundled skill references
 docs-site-build: require-container
     @rm -rf "{{ docs_site_dir }}/skill"
-    cargo run --quiet -- skill "{{ docs_site_dir }}/skill"
+    cargo run --quiet --locked -- skill "{{ docs_site_dir }}/skill"
     {{ python }} tools/docs/prepare_mkdocs.py "{{ docs_site_dir }}/skill" \
         --output "{{ docs_site_dir }}/mkdocs-src" \
         --config-output "{{ docs_site_dir }}/mkdocs.yml" \
