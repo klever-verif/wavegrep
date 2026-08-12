@@ -31,6 +31,7 @@ RUN apt-get update && \
     ca-certificates curl git libatomic1 g++ \
     python3 python3-venv \
     iverilog gtkwave \
+    libxt6t64 libxmu6 libnuma1 \
     locales \
     && locale-gen en_US.UTF-8 \
     && apt-get clean \
