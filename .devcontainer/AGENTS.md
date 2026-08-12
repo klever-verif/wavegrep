@@ -17,7 +17,7 @@ This directory owns the single tool-only container definition, fixture provision
 - Keep the container credentialless. Do not mount agent state, host GitHub state, token files, or broad host directories.
 - `verdi-tool-wrapper.sh` exposes selected command-line Verdi FSDB utilities and invokes their launchers with Bash for compatibility.
 - Host networking is intentional for VPN-heavy environments.
-- `postStartCommand: just dev-setup` reconverges tools and hooks after rebuilds or reopen flows.
+- Container lifecycle commands must not install or rewrite host Git hooks. Hook activation is explicit through host `../dev --install-hooks`.
 
 ## Safety
 

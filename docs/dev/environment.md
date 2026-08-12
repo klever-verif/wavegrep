@@ -4,17 +4,20 @@
 
 ## Host Entrypoint
 
-Run repository commands from the host through the root `./dev` wrapper:
+Agents, Git identity and signing, credentials, commits, pushes, issues, and pull requests stay on the host. Run Cargo, Pre-commit, Commitizen, waveform tools, and repository gates in the container through root `./dev`:
 
 ```sh
-./dev just dev-setup
+./dev --install-hooks
 ./dev just check
-./dev cargo test -q --test cli_contract
+git commit -m "chore: update development workflow"
+git push
 ```
+
+`./dev --install-hooks` explicitly installs reviewed `pre-commit`, `commit-msg`, and `./dev` copies under the Git common directory and activates them with repository-local `core.hooksPath`. It is idempotent and refuses to replace another configured hooks path. Rerun it after reviewing hook changes; branch switches do not alter the active copies.
 
 `./dev` finds the enclosing Git worktree when called from any directory inside it, preserves that relative directory in the container, starts the worktree's container when needed, and passes command arguments, standard streams, signals, and exit status through unchanged. Each absolute worktree has its own runtime container and can use its own revision of the container definition. The image layers remain shared through Docker.
 
-Use `./dev --exec-only COMMAND [ARG ...]` when a caller must use only an existing container. This mode never starts, builds, restarts, recreates, or removes a container.
+Use `./dev --exec-only COMMAND [ARG ...]` when a caller must use only an existing container. The installed Git hooks use this mode, so each worktree container must be started explicitly with a normal command such as `./dev true` before `git commit`. This mode never starts, builds, restarts, recreates, or removes a container.
 
 If an existing container's linked-worktree Git mount or optional Verdi mount no longer matches the current host state, `./dev` refuses to use it and prints the explicit `devcontainer up --remove-existing-container` command needed to recreate it. The wrapper never deletes a container automatically.
 
@@ -26,7 +29,7 @@ The workspace is mounted at `/workspaces/<worktree-name>`. For linked worktrees,
 
 Recipes in `justfile` require `WAVEPEEK_IN_CONTAINER=1`. Do not set it on the host to bypass the guard; use `./dev` instead.
 
-Run `./dev just dev-setup` after creating or rebuilding the container. It verifies tool availability and installs the pre-commit and commit-msg hooks.
+Run `./dev just dev-setup` after creating or rebuilding the container to verify tool availability. It does not install or rewrite host hooks.
 
 ## Fixture Location
 

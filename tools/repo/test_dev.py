@@ -55,7 +55,12 @@ with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
     log.write(json.dumps(["docker", *sys.argv[1:]]) + "\\n")
 args = sys.argv[1:]
 if args[:1] == ["ps"]:
-    if "-q" in args or ("-aq" in args and os.environ.get("FAKE_EXISTING") == "1"):
+    if "-aq" in args and os.environ.get("FAKE_EXISTING") == "1":
+        print("container-1")
+    elif "-q" in args and not (
+        any(value == "id=container-1" for value in args)
+        and os.environ.get("FAKE_STOPPED") == "1"
+    ):
         print("container-1")
 elif args[:1] == ["inspect"]:
     for source, target in json.loads(os.environ.get("FAKE_MOUNTS", "[]")):
@@ -352,6 +357,21 @@ os.execvp(command[0], command)
         result = self._run(self.main, "--exec-only", "true")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no existing container", result.stderr)
+        self.assertIn("./dev true", result.stderr)
+        self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
+
+        self.log.unlink()
+        env = {
+            "FAKE_EXISTING": "1",
+            "FAKE_STOPPED": "1",
+            "FAKE_MOUNTS": json.dumps(
+                [[str(self.main), "/workspaces/main"]]
+            ),
+        }
+        result = self._run(self.main, "--exec-only", "true", env_updates=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("container is stopped", result.stderr)
+        self.assertIn("./dev true", result.stderr)
         self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
 
     def test_interactive_tty_is_preserved(self) -> None:
@@ -429,6 +449,32 @@ os.execvp(command[0], command)
                 process.wait()
 
         self.assertEqual(process.returncode, 42, (stdout, stderr))
+
+    def test_missing_host_tools_have_startup_guidance(self) -> None:
+        for name in ("bash", "git"):
+            (self.fake_bin / name).symlink_to(subprocess.run(
+                ["which", name], check=True, capture_output=True, text=True
+            ).stdout.strip())
+        isolated_path = str(self.fake_bin)
+        docker = self.fake_bin / "docker"
+        docker.rename(self.fake_bin / "docker.missing")
+        result = self._run(
+            self.main, "--exec-only", "true", env_updates={"PATH": isolated_path}
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Docker is unavailable", result.stderr)
+        self.assertIn("./dev true", result.stderr)
+
+        docker = self.fake_bin / "docker.missing"
+        docker.rename(self.fake_bin / "docker")
+        devcontainer = self.fake_bin / "devcontainer"
+        devcontainer.rename(self.fake_bin / "devcontainer.missing")
+        result = self._run(
+            self.main, "--exec-only", "true", env_updates={"PATH": isolated_path}
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Devcontainer CLI is unavailable", result.stderr)
+        self.assertIn("./dev true", result.stderr)
 
     def test_requires_command_and_git_worktree(self) -> None:
         result = self._run(self.main)

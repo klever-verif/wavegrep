@@ -84,5 +84,4 @@ repos:
         description: Run commitizen to validate commit message
         stages: [commit-msg]
         entry: just check-commit
-        pass_filenames: false
         language: system

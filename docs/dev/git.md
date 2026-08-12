@@ -1,6 +1,6 @@
 # Git and Contribution Hygiene
 
-Use conventional commits. The commit-msg hook runs Commitizen through `just check-commit`, and pre-commit hooks are installed by `just dev-setup`.
+Use conventional commits. Install reviewed host hooks explicitly with `./dev --install-hooks`; the commit-msg hook runs container Commitizen through `just check-commit`. Start the current worktree's container before `git commit`, because hooks use `./dev --exec-only` and never perform container lifecycle operations.
 
 Commit small logical milestones. For broad refactors, commit after each independently validated slice so stale-reference fallout can be found and reverted without excavating a single heroic rubble pile.
 
@@ -12,7 +12,7 @@ Use `docs/tracker/wip/` for branch-local tracked artifacts that need review or m
 
 ## GitHub and Fork Remotes
 
-Fork contributors should keep `origin` pointed at their fork and use `upstream` for `https://github.com/kleverhq/wavepeek.git`. Configure these remotes on the host before entering the credentialless development container.
+Fork contributors should keep `origin` pointed at their fork and use `upstream` for `https://github.com/kleverhq/wavepeek.git`. Agents, Git identity and signing, credentials, pushes, issues, and pull requests remain on the host; the credentialless container runs repository tools and quality gates only.
 
 Commands that intentionally target the upstream repository should pass it explicitly, for example `gh pr list -R kleverhq/wavepeek`. Browser-based PR creation remains supported and must not require GitHub CLI authentication.
 

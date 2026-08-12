@@ -1,7 +1,8 @@
 ## Core Workflow
 
 - `wavepeek` is a Rust CLI for deterministic `.vcd` and `.fst` waveform inspection.
-- Development is container-first; run repository commands through the root `./dev` wrapper.
+- Agents, Git, signing, credentials, pushes, issues, and pull requests run on the host. Cargo, Pre-commit, Commitizen, waveform tools, and quality gates run in the devcontainer through root `./dev`.
+- Each worktree has its own container. Start it explicitly before host `git commit`; hooks never start or rebuild containers.
 - Development tasks are run through root `justfile` recipes.
 - Standard quality gate: `just ci`.
 - Local pre-handoff gate: `just check`.

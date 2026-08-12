@@ -84,7 +84,7 @@ update-bench-e2e-fsdb-catalog: require-container
 check-bench-e2e-fsdb-catalog: require-container
     @{{ python }} tools/fsdb/generate_bench_catalog.py --check
 
-# Prepare local devcontainer environment and install git hooks
+# Verify the local devcontainer environment
 dev-setup: require-container
     rustup show >/dev/null
     cargo --version
@@ -100,7 +100,7 @@ dev-setup: require-container
     mike --version
     just --version
     cz version
-    pre-commit install --hook-type commit-msg --hook-type pre-commit
+    pre-commit --version
 
 # Format root justfile in place
 format-justfile: require-container
@@ -356,9 +356,9 @@ bench-e2e-fsdb-smoke-commit: prepare-and-check-fsdb-smoke-rtl-artifacts build-re
 pre-commit: require-container check-rtl-artifacts prepare-waveform-fixtures
     pre-commit run --all-files
 
-# Check commit messages
-check-commit: require-container
-    cz check --commit-msg-file "$(git rev-parse --git-path COMMIT_EDITMSG)"
+# Check a commit message, defaulting to Git's standard message file
+check-commit message=`git rev-parse --git-path COMMIT_EDITMSG`: require-container
+    cz check --commit-msg-file {{ quote(message) }}
 
 # Check everything
 check: format-check lint check-schema check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check check-commit
