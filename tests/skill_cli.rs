@@ -127,6 +127,29 @@ fn skill_rejects_nonempty_directory_without_modifying_it() {
     assert_eq!(files_below(&destination), [PathBuf::from(".existing")]);
 }
 
+#[cfg(unix)]
+#[test]
+fn skill_rejects_symlink_destination() {
+    use std::os::unix::fs::symlink;
+
+    let temp = tempdir().expect("temporary directory should be created");
+    let target = temp.path().join("target");
+    let destination = temp.path().join("wavepeek");
+    fs::create_dir(&target).expect("target should be created");
+    symlink(&target, &destination).expect("destination symlink should be created");
+
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(&destination)
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("is not a directory"));
+
+    assert!(destination.is_symlink());
+    assert!(fs::read_dir(target).unwrap().next().is_none());
+}
+
 #[test]
 fn skill_rejects_file_destination() {
     let temp = tempdir().expect("temporary directory should be created");

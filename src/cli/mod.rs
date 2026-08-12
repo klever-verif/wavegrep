@@ -31,7 +31,7 @@ General conventions:
 - VCD/FST input is available in every build.
 - FSDB support is currently Linux x86_64 only and requires a build compiled with Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK.
 - Output is bounded by default (e.g. with `--max` or similar) and recursive traversals are depth-bounded.
-- Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in `reference/machine-output`.
+- Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in the packaged `references/reference/machine-output.md`.
 - Time values require explicit units (`zs`, `as`, `fs`, `ps`, `ns`, `us`, `ms`, `s`) and integer magnitudes.
 - Parsed times are normalized to dump `time_unit`; time-window flags (`--from`, `--to`) use inclusive boundaries.
 - Process-level failures follow `fatal: <category>: <message>`."#,

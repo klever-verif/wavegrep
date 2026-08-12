@@ -138,7 +138,14 @@ fn write_dir(dir: &Dir<'_>, root: &Path) -> Result<(), WavepeekError> {
 }
 
 fn install_bundle(staging: &Path, destination: &Path) -> Result<(), WavepeekError> {
-    if destination.exists() {
+    let existed = destination.exists();
+    if existed {
+        validate_destination(destination)?;
+    }
+    let Err(initial_error) = fs::rename(staging, destination) else {
+        return Ok(());
+    };
+    if existed {
         validate_destination(destination)?;
         fs::remove_dir(destination).map_err(|error| {
             file_error(format!(
@@ -146,14 +153,26 @@ fn install_bundle(staging: &Path, destination: &Path) -> Result<(), WavepeekErro
                 destination.display()
             ))
         })?;
+        if let Err(error) = fs::rename(staging, destination) {
+            if !destination.exists() {
+                fs::create_dir(destination).map_err(|restore_error| {
+                    file_error(format!(
+                        "failed to install skill at '{}' ({error}) and restore the empty destination: {restore_error}",
+                        destination.display()
+                    ))
+                })?;
+            }
+            return Err(file_error(format!(
+                "failed to install skill at '{}': {error}",
+                destination.display()
+            )));
+        }
+        return Ok(());
     }
-    fs::rename(staging, destination).map_err(|error| {
-        let _ = fs::create_dir(destination);
-        file_error(format!(
-            "failed to install skill at '{}': {error}",
-            destination.display()
-        ))
-    })
+    Err(file_error(format!(
+        "failed to install skill at '{}': {initial_error}",
+        destination.display()
+    )))
 }
 
 fn file_error(message: String) -> WavepeekError {

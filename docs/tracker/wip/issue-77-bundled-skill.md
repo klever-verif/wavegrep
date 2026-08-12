@@ -20,8 +20,8 @@ This work does not change the crate version. It does not install the skill into 
 - [x] (2026-08-12 19:18Z) Replace the docs and single-file skill runtimes with safe full-tree extraction and provenance metadata.
 - [x] (2026-08-12 19:18Z) Remove every product-facing and source-code trace of the old `docs` command and update help/contracts/tests.
 - [x] (2026-08-12 19:18Z) Generate the website from extracted `references/` and update README and maintainer guidance.
-- [ ] Run focused tests and repository quality gates, then commit the implementation milestones (completed: Rust unit tests, skill/CLI integration tests, helper tests, MkDocs strict build; remaining: full `just ci`, implementation commit).
-- [ ] Run Luna Max focused review lanes, fix findings, and commit.
+- [x] (2026-08-12 19:49Z) Run focused tests and `just ci`, then commit the implementation as `f8d4227`.
+- [ ] Run Luna Max focused review lanes, fix findings, and commit (completed: runtime/test and package-doc lanes; fixed destination install race/recovery, invalid README command, stale help path, and added symlink coverage; one tooling reviewer was stopped after failing to return promptly; remaining: bounded replacement tooling lane and review-fix commit).
 - [ ] Run Terra High focused review lanes over the same areas, fix findings, and commit.
 - [ ] Run a Sol High control review, fix findings, and commit.
 - [ ] Complete final `just ci`/`just check` evidence, remove this WIP plan, push the branch, and open a PR against `dev3`.
@@ -36,6 +36,8 @@ This work does not change the crate version. It does not install the skill into 
   Evidence: `just docs-site-build` prepared 22 references and completed strict MkDocs validation after front matter removal.
 - Observation: removing the topic catalog made the production `serde_yaml` dependency unused.
   Evidence: `cargo check` succeeds after removing `serde_yaml`; Cargo.lock also drops its transitive YAML-only packages.
+- Observation: an unconstrained first-wave tooling reviewer failed to terminate after extensive investigation and was explicitly stopped.
+  Evidence: the Luna Max lane remained active after 2.8M tokens and 282 tool calls; a replacement lane is bounded by turns.
 
 ## Decision Log
 
@@ -57,6 +59,12 @@ This work does not change the crate version. It does not install the skill into 
 - Decision: Remove all traces of the product command named `docs`, while retaining ordinary repository concepts such as maintainer docs, documentation-site tooling, and `docs.rs` package metadata.
   Rationale: The maintainer explicitly prohibited traces of the removed command, not the ordinary word “docs” in unrelated contexts.
   Date/Author: 2026-08-12, maintainer and coding agent.
+- Decision: Attempt atomic rename over an existing empty destination before using the remove-and-rename fallback required by platforms that cannot replace an empty directory.
+  Rationale: This closes the ordinary concurrent-creator race on platforms that support directory replacement while retaining cross-platform acceptance of existing empty directories and preserving any concurrently created content.
+  Date/Author: 2026-08-12, coding agent after Luna Max runtime review.
+- Decision: Do not add symlink policing to the internal MkDocs staging helper.
+  Rationale: It consumes a package just produced by the trusted current binary; additional validation would not protect a user trust boundary and is outside issue #77.
+  Date/Author: 2026-08-12, coding agent after Luna Max runtime review.
 
 ## Outcomes & Retrospective
 

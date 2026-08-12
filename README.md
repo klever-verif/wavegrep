@@ -92,7 +92,7 @@ Copy/paste this to your agent:
 ```text
 Check whether `wavepeek` is installed:
 
-wavepeek version
+wavepeek --version
 
 If that succeeds, run:
 
