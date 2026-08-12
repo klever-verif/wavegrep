@@ -1,5 +1,6 @@
 import json
 import os
+import pty
 import signal
 import subprocess
 import tempfile
@@ -284,6 +285,40 @@ os.execvp(command[0], command)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no existing container", result.stderr)
         self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
+
+    def test_interactive_tty_is_preserved(self) -> None:
+        master, slave = pty.openpty()
+        env = self._base_env()
+        env["FAKE_ROOT"] = str(self.main)
+        process = subprocess.Popen(
+            [str(DEV), "python3", "-c", "import sys; print(sys.stdin.isatty())"],
+            cwd=self.main,
+            env=env,
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+        )
+        os.close(slave)
+        output = b""
+        try:
+            while process.poll() is None:
+                try:
+                    output += os.read(master, 4096)
+                except OSError:
+                    break
+            while True:
+                try:
+                    output += os.read(master, 4096)
+                except OSError:
+                    break
+        finally:
+            os.close(master)
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+
+        self.assertEqual(process.returncode, 0, output)
+        self.assertIn(b"True", output)
 
     def test_signal_reaches_executed_process(self) -> None:
         marker = self.tmp / "ready"

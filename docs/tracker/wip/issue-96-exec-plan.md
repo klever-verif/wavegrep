@@ -16,11 +16,11 @@ This work does not move Git commits or hooks to the host, implement the Codex We
 
 - [x] (2026-08-12 05:58Z) Read issue #96, repository guidance, container definitions, workflow entrypoints, quality recipes, and existing helper-test patterns.
 - [x] (2026-08-12 06:35Z) Collapsed `.devcontainer/Dockerfile` and `.devcontainer/devcontainer.json` into one tool-only image and removed obsolete lifecycle, agent-state, GUI, and GitHub-auth files.
-- [x] (2026-08-12 06:35Z) Added the root `./dev` wrapper and seven focused tests for checkout discovery, linked worktrees, current-directory preservation, optional mounts, stale-mount refusal, argument and process I/O forwarding, signals, exit status, and `--exec-only`.
+- [x] (2026-08-12 06:35Z) Added the root `./dev` wrapper and eight focused tests for checkout discovery, linked worktrees, current-directory preservation, optional mounts, stale-mount refusal, argument and process I/O forwarding, signals, exit status, and `--exec-only`.
 - [x] (2026-08-12 06:35Z) Pointed CI, release, and docs workflows at the sole configuration and switched the docs push to job-scoped checkout authentication.
 - [x] (2026-08-12 06:35Z) Updated maintainer documentation and breadcrumbs for the unified container and host entrypoint.
-- [ ] Build the image and run `./dev just dev-setup`, focused wrapper tests, `./dev just check`, `./dev just ci`, converter checks, clean-image exclusions, and optional FSDB checks.
-- [ ] Commit each validated milestone without bypassing hooks.
+- [x] (2026-08-12 10:34Z) Built the image and ran `./dev just dev-setup`, eight focused wrapper tests, converter checks, clean-image exclusions, `./dev just ci`, and FSDB checks with the mounted Verdi SDK. The no-Verdi path is covered by focused mount tests and the FSDB helper suite.
+- [x] (2026-08-12 10:35Z) Committed the implementation and Verdi runtime correction through the normal pre-commit and commit-msg hooks.
 - [ ] Run parallel correctness/docs and KISS+YAGNI+ponytail reviews, fix findings, rerun affected checks, and complete an independent control review.
 - [ ] Remove this branch-local plan, push the branch, and open a pull request targeting `dev3`.
 
@@ -31,7 +31,9 @@ This work does not move Git commits or hooks to the host, implement the Codex We
 - Observation: `devcontainer exec` has no working-directory option.
   Evidence: `devcontainer exec --help` lists workspace and container selection but no directory flag, so the wrapper must use a minimal in-container `cd` followed by `exec`.
 - Observation: The docs push currently depends on the repository credential helper being removed.
-  Evidence: `.github/workflows/docs.yml` disables checkout credentials, passes tokens into the container, and runs `.devcontainer/setup-github-auth.sh` before `push-staged`.
+  Evidence: `.github/workflows/docs.yml` disabled checkout credentials, passed tokens into the container, and ran `.devcontainer/setup-github-auth.sh` before `push-staged`.
+- Observation: Removing all former development packages broke the command-line Verdi VCD-to-FSDB converter because it dynamically loads legacy X11 libraries despite being used without a GUI.
+  Evidence: The first FSDB fixture gate failed with `libXt.so.6: cannot open shared object file`; restoring `libxt6t64`, `libxmu6`, and `libnuma1` made `./dev just ci` pass all FSDB tests.
 
 ## Decision Log
 
@@ -50,7 +52,7 @@ This work does not move Git commits or hooks to the host, implement the Codex We
 
 ## Outcomes & Retrospective
 
-The source, wrapper, workflows, and maintainer documentation now implement one credentialless command-line container. Image build and full acceptance validation remain in progress.
+The source, wrapper, workflows, and maintainer documentation now implement one credentialless command-line container. The rebuilt image passes the repository gate, including FSDB compilation, conversion, and CLI tests with a valid mounted Verdi SDK. Peer review remains in progress.
 
 ## Context and Orientation
 
@@ -119,10 +121,17 @@ Expected no-Verdi behavior is:
 Focused host validation currently passes:
 
     python3 -B -m unittest tools/repo/test_dev.py
-    Ran 7 tests in 0.929s
+    Ran 8 tests in 0.862s
     OK
 
-Image, repository gates, and review evidence will be added as implementation proceeds.
+Image and gate evidence:
+
+    ./dev just dev-setup       # passed during container post-start
+    ./dev just ci              # passed, including 20 FSDB CLI tests
+    vcd2fst/fst2vcd checks     # passed
+    forbidden-tool checks      # node/npm/devcontainer/codex/claude/pi/surfer absent
+
+Review evidence will be added as implementation proceeds.
 
 ### Interfaces and Dependencies
 
@@ -135,3 +144,5 @@ The new public developer interface is:
 Plan revision note (2026-08-12): Initial self-contained plan created after repository and issue research; implementation and validation evidence remain to be recorded.
 
 Plan revision note (2026-08-12 06:35Z): Recorded the completed implementation milestones and focused wrapper-test evidence before image validation.
+
+Plan revision note (2026-08-12 10:36Z): Recorded successful image, converter, clean-tool, full CI, FSDB, hook, and commit evidence plus the Verdi runtime-library discovery.
