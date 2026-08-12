@@ -20,7 +20,7 @@ if [ "${1-}" = "--install-hooks" ]; then
     repo_id="$(printf '%s' "$common_dir" | sha256sum | cut -d ' ' -f 1)"
     hooks_dir="$(realpath -m -- "$data_home/wavepeek/git-hooks/$repo_id")"
     worktrees=()
-    while read -r worktree; do
+    while IFS= read -r worktree; do
         [ -d "$worktree" ] || continue
         worktree="$(cd "$worktree" && pwd -P)"
         worktrees+=("$worktree")
