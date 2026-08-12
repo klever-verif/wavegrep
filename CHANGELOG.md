@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-08-12
+
 ### Fixed
 - Handled downstream stdout closure without panicking or reporting a fatal error ([issue #78](https://github.com/kleverhq/wavepeek/issues/78)).
 - Resolved descendant-relative signal paths consistently across scoped `value`, `change`, `property`, and generic extraction commands ([issue #80](https://github.com/kleverhq/wavepeek/issues/80)).
@@ -179,7 +181,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial public release of `wavepeek` CLI.
 
-[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.2...HEAD
+[Unreleased]: https://github.com/kleverhq/wavepeek/compare/v2.2.3...HEAD
+[2.2.3]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.3
 [2.2.2]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.2
 [2.2.1]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.1
 [2.2.0]: https://github.com/kleverhq/wavepeek/releases/tag/v2.2.0
