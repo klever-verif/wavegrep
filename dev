@@ -20,6 +20,7 @@ if [ "${1-}" = "--install-hooks" ]; then
     repo_id="$(printf '%s' "$common_dir" | sha256sum | cut -d ' ' -f 1)"
     hooks_dir="$(realpath -m -- "$data_home/wavepeek/git-hooks/$repo_id")"
     while read -r worktree; do
+        [ -d "$worktree" ] || continue
         worktree="$(cd "$worktree" && pwd -P)"
         case "$hooks_dir/" in
             "$worktree/"*)
@@ -35,6 +36,9 @@ if [ "${1-}" = "--install-hooks" ]; then
             ;;
     esac
     configured="$(git config --get core.hooksPath || true)"
+    if [ -n "$configured" ]; then
+        configured="$(realpath -m -- "$configured")"
+    fi
     if [ -n "$configured" ] && [ "$configured" != "$hooks_dir" ]; then
         printf '%s\n' "error: dev: refusing to replace existing core.hooksPath: $configured" >&2
         exit 1

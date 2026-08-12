@@ -184,6 +184,13 @@ os.execvpe(args[0], args, env)
             self.assertEqual(installed.read_bytes(), source)
             self.assertTrue(installed.stat().st_mode & 0o111)
         self.assertEqual(self._install().returncode, 0)
+        self._git(
+            "config",
+            "--local",
+            "core.hooksPath",
+            str(self.hooks_dir.parent / ".." / "git-hooks" / self.hooks_dir.name),
+        )
+        self.assertEqual(self._install().returncode, 0)
         self.assertFalse(self.log.exists(), "installation contacted Docker")
 
         self._git("config", "--local", "core.hooksPath", "custom-hooks")
