@@ -90,8 +90,6 @@ def load_topics(skill_dir: pathlib.Path) -> list[Topic]:
 
     topics: list[Topic] = []
     for source in sorted(references.rglob("*.md")):
-        if source.is_symlink():
-            fail(f"skill reference must not be a symlink: {source}")
         relative = source.relative_to(references)
         page = pathlib.PurePosixPath(*relative.parts)
         if page == pathlib.PurePosixPath("intro.md"):
