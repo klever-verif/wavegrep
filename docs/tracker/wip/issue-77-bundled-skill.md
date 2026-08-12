@@ -22,7 +22,7 @@ This work does not change the crate version. It does not install the skill into 
 - [x] (2026-08-12 19:18Z) Generate the website from extracted `references/` and update README and maintainer guidance.
 - [x] (2026-08-12 19:49Z) Run focused tests and `just ci`, then commit the implementation as `f8d4227`.
 - [x] (2026-08-12 21:09Z) Run Luna Max focused review lanes, fix findings, and commit. Runtime/test and package-doc findings were fixed in `86d33c0`; the stopped tooling lane was replaced with a bounded pass, whose one YAGNI finding removed redundant trusted-input symlink validation.
-- [ ] Run Terra High focused review lanes over the same areas, fix findings, and commit.
+- [ ] Run Terra High focused review lanes over the same areas, fix findings, and commit (completed: all three lanes; package and tooling were clean; runtime findings fixed by rejecting parent components without side effects, comparing complete existing-empty output, covering removed-command rejection, and deleting redundant directory creation; remaining: verification and commit).
 - [ ] Run a Sol High control review, fix findings, and commit.
 - [ ] Complete final `just ci`/`just check` evidence, remove this WIP plan, push the branch, and open a PR against `dev3`.
 
@@ -37,7 +37,9 @@ This work does not change the crate version. It does not install the skill into 
 - Observation: removing the topic catalog made the production `serde_yaml` dependency unused.
   Evidence: `cargo check` succeeds after removing `serde_yaml`; Cargo.lock also drops its transitive YAML-only packages.
 - Observation: an unconstrained first-wave tooling reviewer failed to terminate after extensive investigation and was explicitly stopped.
-  Evidence: the Luna Max lane remained active after 2.8M tokens and 282 tool calls; a replacement lane is bounded by turns.
+  Evidence: the Luna Max lane remained active after 2.8M tokens and 282 tool calls; a replacement lane was bounded by turns.
+- Observation: a destination containing `..` requires creating an otherwise unrelated intermediate component before the operating system can traverse back through it.
+  Evidence: Terra High identified that `new/../out` caused `new/` to remain; the CLI now rejects parent-directory components before any filesystem mutation.
 
 ## Decision Log
 
@@ -65,6 +67,9 @@ This work does not change the crate version. It does not install the skill into 
 - Decision: Do not add symlink policing to the internal MkDocs staging helper.
   Rationale: It consumes a package just produced by the trusted current binary; additional validation would not protect a user trust boundary and is outside issue #77.
   Date/Author: 2026-08-12, coding agent after Luna Max runtime review.
+- Decision: Reject destination paths containing a lexical parent-directory component.
+  Rationale: Rust's standard path API has no lexical normalization operation, and accepting such paths can create unrelated intermediate directories; a direct validation guard is smaller and side-effect free.
+  Date/Author: 2026-08-12, coding agent after Terra High runtime review.
 
 ## Outcomes & Retrospective
 

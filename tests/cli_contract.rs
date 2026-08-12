@@ -1164,7 +1164,9 @@ fn waveform_commands_require_waves_flag() {
 
 #[test]
 fn legacy_subcommands_are_rejected_without_alias() {
-    for legacy_name in ["tree", "modules", "signals", "changes", "when", "at"] {
+    for legacy_name in [
+        "tree", "modules", "signals", "changes", "when", "at", "docs",
+    ] {
         assert_legacy_subcommand_rejected(legacy_name);
     }
 }

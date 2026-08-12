@@ -97,11 +97,37 @@ fn skill_extracts_complete_bundle_into_missing_directory() {
 fn skill_accepts_existing_empty_directory() {
     let temp = tempdir().expect("temporary directory should be created");
     let destination = temp.path().join("wavepeek");
+    let comparison = temp.path().join("comparison");
     fs::create_dir(&destination).expect("empty destination should be created");
 
     extract(&destination);
+    extract(&comparison);
 
-    assert!(destination.join("SKILL.md").is_file());
+    assert_eq!(files_below(&destination), files_below(&comparison));
+    for relative in files_below(&destination) {
+        assert_eq!(
+            fs::read(destination.join(&relative)).expect("destination file should be readable"),
+            fs::read(comparison.join(relative)).expect("comparison file should be readable")
+        );
+    }
+}
+
+#[test]
+fn skill_rejects_parent_directory_components_without_side_effects() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let intermediate = temp.path().join("intermediate");
+    let destination = intermediate.join("..").join("wavepeek");
+
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(&destination)
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("must not contain '..'"));
+
+    assert!(!intermediate.exists());
+    assert!(!temp.path().join("wavepeek").exists());
 }
 
 #[test]

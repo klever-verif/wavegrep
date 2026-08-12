@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use include_dir::{Dir, include_dir};
 use serde::Serialize;
@@ -16,6 +16,15 @@ struct Manifest {
 }
 
 pub fn materialize(destination: &Path) -> Result<(), WavepeekError> {
+    if destination
+        .components()
+        .any(|component| component == Component::ParentDir)
+    {
+        return Err(file_error(format!(
+            "skill destination '{}' must not contain '..'",
+            destination.display()
+        )));
+    }
     validate_destination(destination)?;
 
     let parent = destination
@@ -119,14 +128,6 @@ fn write_dir(dir: &Dir<'_>, root: &Path) -> Result<(), WavepeekError> {
             continue;
         }
         let path = root.join(file.path());
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                file_error(format!(
-                    "failed to create bundled directory '{}': {error}",
-                    parent.display()
-                ))
-            })?;
-        }
         fs::write(&path, file.contents()).map_err(|error| {
             file_error(format!(
                 "failed to write bundled file '{}': {error}",
