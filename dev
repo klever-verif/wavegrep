@@ -35,8 +35,15 @@ if [ "${1-}" = "--install-hooks" ]; then
             exit 1
             ;;
     esac
-    mapfile -t containers < <(docker ps -aq --filter "label=devcontainer.local_folder=$root")
-    if [ "${#containers[@]}" -eq 1 ]; then
+    containers="$(docker ps -aq --filter "label=devcontainer.local_folder=$root")" || {
+        printf '%s\n' "error: dev: cannot inspect existing worktree containers" >&2
+        exit 1
+    }
+    for container in $containers; do
+        mounts="$(docker inspect --format '{{range .Mounts}}{{printf "%s\t%t\n" .Source .RW}}{{end}}' "$container")" || {
+            printf '%s\n' "error: dev: cannot inspect existing worktree container: $container" >&2
+            exit 1
+        }
         while IFS=$'\t' read -r source writable; do
             [ "$writable" = true ] || continue
             source="$(realpath -m -- "$source")"
@@ -46,8 +53,8 @@ if [ "${1-}" = "--install-hooks" ]; then
                     exit 1
                     ;;
             esac
-        done < <(docker inspect --format '{{range .Mounts}}{{printf "%s\t%t\n" .Source .RW}}{{end}}' "${containers[0]}")
-    fi
+        done <<< "$mounts"
+    done
     configured="$(git config --get core.hooksPath || true)"
     if [ -n "$configured" ]; then
         configured="$(realpath -m -- "$configured")"

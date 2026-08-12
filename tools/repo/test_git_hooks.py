@@ -26,10 +26,10 @@ class GitHookTests(unittest.TestCase):
         docker = self.fake_bin / "docker"
         docker.write_text(
             "#!/bin/sh\n"
-            "[ \"${FAKE_DOCKER_MOUNT-}\" ] || exit 99\n"
+            "[ \"${FAKE_DOCKER_MOUNT-}\" ] || exit 0\n"
             "echo docker-called >>\"$FAKE_LOG\"\n"
             "case \"$1\" in\n"
-            "  ps) echo container-1 ;;\n"
+            "  ps) printf 'container-1\\ncontainer-2\\n' ;;\n"
             "  inspect) printf '%s\\ttrue\\n' \"$FAKE_DOCKER_MOUNT\" ;;\n"
             "esac\n"
         )
