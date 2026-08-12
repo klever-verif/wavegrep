@@ -17,6 +17,5 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
     "remoteUser": "ubuntu",
     "updateRemoteUserUID": true,
-    "postCreateCommand": "git config --global --add safe.directory \"$PWD\"",
-    "postStartCommand": "just dev-setup"
+    "postCreateCommand": "git config --global --add safe.directory \"$PWD\""
 }

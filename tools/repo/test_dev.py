@@ -55,7 +55,9 @@ with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
     log.write(json.dumps(["docker", *sys.argv[1:]]) + "\\n")
 args = sys.argv[1:]
 if args[:1] == ["ps"]:
-    if "-q" in args or ("-aq" in args and os.environ.get("FAKE_EXISTING") == "1"):
+    if "-aq" in args and os.environ.get("FAKE_EXISTING") == "1":
+        print("container-1")
+    elif "-q" in args and not (any(value == "id=container-1" for value in args) and os.environ.get("FAKE_STOPPED") == "1"):
         print("container-1")
 elif args[:1] == ["inspect"]:
     for source, target in json.loads(os.environ.get("FAKE_MOUNTS", "[]")):
@@ -352,6 +354,7 @@ os.execvp(command[0], command)
         result = self._run(self.main, "--exec-only", "true")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no existing container", result.stderr)
+        self.assertIn("./dev true", result.stderr)
         self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
 
     def test_interactive_tty_is_preserved(self) -> None:

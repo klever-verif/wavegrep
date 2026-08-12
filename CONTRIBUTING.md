@@ -39,7 +39,7 @@ This is not hostility toward contributions. It avoids an asymmetry of effort: op
 
 ## Development workflow
 
-Development workflow, style, tests, automation, and release guidance live under `docs/dev/`. Run the relevant `just` gates before handoff; `just check` is the normal local gate and `just ci` is the test-inclusive gate.
+Development workflow, style, tests, automation, and release guidance live under `docs/dev/`. Run gates through the development container; `./dev just check` is the normal local gate and `./dev just ci` is the test-inclusive gate.
 
 ## AI-generated contributions
 
