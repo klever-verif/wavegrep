@@ -1,7 +1,7 @@
 ## Core Workflow
 
 - `wavepeek` is a Rust CLI for deterministic `.vcd` and `.fst` waveform inspection.
-- Development is container-first; run repository gates in the devcontainer/CI image.
+- Development is container-first; run repository commands through the root `./dev` wrapper.
 - Development tasks are run through root `justfile` recipes.
 - Standard quality gate: `just ci`.
 - Local pre-handoff gate: `just check`.
@@ -20,8 +20,7 @@
 
 Maintainer workflow lives under `docs/dev/`:
 
-- `docs/dev/environment.md` for devcontainer, CI image, agent state, fixtures, and `tmp/`.
-- `docs/dev/github-auth.md` for optional repo-scoped GitHub auth in the devcontainer.
+- `docs/dev/environment.md` for the shared devcontainer, host entrypoint, fixtures, and `tmp/`.
 - `docs/dev/quality.md` for `just check`, `just ci`, coverage, and hooks.
 - `docs/dev/testing.md` for test strategy and fixtures.
 - `docs/dev/style.md` for Rust, CLI, output, and docs conventions.
@@ -37,7 +36,7 @@ Maintainer workflow lives under `docs/dev/`:
 - `tools/` — helper automation used by `just` recipes and workflows.
 - `bench/` — end-to-end benchmark harnesses.
 - `.github/workflows/` — CI and release workflows.
-- `.devcontainer/` — local and CI container setup.
+- `.devcontainer/` — shared development and automation container setup.
 - `docs/dev/` — maintainer workflow, quality, style, release, and architecture docs.
 - `docs/tracker/` — backlog, roadmap, and branch-local WIP artifacts.
 - `docs/public/` — embedded user documentation for `wavepeek docs`.

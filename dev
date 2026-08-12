@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec_only=0
+if [ "${1-}" = "--exec-only" ]; then
+    exec_only=1
+    shift
+fi
+if [ "$#" -eq 0 ]; then
+    printf '%s\n' "usage: ./dev [--exec-only] COMMAND [ARG ...]" >&2
+    exit 2
+fi
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+    printf '%s\n' "error: dev: current directory is not inside a Git worktree" >&2
+    exit 1
+}
+root="$(cd "$root" && pwd -P)"
+prefix="$(git rev-parse --show-prefix)"
+workspace="/workspaces/$(basename "$root")"
+container_dir="$workspace/${prefix%/}"
+common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+common_dir="$(cd "$common_dir" && pwd -P)"
+
+mount_args=()
+expected_mounts=("$root"$'\t'"$workspace")
+if [ "$common_dir" != "$root/.git" ]; then
+    mount_args+=(--mount "type=bind,source=$common_dir,target=$common_dir")
+    expected_mounts+=("$common_dir"$'\t'"$common_dir")
+fi
+if [ -n "${VERDI_HOME-}" ]; then
+    if [ ! -d "$VERDI_HOME" ]; then
+        printf '%s\n' "error: dev: VERDI_HOME is not a directory: $VERDI_HOME" >&2
+        exit 1
+    fi
+    verdi_home="$(cd "$VERDI_HOME" && pwd -P)"
+    VERDI_HOME="$verdi_home" python3 -B "$root/tools/fsdb/check_fsdb_env.py" --require >/dev/null
+    mount_args+=(--mount "type=bind,source=$verdi_home,target=/opt/verdi")
+    expected_mounts+=("$verdi_home"$'\t'/opt/verdi)
+fi
+
+mapfile -t containers < <(docker ps -aq --filter "label=devcontainer.local_folder=$root")
+if [ "${#containers[@]}" -gt 1 ]; then
+    printf '%s\n' "error: dev: multiple containers exist for $root; remove the obsolete containers manually" >&2
+    exit 1
+fi
+container_id="${containers[0]-}"
+
+if [ -n "$container_id" ]; then
+    mapfile -t actual_mounts < <(docker inspect --format '{{range .Mounts}}{{if eq .Type "bind"}}{{printf "%s\t%s\n" .Source .Destination}}{{end}}{{end}}' "$container_id" | grep -v '^$')
+    if [ "$(printf '%s\n' "${expected_mounts[@]}" | sort)" != "$(printf '%s\n' "${actual_mounts[@]}" | sort)" ]; then
+        printf '%s\n' "error: dev: existing container has stale worktree, Git common-directory, or Verdi mounts" >&2
+        printf 'recreate with:' >&2
+        printf ' %q' devcontainer up --workspace-folder "$root" "${mount_args[@]}" --remove-existing-container >&2
+        printf '\n' >&2
+        exit 1
+    fi
+fi
+
+if [ "$exec_only" -eq 0 ]; then
+    devcontainer up --workspace-folder "$root" "${mount_args[@]}"
+    mapfile -t containers < <(docker ps -q --filter "label=devcontainer.local_folder=$root")
+    if [ "${#containers[@]}" -ne 1 ]; then
+        printf '%s\n' "error: dev: expected one running container for $root" >&2
+        exit 1
+    fi
+    container_id="${containers[0]}"
+elif [ -z "$container_id" ]; then
+    printf '%s\n' "error: dev: no existing container for $root" >&2
+    exit 1
+fi
+
+exec devcontainer exec --container-id "$container_id" bash -c 'cd "$1" && shift && exec "$@"' bash "$container_dir" "$@"

@@ -1,38 +1,46 @@
 # Development Environment
 
-`wavepeek` is developed container-first. The devcontainer and CI image keep Rust, Python helpers, actionlint, fixtures, and git hooks aligned so contributors do not debug two subtly different universes, which is traditionally where the gremlins live.
+`wavepeek` is developed in one credentialless, command-line devcontainer. Local development, CI, release quality checks, and docs staging use `.devcontainer/devcontainer.json` and the final image in `.devcontainer/Dockerfile`.
 
-## Containers
+## Host Entrypoint
 
-Local interactive work uses `.devcontainer/devcontainer.json`, which targets the `dev` stage in `.devcontainer/Dockerfile`. CI and release automation use `.devcontainer/devcontainer.ci.json`, which targets the leaner `ci` stage from the same Dockerfile.
+Run repository commands from the host through the root `./dev` wrapper:
 
-Both devcontainer configs bind-mount only the opened repository at `/workspaces/<repo-name>`. Sibling directories beside the repository on the host are intentionally outside the container workspace.
+```sh
+./dev just dev-setup
+./dev just check
+./dev cargo test -q --test cli_contract
+```
 
-The shared image includes docs-site tooling from root `requirements-docs.txt`. `mkdocs` and `mike` are available on `PATH` in both the `dev` and `ci` stages. It also includes Icarus Verilog (`iverilog` and `vvp`) and GTKWave conversion tools (`vcd2fst` and `fst2vcd`) for deterministic waveform fixture generation.
+`./dev` finds the enclosing Git worktree when called from any directory inside it, preserves that relative directory in the container, starts the worktree's container when needed, and passes command arguments, standard streams, signals, and exit status through unchanged. Each absolute worktree has its own runtime container and can use its own revision of the container definition. The image layers remain shared through Docker.
 
-Recipes in `justfile` require `WAVEPEEK_IN_CONTAINER=1`. Set it only inside a wavepeek-managed devcontainer or CI image; outside the container, install or enter the proper environment instead of bypassing the guard.
+Use `./dev --exec-only COMMAND [ARG ...]` when a caller must use only an existing container. This mode never starts, builds, restarts, recreates, or removes a container.
 
-Run `just dev-setup` after opening or rebuilding the devcontainer. It verifies tool availability and installs the pre-commit and commit-msg hooks.
+If an existing container's linked-worktree Git mount or optional Verdi mount no longer matches the current host state, `./dev` refuses to use it and prints the explicit `devcontainer up --remove-existing-container` command needed to recreate it. The wrapper never deletes a container automatically.
 
-The devcontainer prepares host-side state under one project-owned directory, `~/.config/wavepeek-dev`. That directory contains the optional GitHub auth env file at `~/.config/wavepeek-dev/github.env`, the Verdi mount source at `~/.config/wavepeek-dev/verdi`, and bind-mount sources for Claude Code, Codex, and Pi agent state. Agent mount sources are managed inside that directory by default; when matching user agent state already exists outside it, `.devcontainer/initialize.sh` links the managed source to that existing state so the container can reuse it.
+## Container Contract
 
-## Optional GitHub Authentication
+The image includes Rust, Cargo tools, C/C++ compilers, Python, documentation tooling, actionlint, hooks, GitHub CLI, Icarus Verilog, waveform converters, benchmark tooling, and command-line Verdi integration. It does not include coding agents, Node.js, a nested Devcontainer CLI, Surfer, GUI forwarding, or local GitHub credential setup.
 
-The devcontainer starts without GitHub credentials by default. `.devcontainer/initialize.sh` creates an empty host-side `~/.config/wavepeek-dev/github.env` outside the repository, `.devcontainer/devcontainer.json` passes it through Docker `--env-file`, and `.devcontainer/setup-github-auth.sh` configures repo-local GitHub auth only when `GH_TOKEN` or `GITHUB_TOKEN` is present.
+The workspace is mounted at `/workspaces/<worktree-name>`. For linked worktrees, `./dev` also mounts the Git common directory at the same absolute host and container path so Git follows the worktree's `.git` pointer correctly. No agent state, host GitHub configuration, or local token file is mounted.
 
-The devcontainer intentionally does not mount host `~/.config/gh`. Maintainer setup, external-PR safety rules, and verification commands live in `github-auth.md`.
+Recipes in `justfile` require `WAVEPEEK_IN_CONTAINER=1`. Do not set it on the host to bypass the guard; use `./dev` instead.
+
+Run `./dev just dev-setup` after creating or rebuilding the container. It verifies tool availability and installs the pre-commit and commit-msg hooks.
 
 ## Fixture Location
 
-Large RTL fixtures are baked into the devcontainer and CI image under `RTL_ARTIFACTS_DIR`, which the container sets to `/opt/rtl-artifacts`. That path is the only supported runtime fixture location.
+Large RTL fixtures are baked into the image under `RTL_ARTIFACTS_DIR=/opt/rtl-artifacts`. That path is the only supported runtime fixture location.
 
-Small source-backed integration fixtures are regenerated inside the repository with `just prepare-waveform-fixtures`. Their checked-in sources live under `tests/fixtures/source/`; generated VCD/FST outputs live under ignored `tests/fixtures/generated/`.
+Small source-backed integration fixtures are regenerated inside the repository with `./dev just prepare-waveform-fixtures`. Their checked-in sources live under `tests/fixtures/source/`; generated VCD/FST outputs live under ignored `tests/fixtures/generated/`.
 
 The container environment contract lives in `.devcontainer/env_contract.sh`. Update it with container provisioning when fixture versions or layout change.
 
 ## Verdi / FSDB Development
 
-FSDB work is optional and local-only unless a task explicitly says otherwise. The devcontainer sets `VERDI_HOME=/opt/verdi`, usually backed by the host-managed dev config mount source at `~/.config/wavepeek-dev/verdi`, prepared from the host `VERDI_HOME`. Use `just check-fsdb-env` to distinguish available, skipped, and broken SDK states.
+When host `VERDI_HOME` is unset, `./dev` starts the container without `/opt/verdi`; FSDB gates report a skip and default VCD/FST development remains available.
+
+When `VERDI_HOME` points to a valid Verdi installation containing the FSDB Reader SDK, `./dev` validates it and mounts it at `/opt/verdi`. Invalid paths or incomplete SDKs are rejected before container startup. Use `./dev just check-fsdb-env` to distinguish available, skipped, and broken SDK states.
 
 The full FSDB build, fixture, benchmark, and repository-safety contract lives in `fsdb.md`.
 
@@ -42,6 +50,6 @@ The full FSDB build, fixture, benchmark, and repository-safety contract lives in
 
 ## Temporary Files
 
-Use repository-root `tmp/` for scratch files, ad hoc logs, temporary benchmark captures, and other disposable working artifacts. It is ignored by git and may be created freely.
+Use repository-root `tmp/` for scratch files, ad hoc logs, temporary benchmark captures, and other disposable working artifacts. It is ignored by Git and may be created freely.
 
 Never globally clean `tmp/` or delete arbitrary existing files there. Other agents or the user may own them. If a temporary artifact needs review or must survive across sessions, move it intentionally into a tracked location such as `docs/tracker/wip/` and explain why.

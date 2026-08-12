@@ -12,8 +12,8 @@ Use `docs/tracker/wip/` for branch-local tracked artifacts that need review or m
 
 ## GitHub and Fork Remotes
 
-Fork contributors should keep `origin` pointed at their fork and use `upstream` for `https://github.com/kleverhq/wavepeek.git`. `.devcontainer/setup-github-auth.sh` may add or update `upstream` when `origin` is not the upstream repository, but it must not rewrite `origin`.
+Fork contributors should keep `origin` pointed at their fork and use `upstream` for `https://github.com/kleverhq/wavepeek.git`. Configure these remotes on the host before entering the credentialless development container.
 
-Commands that intentionally target the upstream repository should pass it explicitly, for example `gh pr list -R "$WAVEPEEK_UPSTREAM_REPO"` or `gh pr list -R kleverhq/wavepeek`. Browser-based PR creation remains supported and must not require GitHub CLI authentication. Token handling and external-PR safety rules live in `github-auth.md`.
+Commands that intentionally target the upstream repository should pass it explicitly, for example `gh pr list -R kleverhq/wavepeek`. Browser-based PR creation remains supported and must not require GitHub CLI authentication.
 
 Before proposing substantial work, check GitHub Milestones and open GitHub Issues. If the change needs product or maintainer discussion, open or reference an issue before starting a PR.
