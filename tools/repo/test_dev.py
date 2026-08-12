@@ -50,16 +50,27 @@ class DevTests(unittest.TestCase):
         docker = self.fake_bin / "docker"
         docker.write_text(
             """#!/usr/bin/env python3
-import json, os, sys
+import json, os, pathlib, signal, sys
 with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
     log.write(json.dumps(["docker", *sys.argv[1:]]) + "\\n")
 args = sys.argv[1:]
 if args[:1] == ["ps"]:
-    if "-aq" in args and os.environ.get("FAKE_EXISTING") == "1":
+    if "-q" in args or ("-aq" in args and os.environ.get("FAKE_EXISTING") == "1"):
         print("container-1")
 elif args[:1] == ["inspect"]:
     for source, target in json.loads(os.environ.get("FAKE_MOUNTS", "[]")):
         print(f"{source}\\t{target}")
+elif args[:2] == ["exec", "container-1"]:
+    if args[2] in {"cat", "rm"}:
+        command = args[2:]
+        for index, value in enumerate(command):
+            if value.startswith("/tmp/wavepeek-dev-"):
+                command[index] = os.environ["FAKE_ROOT"] + "/" + pathlib.Path(value).name
+        os.execvp(command[0], command)
+    if args[2:4] == ["kill", "-s"]:
+        os.kill(int(args[5]), getattr(signal, f"SIG{args[4]}"))
+    else:
+        raise SystemExit(2)
 else:
     raise SystemExit(2)
 """
@@ -82,6 +93,8 @@ workspace = f"/workspaces/{pathlib.Path(os.environ['FAKE_ROOT']).name}"
 for index, value in enumerate(command):
     if value == workspace or value.startswith(workspace + "/"):
         command[index] = os.environ["FAKE_ROOT"] + value[len(workspace):]
+    elif value.startswith("/tmp/wavepeek-dev-"):
+        command[index] = os.environ["FAKE_ROOT"] + "/" + pathlib.Path(value).name
 os.execvp(command[0], command)
 """
         )
@@ -332,7 +345,10 @@ os.execvp(command[0], command)
                 time.sleep(0.02)
             self.assertTrue(marker.exists(), "child process did not start")
             process.send_signal(signal.SIGTERM)
-            stdout, stderr = process.communicate(timeout=5)
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.fail(f"signal forwarding timed out; calls={self._calls()}")
         finally:
             if process.poll() is None:
                 process.kill()

@@ -21,7 +21,7 @@ This work does not move Git commits or hooks to the host, implement the Codex We
 - [x] (2026-08-12 06:35Z) Updated maintainer documentation and breadcrumbs for the unified container and host entrypoint.
 - [x] (2026-08-12 10:34Z) Built the image and ran `./dev just dev-setup`, eight focused wrapper tests, converter checks, clean-image exclusions, `./dev just ci`, and FSDB checks with the mounted Verdi SDK. The no-Verdi path is covered by focused mount tests and the FSDB helper suite.
 - [x] (2026-08-12 10:35Z) Committed the implementation and Verdi runtime correction through the normal pre-commit and commit-msg hooks.
-- [ ] Run parallel correctness/docs and KISS+YAGNI+ponytail reviews, fix findings, rerun affected checks, and complete an independent control review. (Completed: three first-pass reviews and corrections for docs authentication, host/container runbook boundaries, stale profile wording, and ponytail simplifications; remaining: independent control review.)
+- [x] (2026-08-12 11:12Z) Ran parallel correctness/docs and KISS+YAGNI+ponytail reviews, fixed findings, reran affected checks, and completed an independent control review. The control pass found Devcontainer CLI signal loss; explicit forwarding now passes both focused and real-container SIGTERM checks.
 - [ ] Remove this branch-local plan, push the branch, and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -52,7 +52,7 @@ This work does not move Git commits or hooks to the host, implement the Codex We
 
 ## Outcomes & Retrospective
 
-The source, wrapper, workflows, and maintainer documentation now implement one credentialless command-line container. The rebuilt image passes the repository gate, including FSDB compilation, conversion, and CLI tests with a valid mounted Verdi SDK. Three focused reviews completed; their substantive findings were corrected and affected tests pass. The independent control pass remains.
+The source, wrapper, workflows, and maintainer documentation now implement one credentialless command-line container. The rebuilt image passes the repository gate, including FSDB compilation, conversion, and CLI tests with a valid mounted Verdi SDK. Three focused reviews and an independent control pass completed. All substantive findings were corrected; the final real-container SIGTERM check exits with the command's status 42 and leaves no running command.
 
 ## Context and Orientation
 
@@ -148,3 +148,5 @@ Plan revision note (2026-08-12 06:35Z): Recorded the completed implementation mi
 Plan revision note (2026-08-12 10:36Z): Recorded successful image, converter, clean-tool, full CI, FSDB, hook, and commit evidence plus the Verdi runtime-library discovery.
 
 Plan revision note (2026-08-12 10:58Z): Recorded first-pass correctness, docs, and mandatory KISS+YAGNI+ponytail review progress and the resulting authentication, runbook, wording, Dockerfile, wrapper, and test simplifications.
+
+Plan revision note (2026-08-12 11:12Z): Recorded the control-review signal-forwarding finding and evidence from focused plus real-container validation.

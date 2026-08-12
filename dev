@@ -59,14 +59,47 @@ fi
 
 if [ "$exec_only" -eq 0 ]; then
     devcontainer up --workspace-folder "$root" "${mount_args[@]}"
+    mapfile -t containers < <(docker ps -q --filter "label=devcontainer.local_folder=$root")
+    if [ "${#containers[@]}" -ne 1 ]; then
+        printf '%s\n' "error: dev: expected one running container for $root" >&2
+        exit 1
+    fi
+    container_id="${containers[0]}"
 elif [ -z "$container_id" ]; then
     printf '%s\n' "error: dev: no existing container for $root" >&2
     exit 1
 fi
 
-if [ "$exec_only" -eq 1 ]; then
-    selector=(--container-id "$container_id")
-else
-    selector=(--workspace-folder "$root")
+pidfile="/tmp/wavepeek-dev-$$-$RANDOM.pid"
+process_pid=""
+forward_signal() {
+    local signal="$1"
+    for _ in {1..20}; do
+        process_pid="$(docker exec "$container_id" cat "$pidfile" 2>/dev/null || true)"
+        if [ -n "$process_pid" ]; then
+            break
+        fi
+        sleep 0.01
+    done
+    if [ -n "$process_pid" ]; then
+        docker exec "$container_id" kill -s "$signal" "$process_pid" >/dev/null 2>&1 || true
+    fi
+}
+for signal in HUP INT QUIT TERM; do
+    trap "forward_signal $signal" "$signal"
+done
+
+devcontainer exec --container-id "$container_id" bash -c \
+    'printf "%s\n" "$$" > "$1"; cd "$2"; shift 2; exec "$@"' \
+    bash "$pidfile" "$container_dir" "$@" <&0 &
+exec_pid=$!
+set +e
+wait "$exec_pid"
+status=$?
+if [ -n "$process_pid" ]; then
+    wait "$exec_pid" 2>/dev/null || status=$?
 fi
-exec devcontainer exec "${selector[@]}" bash -c 'cd "$1" && shift && exec "$@"' bash "$container_dir" "$@"
+set -e
+trap - HUP INT QUIT TERM
+docker exec "$container_id" rm -f "$pidfile" >/dev/null 2>&1 || true
+exit "$status"
