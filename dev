@@ -59,15 +59,14 @@ fi
 
 if [ "$exec_only" -eq 0 ]; then
     devcontainer up --workspace-folder "$root" "${mount_args[@]}"
-    mapfile -t containers < <(docker ps -q --filter "label=devcontainer.local_folder=$root")
-    if [ "${#containers[@]}" -ne 1 ]; then
-        printf '%s\n' "error: dev: expected one running container for $root" >&2
-        exit 1
-    fi
-    container_id="${containers[0]}"
 elif [ -z "$container_id" ]; then
     printf '%s\n' "error: dev: no existing container for $root" >&2
     exit 1
 fi
 
-exec devcontainer exec --container-id "$container_id" bash -c 'cd "$1" && shift && exec "$@"' bash "$container_dir" "$@"
+if [ "$exec_only" -eq 1 ]; then
+    selector=(--container-id "$container_id")
+else
+    selector=(--workspace-folder "$root")
+fi
+exec devcontainer exec "${selector[@]}" bash -c 'cd "$1" && shift && exec "$@"' bash "$container_dir" "$@"

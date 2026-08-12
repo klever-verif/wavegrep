@@ -44,7 +44,6 @@ class DevTests(unittest.TestCase):
         env.pop("WAVEPEEK_FSDB_READER_LIBDIR", None)
         env["PATH"] = f"{self.fake_bin}{os.pathsep}{env['PATH']}"
         env["FAKE_LOG"] = str(self.log)
-        env["FAKE_CONTAINER_ID"] = "container-1"
         return env
 
     def _write_fakes(self) -> None:
@@ -57,9 +56,7 @@ with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
 args = sys.argv[1:]
 if args[:1] == ["ps"]:
     if "-aq" in args and os.environ.get("FAKE_EXISTING") == "1":
-        print(os.environ["FAKE_CONTAINER_ID"])
-    elif "-q" in args:
-        print(os.environ["FAKE_CONTAINER_ID"])
+        print("container-1")
 elif args[:1] == ["inspect"]:
     for source, target in json.loads(os.environ.get("FAKE_MOUNTS", "[]")):
         print(f"{source}\\t{target}")
@@ -143,22 +140,6 @@ os.execvp(command[0], command)
         if not self.log.exists():
             return []
         return [json.loads(line) for line in self.log.read_text().splitlines()]
-
-    def _mounts(self, root: Path, verdi: Path | None = None) -> list[list[str]]:
-        mounts = [[str(root), f"/workspaces/{root.name}"]]
-        common = subprocess.run(
-            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            cwd=root,
-            env=self._base_env(),
-            check=True,
-            text=True,
-            stdout=subprocess.PIPE,
-        ).stdout.strip()
-        if common != str(root / ".git"):
-            mounts.append([str(Path(common).resolve()), str(Path(common).resolve())])
-        if verdi:
-            mounts.append([str(verdi.resolve()), "/opt/verdi"])
-        return mounts
 
     def test_preserves_nested_directory_arguments_io_and_exit_status(self) -> None:
         nested = self.main / "one" / "two"
@@ -268,9 +249,15 @@ os.execvp(command[0], command)
         self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
 
     def test_exec_only_uses_existing_container_without_up(self) -> None:
+        common = str((self.main / ".git").resolve())
         env = {
             "FAKE_EXISTING": "1",
-            "FAKE_MOUNTS": json.dumps(self._mounts(self.linked)),
+            "FAKE_MOUNTS": json.dumps(
+                [
+                    [str(self.linked), "/workspaces/linked"],
+                    [common, common],
+                ]
+            ),
         }
         result = self._run(self.linked, "--exec-only", "printf", "ok", env_updates=env)
 

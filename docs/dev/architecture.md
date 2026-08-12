@@ -229,7 +229,7 @@ wavepeek uses two fixture sources:
 1. **Hand-crafted VCD fixtures** for edge cases, tiny examples, and direct unit coverage.
 2. **Container-provisioned representative fixtures** for realistic integration and performance scenarios.
 
-Runtime test execution does not fetch those larger fixtures dynamically; they are provisioned by the devcontainer and CI image.
+Runtime test execution does not fetch those larger fixtures dynamically; they are provisioned by the shared devcontainer image.
 
 ### What Integration Tests Must Assert
 

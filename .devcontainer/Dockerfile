@@ -1,12 +1,8 @@
-# ---- Shared Environment Contract -----------------------------------------------
-FROM scratch AS env_contract
-COPY .devcontainer/env_contract.sh /wavepeek-env-contract.sh
-
 # ---- RTL Fixture Layer --------------------------------------------------------
 FROM ubuntu:24.04 AS rtl_artifacts
 
 ENV DEBIAN_FRONTEND=noninteractive
-COPY --from=env_contract /wavepeek-env-contract.sh /tmp/wavepeek-env-contract.sh
+COPY .devcontainer/env_contract.sh /tmp/wavepeek-env-contract.sh
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl && \
     apt-get clean && \
@@ -24,7 +20,7 @@ FROM ubuntu:24.04
 
 ARG TARGETARCH
 ENV DEBIAN_FRONTEND=noninteractive
-COPY --from=env_contract /wavepeek-env-contract.sh /tmp/wavepeek-env-contract.sh
+COPY .devcontainer/env_contract.sh /tmp/wavepeek-env-contract.sh
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -32,8 +28,6 @@ RUN apt-get update && \
     python3 python3-venv \
     iverilog gtkwave \
     libxt6t64 libxmu6 libnuma1 \
-    locales \
-    && locale-gen en_US.UTF-8 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -90,9 +84,8 @@ RUN . /tmp/wavepeek-env-contract.sh && \
     rm -rf "$tmp_dir"
 
 # Expose selected command-line Verdi FSDB utilities when /opt/verdi is mounted.
-COPY .devcontainer/verdi-tool-wrapper.sh /usr/local/bin/wavepeek-verdi-tool
-RUN chmod 0755 /usr/local/bin/wavepeek-verdi-tool && \
-    for tool in \
+COPY --chmod=0755 .devcontainer/verdi-tool-wrapper.sh /usr/local/bin/wavepeek-verdi-tool
+RUN for tool in \
         vcd2fsdb fsdb2vcd fsdbdebug fsdbreport fsdbextract fsdbmerge \
         fsdbjoin fsdbrecover fsdbsanitycheck fsdbqry fsdbdir fsdbedit \
         fsdbmangle fsdb2saif fsdb2ns txt2fsdb merge_multi_swp_fsdb \
@@ -101,21 +94,13 @@ RUN chmod 0755 /usr/local/bin/wavepeek-verdi-tool && \
         ln -sf wavepeek-verdi-tool "/usr/local/bin/$tool"; \
     done
 
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 ENV RTL_ARTIFACTS_DIR=/opt/rtl-artifacts
 ENV VERDI_HOME=/opt/verdi
 ENV PATH="/opt/wavepeek-python/bin:/home/ubuntu/.local/bin:/home/ubuntu/.cargo/bin:${PATH}"
 
-RUN if ! id -u ubuntu >/dev/null 2>&1; then useradd -m -s /bin/bash ubuntu; fi && \
-    install -d -m 0755 -o ubuntu -g ubuntu \
-        /home/ubuntu/.config \
-        /home/ubuntu/.cache \
-        /home/ubuntu/.local \
-        /home/ubuntu/.local/bin \
-        /home/ubuntu/.local/share \
-        /home/ubuntu/.local/state \
-        /workspaces
+RUN install -d -m 0755 -o ubuntu -g ubuntu /home/ubuntu/.local /home/ubuntu/.local/bin /workspaces
 
 COPY --from=rtl_artifacts --chown=ubuntu:ubuntu /opt/rtl-artifacts ${RTL_ARTIFACTS_DIR}
 
