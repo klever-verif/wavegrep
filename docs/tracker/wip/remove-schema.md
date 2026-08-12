@@ -22,7 +22,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 - [x] (2026-08-12 16:48Z) Made all six structured extraction families independent of `$schema`, preserved unknown legacy-field compatibility through Serde, updated benchmark inputs, and passed 95 focused extraction tests, 93 benchmark helper tests, and Clippy.
 - [x] (2026-08-12 16:58Z) Removed the schema CLI, engine, builders, artifacts, dependencies, and validator-only tests while retaining direct JSON/JSONL shape and sequencing checks; `cargo check --all-targets` and 14 focused integration suites passed.
 - [x] (2026-08-12 17:05Z) Removed generation gates and current schema publication/deployment checks; 51 docs-helper tests include a synthetic v3 staging case that preserves a historical v2.2 file and creates no v3 schema, and `just test-aux` plus `just check-actions` passed.
-- [ ] Replace public schema discovery with concise machine-output forms and examples; update maintainer docs, README, breadcrumbs, and changelog; run docs checks and commit the slice.
+- [x] (2026-08-12 17:11Z) Replaced schema discovery with concise object/list/event/transfer/JSONL examples, removed stale public and maintainer references, updated README/breadcrumbs/changelog, and passed 79 focused docs/CLI tests plus strict docs-site generation.
 - [ ] Run `just ci`, conduct parallel correctness, docs, and mandatory KISS/YAGNI/ponytail challenge reviews, fix findings, rerun affected checks, and obtain a clean independent control review.
 - [ ] Remove this branch-local plan, run `just check`, commit cleanup, push the branch, and open a pull request targeting `dev3`.
 
@@ -61,7 +61,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 
 ## Outcomes & Retrospective
 
-Milestones 1 through 3 are complete. Structured input executes without schema metadata; the core schema subsystem and obsolete gates are gone; publication now stages only documentation and installers while exporting the complete Pages tree. Direct machine-output tests and a synthetic historical-file preservation test cover retained behavior. Public and maintainer documentation remain for the next milestone.
+Milestones 1 through 4 are complete. Structured input executes without schema metadata; the core subsystem and obsolete gates are gone; publication stages only documentation and installers while preserving the complete Pages tree. Public discovery now uses concise runtime JSON/JSONL examples, and maintainer guidance describes direct contract tests. Final CI and review remain.
 
 ## Context and Orientation
 

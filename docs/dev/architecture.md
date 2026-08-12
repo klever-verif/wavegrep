@@ -31,7 +31,7 @@ The repository ships agent-facing workflow assets plus deterministic `--json` an
 | Language | Rust stable (MSRV 1.93) | Performance, memory safety, and predictable resource use on large dumps |
 | CLI framework | `clap` derive API | Self-documenting command definitions with compile-time validation |
 | Waveform parsing | `wellen` | Unified VCD/FST interface used successfully by existing waveform tooling |
-| Serialization | `serde` + `serde_json` | Standard JSON rendering for machine contracts and schema export |
+| Serialization | `serde` + `serde_json` | Standard JSON and JSONL rendering for machine output |
 | Pattern matching | `regex` | Shared filtering surface for hierarchy and signal discovery |
 | Error handling | `thiserror` | Typed error enums without runtime boxing |
 | Build automation | Cargo + just | Cargo owns compilation; the root `justfile` exposes repository quality gates |
@@ -51,7 +51,7 @@ Key architectural consequences:
 - Execution is stateless. Every command opens the dump, runs once, and exits.
 - The engine is format-agnostic for waveform commands. VCD/FST Wellen handling and optional FSDB Reader handling stay behind the waveform facade.
 - Docs and skill helper surfaces keep their source of truth in packaged Markdown instead of duplicated Rust string tables.
-- JSON contracts are stabilized through code-generated schema snapshots: `schema/output.json`, `schema/stream.json`, `schema/input.json`, and `schema/catalog.json`.
+- JSON and JSONL contracts are covered by direct serialization and command-runtime tests.
 
 ### Module Structure
 
@@ -69,7 +69,6 @@ src/
 │   ├── change.rs        # `change` command args + clap help
 │   ├── property.rs      # `property` command args + clap help
 │   ├── extract.rs       # `extract` command namespace and subcommand args + clap help
-│   ├── schema.rs        # `schema` command args + clap help
 │   ├── docs.rs          # `docs` helper command family args + clap help
 │   └── skill.rs         # `skill` helper command args + clap help
 ├── engine/              # Business logic per command
@@ -90,16 +89,14 @@ src/
 │   ├── axi.rs           # Stateless AXI-family profile mapping and transfer adaptation
 │   ├── axistream.rs     # AXI-Stream profile adapter over generic extraction
 │   ├── signal_mapping.rs # Protocol-neutral standard-name matching for adapters
-│   ├── schema.rs        # JSON schema export
 │   ├── docs.rs          # Embedded docs topics/search/show/export runtime
 │   └── skill.rs         # Packaged agent skill print runtime
 ├── docs/                # Embedded docs asset runtime and export helpers
 │   └── mod.rs           # Topic catalog loading, search, export, and packaged skill source
-├── contract/            # JSON/JSONL/input DTOs and exact schema definitions
-│   ├── schema.rs        # Schema roots, command branches, and generation
-│   ├── axi_schema.rs    # Exact profile/channel-aware AXI schema branches
-│   └── axistream_schema.rs # Exact profile/mode-aware AXI-Stream schema branches
-├── schema_contract.rs   # Canonical schema URLs and embedded schema artifacts
+├── contract/            # Runtime JSON and JSONL data transfer objects
+│   ├── common.rs        # Shared diagnostics, paths, times, values, and kind aliases
+│   ├── output.rs        # JSON envelope and command payload structures
+│   └── stream.rs        # JSONL begin/item/diagnostic/end structures
 ├── expr/                # Expression engine shared by `change`, `property`, and `extract`
 │   ├── mod.rs           # Public typed facade for parsing/binding/evaluation
 │   ├── ast.rs           # Spanned expression AST types
@@ -141,8 +138,7 @@ src/
 | `wellen` | ~0.20 | VCD and FST parsing | Core default waveform dependency |
 | `clap` | ~4 | CLI argument parsing | Derive API for declarative CLI definitions |
 | `serde` | ~1 | Serialization | Used for machine-readable output structures |
-| `serde_json` | ~1 | JSON output | Envelope rendering, JSONL records, and generated schema serialization |
-| `schemars` | 1.2.1 | JSON Schema generation | Derives and custom schema implementations for contract DTO definitions |
+| `serde_json` | ~1 | JSON output | Envelope and JSONL record rendering |
 | `regex` | ~1 | Pattern matching | Shared filter support |
 | `thiserror` | ~2 | Error derivation | Typed errors with explicit exit mapping |
 | `cc` | ~1 | Native build integration | Build dependency used only when compiling optional FSDB support |
@@ -210,8 +206,6 @@ For `--jsonl`, `change` emits snapshots through a sink while the selected engine
 
 `src/engine/axi.rs` maps supported AXI-family profiles and ready/valid channels into the protocol-neutral runtime in `src/engine/extract.rs`. `src/engine/ahb.rs` is a dedicated stateful walker because an accepted AHB address phase completes on a later edge, can remain pending across wait states, and requires warm-up before a lower time bound. Both engines use the shared waveform facade, pre-edge sampling model, time/limit helpers, contract DTOs, and output sinks; they do not share a speculative protocol framework.
 
-AHB machine contracts are specialized in `src/contract/ahb_schema.rs`. Profile/event payload objects are closed and signal-validity-aware, while the top-level envelope and structured source object retain the extension policy used by the existing schema families.
-
 ## Testing Strategy
 
 ### Test Levels
@@ -236,8 +230,8 @@ Runtime test execution does not fetch those larger fixtures dynamically; they ar
 - deterministic stdout behavior,
 - exit codes,
 - stderr formatting for error cases,
-- `--json` payload conformance to the envelope schema contract,
-- `--jsonl` record conformance and stream-order invariants,
+- direct `--json` envelope and payload shape assertions,
+- direct `--jsonl` record-shape and stream-order invariants,
 - human-output stability when a command-level contract explicitly fixes that formatting, and
 - VCD/FST parity where equivalent queries should return the same result.
 
@@ -246,6 +240,6 @@ Runtime test execution does not fetch those larger fixtures dynamically; they ar
 The architectural split matters for docs maintenance:
 
 - `src/cli/`, `wavepeek --help`, and `wavepeek <command> --help` are the exact CLI surface authority.
-- The current schema snapshots, `schema/output.json`, `schema/stream.json`, and `schema/input.json`, plus `wavepeek schema`, `wavepeek schema --stream`, and `wavepeek schema --input`, are the machine-readable contract authorities. `schema/catalog.json` maps schema families to exact published URLs.
-- `docs/public/reference/` documents the user-visible semantics that code and schema alone do not explain well enough.
+- `docs/public/reference/machine-output.md` and direct runtime tests define machine-output behavior.
+- `docs/public/reference/` documents user-visible semantics that code alone does not explain well enough.
 - this file documents internals that help contributors change implementation safely without regrowing a monolithic design doc.

@@ -28,7 +28,7 @@ This applies especially to:
 
 - new features;
 - behavior changes;
-- CLI or machine-output schema changes;
+- CLI or machine-output contract changes;
 - broad documentation rewrites;
 - large refactors;
 - new dependencies.

@@ -216,7 +216,7 @@ fn top_level_help_documents_general_conventions() {
             .not(),
         )
         .stdout(
-            predicate::str::contains("`schema`, `docs`, and `help` are the non-waveform surfaces")
+            predicate::str::contains("`docs` and `help` are the non-waveform surfaces")
                 .not(),
         )
         .stdout(predicate::str::contains("Output is bounded by default"))

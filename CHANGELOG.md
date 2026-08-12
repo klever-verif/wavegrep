@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Removed the Codex Web environment bootstrap; the devcontainer is now the supported development environment ([issue #93](https://github.com/kleverhq/wavepeek/issues/93)).
+- Removed JSON Schema generation, validation, publication, and the `schema` command while retaining JSON, JSONL, and structured-input behavior ([issue #89](https://github.com/kleverhq/wavepeek/issues/89)).
 
 ## [2.2.3] - 2026-08-12
 

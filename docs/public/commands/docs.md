@@ -39,7 +39,7 @@ Only two docs subcommands support stable JSON output:
 - `wavepeek docs topics --json`
 - `wavepeek docs search <query> --json`
 
-Both use the standard JSON success envelope described by `reference/machine-output` and the exact schema printed by `wavepeek schema`.
+Both use the standard JSON success envelope described by `reference/machine-output`.
 
 Other docs subcommands are human or Markdown surfaces. `docs show --json` and `docs export --json` fail as argument errors instead of silently changing output mode.
 

@@ -9,7 +9,6 @@ Run container commands from the host through `./dev`.
 - `./dev just dev-setup` verifies the development container; host `./dev --install-hooks` explicitly installs reviewed hook copies.
 - `./dev just check`, `./dev just ci`, and `./dev just pre-commit` are the main quality gates.
 - `just prepare-waveform-fixtures` regenerates ignored VCD/FST fixtures under `tests/fixtures/generated/` from `tests/fixtures/source/` and documented hand-derived outputs.
-- `just update-schema` regenerates `schema/output.json`, `schema/stream.json`, `schema/input.json`, and `schema/catalog.json` from Rust contract code; `just check-schema` validates freshness, runtime embedding, and schema URLs.
 - `just docs-site-build`, `just docs-site-check`, `just docs-site-stage-deploy`, `just docs-site-push-staged`, and `just docs-site-check-deploy` own GitHub Pages docs preparation, publication, and deployed endpoint verification.
 - `just bench-gate`, `just bench-capture`, and `just bench-compare` own manual performance review; generated benchmark runs are ignored and are not committed baselines.
 - `just check-fsdb-env`, `just test-fsdb`, and `just lint-fsdb` own optional Verdi/FSDB flows; see `fsdb.md` for the full contract.

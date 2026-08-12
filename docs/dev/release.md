@@ -20,39 +20,33 @@ This runbook covers production releases for `wavepeek`. Use it with `changelog.m
    - update bottom links for `Unreleased` and the new version tag;
    - treat released sections as immutable historical records.
 3. Reconcile GitHub Milestones with actual shipped scope. Milestones are planned scope; changelog is factual shipped scope. For the `X.Y.Z` milestone, close shipped issues, move unfinished issues to a future milestone or back to the backlog, then close the completed milestone.
-4. Update `Cargo.toml` version to `X.Y.Z`. Schema family versions are independent of the package version; bump them only when the public JSON or JSONL contract changes.
-5. Refresh the generated schema snapshots:
-
-       ./dev just update-schema
-
-   This updates `schema/output.json`, `schema/stream.json`, `schema/input.json`, and `schema/catalog.json` from Rust contract code.
-
-6. Run the release-quality gate:
+4. Update `Cargo.toml` version to `X.Y.Z`.
+5. Run the release-quality gate:
 
        ./dev just ci
 
-7. Commit release prep:
+6. Commit release prep:
 
-       git add CHANGELOG.md Cargo.toml Cargo.lock schema/output.json schema/stream.json schema/input.json schema/catalog.json
+       git add CHANGELOG.md Cargo.toml Cargo.lock
        git commit -m "chore(release): prepare vX.Y.Z"
 
-8. Run the manual performance gate before pushing a major or minor release. Use the previous release tag as the baseline and the release-prep commit as the revised ref:
+7. Run the manual performance gate before pushing a major or minor release. Use the previous release tag as the baseline and the release-prep commit as the revised ref:
 
        ./dev just bench-gate vPREVIOUS HEAD
 
    For patch releases, either run the gate when the patch may affect performance, or record the skip rationale in the release issue or checklist for clearly non-performance changes such as documentation-only or release-metadata-only updates. The gate writes ignored artifacts under `tmp/bench-gate/`; preserve the summary path or archive externally if it is needed for release review.
 
-9. Push the commit and tag:
+8. Push the commit and tag:
 
        git push origin main
        git tag vX.Y.Z
        git push origin vX.Y.Z
 
-10. Wait for `.github/workflows/release.yml` to finish. It creates a draft GitHub Release, uploads `cargo-dist` archives, shell and PowerShell installers, checksum artifacts, and `dist-manifest.json`, publishes the release, creates GitHub Artifact Attestations, then dispatches downstream workflows.
-11. Wait for `.github/workflows/docs.yml` and `.github/workflows/publish-crate.yml` to finish for the same version.
-12. Check workflow logs for tag/version validation, `just ci`, `cargo package --locked`, `cargo-dist` matrix builds, release-body rendering from `CHANGELOG.md`, GitHub Release creation, docs staging, staged bundle upload, staged bundle verification, non-forced `gh-pages` push, Pages artifact upload, `actions/deploy-pages` deployment, deployed docs verification, and idempotent `cargo publish --locked` from the release tag checkout.
-13. If deployed docs endpoint verification needs to be repeated locally, run `./dev just docs-site-check-deploy X.Y.Z`. Run authenticated GitHub API checks separately on the host.
-14. Verify final state: the crate is published for `X.Y.Z`, the GitHub Release exists for `vX.Y.Z`, release notes match the changelog section, binary archives and checksum files are attached, `https://kleverhq.github.io/wavepeek/X.Y.Z/` resolves, `https://kleverhq.github.io/wavepeek/latest/` points at the same release, and root schema and installer aliases resolve from Pages.
+9. Wait for `.github/workflows/release.yml` to finish. It creates a draft GitHub Release, uploads `cargo-dist` archives, shell and PowerShell installers, checksum artifacts, and `dist-manifest.json`, publishes the release, creates GitHub Artifact Attestations, then dispatches downstream workflows.
+10. Wait for `.github/workflows/docs.yml` and `.github/workflows/publish-crate.yml` to finish for the same version.
+11. Check workflow logs for tag/version validation, `just ci`, `cargo package --locked`, `cargo-dist` matrix builds, release-body rendering from `CHANGELOG.md`, GitHub Release creation, docs staging, staged bundle upload, staged bundle verification, non-forced `gh-pages` push, Pages artifact upload, `actions/deploy-pages` deployment, deployed docs verification, and idempotent `cargo publish --locked` from the release tag checkout.
+12. If deployed docs endpoint verification needs to be repeated locally, run `./dev just docs-site-check-deploy X.Y.Z`. Run authenticated GitHub API checks separately on the host.
+13. Verify final state: the crate is published for `X.Y.Z`, the GitHub Release exists for `vX.Y.Z`, release notes match the changelog section, binary archives and checksum files are attached, `https://kleverhq.github.io/wavepeek/X.Y.Z/` resolves, `https://kleverhq.github.io/wavepeek/latest/` points at the same release, and root installer aliases resolve from Pages.
 
 The release workflow renders notes through the helper group owned by `tools/release/`. The stable release interface remains the workflow and the changelog section, not a hand-run release-note command. Docs publication uses `tools/docs/publish_docs.py` from the trusted branch and copies installer assets from the created GitHub Release.
 
@@ -62,7 +56,7 @@ Normal releases do not need local downstream dispatch commands because `.github/
 
     gh workflow run docs.yml --repo kleverhq/wavepeek --ref main -f version=X.Y.Z -f source_ref=vX.Y.Z -f repair_existing_version=false
 
-Pass `true` as the repair argument only when intentionally replacing an existing Pages snapshot. If the requested version is older than the current `latest` version, or if a repaired version does not currently own the `latest` alias, the docs workflow stages that version without moving `latest`, root installer aliases, or root schema aliases backward. This command requires `gh` authentication and starts a remote GitHub Actions run; it is not a local dry-run check.
+Pass `true` as the repair argument only when intentionally replacing an existing Pages snapshot. If the requested version is older than the current `latest` version, or if a repaired version does not currently own the `latest` alias, the docs workflow stages that version without moving `latest` or root installer aliases backward. This command requires `gh` authentication and starts a remote GitHub Actions run; it is not a local dry-run check.
 
 For manual crates.io repair, dispatch `.github/workflows/publish-crate.yml` on the default branch with `version=X.Y.Z` and `source_ref=vX.Y.Z`. The workflow checks out trusted tooling from the default branch, checks out release source through `refs/tags/vX.Y.Z`, and exits successfully without requiring `CRATES_IO_TOKEN` if that crate version is already published.
 

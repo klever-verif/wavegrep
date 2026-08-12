@@ -23,7 +23,7 @@ Use `docs` when command help is not enough. It is the packaged narrative surface
 
 ## Helper commands
 
-Use `schema` when a machine client needs the canonical JSON contract for `--json` outputs, `schema --stream` for per-record JSONL contracts, or `schema --input` for structured JSON input documents. It prints the selected schema artifact directly and does not require a waveform file.
+Use `docs show reference/machine-output` when a machine client needs JSON envelope or JSONL stream details.
 
 Use `skill` when a coding agent needs the packaged Wavepeek skill Markdown from the installed build.
 
@@ -47,4 +47,4 @@ When choosing between VCD, FST, and FSDB input or diagnosing unexpectedly slow q
 
 ## Which document is normative?
 
-Use this overview to choose a command quickly. When exact flags matter, defer to generated help. When behavioral semantics matter, use the reference topics under `reference/*`. When exact JSON shapes matter, use `wavepeek schema` for envelope output, `wavepeek schema --stream` for JSONL stream records, and `wavepeek schema --input` for structured input documents.
+Use this overview to choose a command quickly. When exact flags matter, defer to generated help. When behavioral semantics matter, use the reference topics under `reference/*`. When exact JSON and JSONL shapes matter, use `reference/machine-output`.

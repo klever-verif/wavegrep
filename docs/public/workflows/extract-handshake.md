@@ -143,4 +143,4 @@ $ wavepeek extract generic --waves path/to/dump.vcd \
     --jsonl
 ```
 
-For several generic source types, or for a reusable AHB, APB, ATB, AXI, or AXI-Stream profile/mapping setup, write a source file and pass `--source`. Use `wavepeek schema --input` to fetch the exact input schema for that file.
+For several generic source types, or for a reusable AHB, APB, ATB, AXI, or AXI-Stream profile/mapping setup, write a source file and pass `--source`. See `commands/extract` and command help for source-file fields.

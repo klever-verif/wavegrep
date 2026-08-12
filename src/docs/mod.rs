@@ -904,7 +904,7 @@ mod tests {
 
         let summary = export_catalog(&out_dir, false).expect("export should succeed");
 
-        assert_eq!(summary.topics.len(), 24);
+        assert_eq!(summary.topics.len(), 23);
         assert!(out_dir.join("commands").join("change.md").exists());
         assert!(out_dir.join("manifest.json").exists());
         assert!(!out_dir.join("wavepeek.md").exists());
@@ -1238,9 +1238,9 @@ mod tests {
                 .any(|topic| topic.title.contains("Find first change"))
         );
         assert!(
-            suggest_topics("exact JSON contract", 10)
+            suggest_topics("machine output", 10)
                 .iter()
-                .any(|topic| topic.description.contains("exact JSON contract"))
+                .any(|topic| topic.id == "reference/machine-output")
         );
         assert!(suggest_topics("no such docs phrase", 10).is_empty());
 

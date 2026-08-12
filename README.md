@@ -112,7 +112,6 @@ wavepeek skill
 | `change` | Delta snapshots over a time range with event triggers |
 | `property` | Property checks over event triggers with capture modes |
 | `extract` | Get events, handshakes, transfers from synchronous signals |
-| `schema` | Print canonical JSON schemas used by JSON output, JSONL streams, and structured input |
 | `docs` | Browse embedded narrative docs, search topics, and export Markdown |
 | `skill` | Print packaged agent skill Markdown |
 | `help` | Print detailed long help for top-level or nested command paths |
@@ -122,7 +121,7 @@ Use progressive disclosure via built-in help and docs:
 - `wavepeek -h` for compact lookup help
 - `wavepeek --help` or `wavepeek help <command-path...>` for detailed top-level reference help
 - `wavepeek docs` for embedded command guidance, workflows, troubleshooting, reference topics, and export
-- `wavepeek schema` for packaged JSON output, input and stream contracts
+- `wavepeek docs show reference/machine-output` for JSON and JSONL contracts
 - `wavepeek skill` for packaged agent skill Markdown
 
 ## Development

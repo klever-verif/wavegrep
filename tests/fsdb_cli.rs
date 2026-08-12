@@ -1313,7 +1313,7 @@ fn assert_scope_entry(entry: &Value) {
     let kind = entry["kind"].as_str().expect("scope kind should be string");
     assert!(
         SCOPE_KIND_ALIASES.contains(&kind),
-        "scope kind {kind:?} should be public-schema compatible"
+        "scope kind {kind:?} should use a stable public alias"
     );
 }
 
@@ -1332,7 +1332,7 @@ fn assert_signal_entry(entry: &Value) {
         .expect("signal kind should be string");
     assert!(
         SIGNAL_KIND_ALIASES.contains(&kind),
-        "signal kind {kind:?} should be public-schema compatible"
+        "signal kind {kind:?} should use a stable public alias"
     );
     if let Some(width) = entry.get("width") {
         assert!(

@@ -17,7 +17,7 @@ This document is normative for the cross-cutting semantics shared across the shi
 
 wavepeek is a stateless CLI. Each invocation opens one waveform dump when needed, executes one command, writes its result, and exits.
 
-All waveform-inspection commands require `--waves <FILE>` and operate on a single dump per invocation. Non-waveform surfaces such as `schema`, `help`, `docs`, and `skill` are outside this document's scope and follow `commands/docs`, `commands/skill`, plus the exact CLI/help surface.
+All waveform-inspection commands require `--waves <FILE>` and operate on a single dump per invocation. Non-waveform surfaces such as `help`, `docs`, and `skill` are outside this document's scope and follow `commands/docs`, `commands/skill`, plus the exact CLI/help surface.
 
 Default builds support VCD (Value Change Dump) and FST (Fast Signal Trace). FSDB support is currently Linux x86_64 only. FSDB (Fast Signal Database) requires a wavepeek binary built with the Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK. In an FSDB-enabled build all waveform-related commands use the same command contracts as VCD/FST for digital bit-vector/integral signals. FSDB real and string value decoding are not part of the current implementation.
 
@@ -62,9 +62,9 @@ If distinct FSDB records map to one canonical signal path, wavepeek quarantines 
 
 Waveform commands default to human-readable output. Machine-readable output is enabled explicitly with `--json` for a complete JSON envelope or `--jsonl` for a newline-delimited stream of records.
 
-Human-readable output is optimized for compact operator use and may vary when formatting improvements are made. Machine-readable output is strict and versioned through the schema contracts described in `machine-output` and exposed by `wavepeek schema`. Use `--json` when a client wants one complete result document. Use `--jsonl` when a client wants to consume waveform rows incrementally.
+Human-readable output is optimized for compact operator use and may vary when formatting improves. Machine-readable behavior is documented in `machine-output` and covered by direct runtime tests. Use `--json` when a client wants one complete result document. Use `--jsonl` when a client wants to consume waveform rows incrementally.
 
-`schema` is a special case: it always prints one JSON Schema document to stdout and never wraps that payload in the normal command envelope. `wavepeek schema` prints the JSON envelope schema; `wavepeek schema --stream` prints the JSONL record schema; `wavepeek schema --input` prints the JSON input document schema used by structured-input commands. The non-waveform `docs` command family and the human-only `skill` command have their own help and narrative-doc semantics in `commands/docs` and `commands/skill`; only `docs topics --json` and `docs search --json` participate in the stable JSON envelope. Helper commands do not support `--jsonl` output.
+The non-waveform `docs` command family and human-only `skill` command have their own semantics in `commands/docs` and `commands/skill`; only `docs topics --json` and `docs search --json` use the standard JSON envelope. Helper commands do not support `--jsonl`.
 
 ## 6. Bounded Output and Diagnostic Semantics
 
@@ -72,8 +72,7 @@ wavepeek is designed to avoid flooding terminals and LLM context windows. Comman
 
 - explicit count limits such as `--max`,
 - depth limits such as `--max-depth`,
-- the finite size of the requested input set, or
-- an inherently finite command shape such as `schema`.
+- the finite size of the requested input set.
 
 When a command truncates output because of an active limit, it emits a warning diagnostic. `change`, `property`, and `extract` use `--max` for event-row limits and default to 50 rows. When a command supports disabling a limit explicitly, that opt-out also emits a warning diagnostic so automation can tell the boundedness contract changed on purpose. List and search-style commands also emit an empty-result diagnostic when a valid query produces no rows; diagnostics do not change the successful exit code.
 
