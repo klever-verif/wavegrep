@@ -98,6 +98,16 @@ if [ -n "${VERDI_HOME-}" ]; then
         exit 1
     fi
     verdi_home="$(cd "$VERDI_HOME" && pwd -P)"
+    configured_hooks="$(git config --get core.hooksPath || true)"
+    if [ -n "$configured_hooks" ]; then
+        configured_hooks="$(realpath -m -- "$configured_hooks")"
+        case "$configured_hooks/" in
+            "$verdi_home/"*)
+                printf '%s\n' "error: dev: host Git hooks must be outside VERDI_HOME" >&2
+                exit 1
+                ;;
+        esac
+    fi
     VERDI_HOME="$verdi_home" python3 -B "$root/tools/fsdb/check_fsdb_env.py" --require >/dev/null
     mount_args+=(--mount "type=bind,source=$verdi_home,target=/opt/verdi")
     expected_mounts+=("$verdi_home"$'\t'/opt/verdi)

@@ -322,6 +322,13 @@ os.execvp(command[0], command)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Verdi FSDB Reader SDK not found", result.stderr)
 
+        hooks = verdi / "hooks"
+        hooks.mkdir()
+        self._git("config", "core.hooksPath", str(hooks))
+        result = self._run(self.main, "true", env_updates={"VERDI_HOME": str(verdi)})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("hooks must be outside VERDI_HOME", result.stderr)
+
     def test_stale_mounts_are_rejected_with_recreation_command(self) -> None:
         env = {
             "FAKE_EXISTING": "1",
