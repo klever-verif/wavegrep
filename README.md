@@ -98,7 +98,7 @@ If that succeeds, run:
 
 wavepeek skill ./wavepeek-skill
 
-`wavepeek skill <DIRECTORY>` extracts the complete, version-matched skill package into a new or empty directory. Point your agent at the extracted `SKILL.md`.
+`wavepeek skill <DIRECTORY>` extracts the complete, version-matched skill package into a new or empty directory. Install the entire extracted package according to your agent harness's skill rules.
 ```
 
 ## Commands

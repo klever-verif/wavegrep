@@ -1,6 +1,7 @@
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use serde_json::Value;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
@@ -193,6 +194,23 @@ fn skill_rejects_file_destination() {
     assert_eq!(fs::read_to_string(destination).unwrap(), "keep me");
 }
 
+fn local_markdown_links(markdown: &str) -> impl Iterator<Item = &str> {
+    markdown
+        .match_indices("](")
+        .filter_map(|(start, _)| {
+            markdown[start + 2..]
+                .split_once(')')
+                .map(|(target, _)| target)
+        })
+        .map(|target| target.split('#').next().unwrap_or(target))
+        .filter(|target| {
+            !target.is_empty()
+                && !target.contains("://")
+                && !target.starts_with("mailto:")
+                && Path::new(target).extension() == Some(OsStr::new("md"))
+        })
+}
+
 #[test]
 fn extracted_markdown_is_self_contained_and_has_no_topic_front_matter() {
     let temp = tempdir().expect("temporary directory should be created");
@@ -205,6 +223,19 @@ fn extracted_markdown_is_self_contained_and_has_no_topic_front_matter() {
     {
         let markdown = fs::read_to_string(destination.join(&relative)).unwrap();
         assert!(!markdown.contains("](/"), "{}", relative.display());
+        for target in local_markdown_links(&markdown) {
+            let resolved = destination
+                .join(&relative)
+                .parent()
+                .expect("Markdown should have parent")
+                .join(target);
+            assert!(
+                resolved.is_file(),
+                "{} links to missing {}",
+                relative.display(),
+                target
+            );
+        }
         if relative.starts_with("references") {
             assert!(!markdown.starts_with("---\n"), "{}", relative.display());
         }

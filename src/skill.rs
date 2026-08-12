@@ -47,8 +47,15 @@ pub fn materialize(destination: &Path) -> Result<(), WavepeekError> {
 }
 
 fn validate_destination(destination: &Path) -> Result<(), WavepeekError> {
-    let Ok(metadata) = fs::symlink_metadata(destination) else {
-        return Ok(());
+    let metadata = match fs::symlink_metadata(destination) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(file_error(format!(
+                "failed to inspect skill destination '{}': {error}",
+                destination.display()
+            )));
+        }
     };
     if metadata.file_type().is_symlink() || !metadata.is_dir() {
         return Err(file_error(format!(

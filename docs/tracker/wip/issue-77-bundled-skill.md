@@ -22,8 +22,8 @@ This work does not change the crate version. It does not install the skill into 
 - [x] (2026-08-12 19:18Z) Generate the website from extracted `references/` and update README and maintainer guidance.
 - [x] (2026-08-12 19:49Z) Run focused tests and `just ci`, then commit the implementation as `f8d4227`.
 - [x] (2026-08-12 21:09Z) Run Luna Max focused review lanes, fix findings, and commit. Runtime/test and package-doc findings were fixed in `86d33c0`; the stopped tooling lane was replaced with a bounded pass, whose one YAGNI finding removed redundant trusted-input symlink validation.
-- [ ] Run Terra High focused review lanes over the same areas, fix findings, and commit (completed: all three lanes; package and tooling were clean; runtime findings fixed by rejecting parent components without side effects, comparing complete existing-empty output, covering removed-command rejection, and deleting redundant directory creation; remaining: verification and commit).
-- [ ] Run a Sol High control review, fix findings, and commit.
+- [x] (2026-08-12 21:16Z) Run Terra High focused review lanes over the same areas, fix findings, and commit as `7f76a8b`. Package and tooling were clean; runtime findings led to side-effect-free parent-component rejection, full existing-empty equivalence coverage, removed-command rejection coverage, and deletion of redundant directory creation.
+- [ ] Run a Sol High control review, fix findings, and commit (completed: review; fixed harness installation wording, metadata error handling, and extracted relative-link target validation; remaining: verification and commit).
 - [ ] Complete final `just ci`/`just check` evidence, remove this WIP plan, push the branch, and open a PR against `dev3`.
 
 ## Surprises & Discoveries
@@ -70,6 +70,9 @@ This work does not change the crate version. It does not install the skill into 
 - Decision: Reject destination paths containing a lexical parent-directory component.
   Rationale: Rust's standard path API has no lexical normalization operation, and accepting such paths can create unrelated intermediate directories; a direct validation guard is smaller and side-effect free.
   Date/Author: 2026-08-12, coding agent after Terra High runtime review.
+- Decision: Validate extracted local Markdown link targets in the CLI integration test rather than in production extraction.
+  Rationale: Link integrity is a build-time package invariant, not runtime input validation; the test covers `SKILL.md` as well as references without adding runtime code.
+  Date/Author: 2026-08-12, coding agent after Sol High control review.
 
 ## Outcomes & Retrospective
 
