@@ -47,9 +47,11 @@ if [ -n "${VERDI_HOME-}" ]; then
     fi
     if [ -n "${WAVEPEEK_FSDB_READER_LIBDIR-}" ]; then
         reader_libdir="$(cd "$WAVEPEEK_FSDB_READER_LIBDIR" && pwd -P)"
-        mount_args+=(--mount "type=bind,source=$reader_libdir,target=/opt/fsdb-reader")
-        expected_mounts+=("$reader_libdir"$'\t'/opt/fsdb-reader)
-        remote_env_args+=(--remote-env WAVEPEEK_FSDB_READER_LIBDIR=/opt/fsdb-reader)
+        if [[ "$reader_libdir" != "$verdi_home"/* ]]; then
+            printf '%s\n' "error: dev: WAVEPEEK_FSDB_READER_LIBDIR must be inside VERDI_HOME" >&2
+            exit 1
+        fi
+        remote_env_args+=(--remote-env "WAVEPEEK_FSDB_READER_LIBDIR=/opt/verdi/${reader_libdir#"$verdi_home"/}")
     fi
 fi
 

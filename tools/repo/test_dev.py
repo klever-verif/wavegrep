@@ -254,6 +254,27 @@ os.execvp(command[0], command)
         self.assertIn(expected_env, execute)
 
         self.log.unlink()
+        result = self._run(
+            self.main,
+            "true",
+            env_updates={
+                "VERDI_HOME": str(verdi),
+                "WAVEPEEK_FSDB_READER_LIBDIR": str(abi_libdir),
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self._calls()
+        up = next(call for call in calls if call[:2] == ["devcontainer", "up"])
+        execute = next(call for call in calls if call[:2] == ["devcontainer", "exec"])
+        self.assertEqual(
+            [up[index + 1] for index, value in enumerate(up) if value == "--mount"],
+            [f"type=bind,source={verdi},target=/opt/verdi"],
+        )
+        mapped_libdir = "WAVEPEEK_FSDB_READER_LIBDIR=/opt/verdi/share/FsdbReader/linux64_gcc950"
+        self.assertIn(mapped_libdir, up)
+        self.assertIn(mapped_libdir, execute)
+
+        self.log.unlink()
         external_libdir = self.tmp / "reader-lib"
         abi_libdir.rename(external_libdir)
         result = self._run(
@@ -264,18 +285,10 @@ os.execvp(command[0], command)
                 "WAVEPEEK_FSDB_READER_LIBDIR": str(external_libdir),
             },
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        calls = self._calls()
-        up = next(call for call in calls if call[:2] == ["devcontainer", "up"])
-        execute = next(call for call in calls if call[:2] == ["devcontainer", "exec"])
-        self.assertIn(
-            f"type=bind,source={external_libdir},target=/opt/fsdb-reader",
-            up,
-        )
-        self.assertIn("WAVEPEEK_FSDB_READER_LIBDIR=/opt/fsdb-reader", up)
-        self.assertIn("WAVEPEEK_FSDB_READER_LIBDIR=/opt/fsdb-reader", execute)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must be inside VERDI_HOME", result.stderr)
 
-        self.log.unlink()
+        self.log.unlink(missing_ok=True)
         result = self._run(
             self.main,
             "true",
