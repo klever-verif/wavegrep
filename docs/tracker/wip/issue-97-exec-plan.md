@@ -20,7 +20,7 @@ This work does not add another wrapper for ordinary development commands, start 
 - [x] (2026-08-12 13:27Z) Fixed commit-message filename handling and made `./dev --exec-only` failures actionable without allowing lifecycle operations.
 - [x] (2026-08-12 13:27Z) Added Docker-free focused tests and an opt-in Docker-backed main/linked-worktree smoke test.
 - [x] (2026-08-12 13:27Z) Updated maintainer documentation and breadcrumbs to describe the host/container boundary and normal workflow.
-- [ ] Run focused and full gates, commit logical milestones, conduct parallel correctness/docs and mandatory KISS+YAGNI+ponytail challenge reviews, fix findings, and run an independent control review. (Completed: all gates and initial parallel reviews; corrected the critical container-writable active-hook location and accepted KISS reductions; remaining: re-review, control review, and final cleanup.)
+- [x] (2026-08-12 15:16Z) Ran focused and full gates, committed logical milestones, completed correctness/docs and mandatory KISS+YAGNI+ponytail challenge reviews, fixed findings, and received a clean independent control review.
 - [ ] Remove this branch-local plan, push the branch, and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -48,7 +48,7 @@ This work does not add another wrapper for ordinary development commands, start 
 
 ## Outcomes & Retrospective
 
-Implementation is in progress.
+The reviewed host hook copies now run exact host Git state through each worktree's already-running devcontainer without moving credentials into it. Docker-free tests, a real main/linked-worktree Docker smoke, Pre-commit, `check`, and `ci` pass. Review found and closed host-executable storage and Git-routing trust-boundary gaps; the final correctness control reported no substantive findings, and the KISS+YAGNI+ponytail control reported `Lean already. Ship.`
 
 ## Context and Orientation
 
