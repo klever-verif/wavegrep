@@ -1,8 +1,7 @@
 #!/usr/bin/env sh
 
-# Shared environment contract for the wavepeek devcontainer image and the
-# Codex cloud setup scripts. Keep versions, fixture locations, and externally
-# fetched artifact identities here so Dockerfile and Codex runtime setup do not drift.
+# Shared environment contract for the wavepeek container image stages. Keep
+# versions, fixture locations, and externally fetched artifact identities here.
 
 WAVEPEEK_RUST_VERSION="1.93.0"
 WAVEPEEK_CARGO_LLVM_COV_VERSION="0.8.7"

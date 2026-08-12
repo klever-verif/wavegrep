@@ -7,8 +7,6 @@ bench_e2e_fsdb_smoke_filter := "^(info_picorv32_ez|scope_scr1_all_depth7_json|si
 bench_e2e_fsdb_smoke_artifact_filter := "^(picorv32_test_ez_vcd|scr1_max_axi_riscv_compliance)[.]fst$"
 wavepeek_release_bin := "./target/release/wavepeek"
 wavepeek_fsdb_release_bin := "./target/fsdb/release/wavepeek"
-codex_setup_script := "tools/codex/codex_setup.sh"
-codex_resume_script := "tools/codex/codex_resume.sh"
 python := "python3 -B"
 docs_site_dir := "tmp/docs-site"
 docs_pages_url := "https://kleverhq.github.io/wavepeek"
@@ -104,14 +102,6 @@ dev-setup: require-container
     mike --version
     just --version
     pre-commit install --hook-type commit-msg --hook-type pre-commit
-
-# Prepare Codex cloud environment for non-dev just recipes
-codex-setup: require-container
-    bash "{{ codex_setup_script }}"
-
-# Repair Codex cloud environment after cache resume
-codex-resume: require-container
-    bash "{{ codex_resume_script }}"
 
 # Format root justfile in place
 format-justfile: require-container

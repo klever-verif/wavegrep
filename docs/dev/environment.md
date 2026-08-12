@@ -22,19 +22,13 @@ The devcontainer starts without GitHub credentials by default. `.devcontainer/in
 
 The devcontainer intentionally does not mount host `~/.config/gh`. Maintainer setup, external-PR safety rules, and verification commands live in `github-auth.md`.
 
-## Codex Cloud Setup
-
-For first-time Codex bootstrap, run `bash tools/codex/codex_setup.sh`. This direct script path exists because the first bootstrap may need to install or repair tools before `just` recipes are safe to assume. After the environment has `just`, use `just codex-resume` for maintenance after cache resume.
-
-Codex setup uses the same RTL fixture location as the devcontainer and may populate missing fixtures under `RTL_ARTIFACTS_DIR`. It also verifies the waveform fixture toolchain and installs a user-local Icarus Verilog package when the base environment does not provide one.
-
 ## Fixture Location
 
 Large RTL fixtures are baked into the devcontainer and CI image under `RTL_ARTIFACTS_DIR`, which the container sets to `/opt/rtl-artifacts`. That path is the only supported runtime fixture location.
 
 Small source-backed integration fixtures are regenerated inside the repository with `just prepare-waveform-fixtures`. Their checked-in sources live under `tests/fixtures/source/`; generated VCD/FST outputs live under ignored `tests/fixtures/generated/`.
 
-The shared environment contract lives in `.devcontainer/env_contract.sh`. Update that file, container provisioning, and Codex helper behavior together when fixture versions or layout change.
+The container environment contract lives in `.devcontainer/env_contract.sh`. Update it with container provisioning when fixture versions or layout change.
 
 ## Verdi / FSDB Development
 

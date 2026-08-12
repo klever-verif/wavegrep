@@ -94,7 +94,7 @@ RUN . /tmp/wavepeek-env-contract.sh && \
     install -m 0755 "$tmp_dir/actionlint" /usr/local/bin/actionlint && \
     rm -rf "$tmp_dir"
 
-# Install pinned Hyperfine release so benchmark tooling matches Codex setup.
+# Install the pinned Hyperfine release for benchmark tooling.
 RUN . /tmp/wavepeek-env-contract.sh && \
     arch="${TARGETARCH:-amd64}" && \
     case "$arch" in \
