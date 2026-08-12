@@ -179,13 +179,13 @@ class PublishDocsTests(unittest.TestCase):
         with self.assertRaisesRegex(publish_docs.PublishError, "missing release installer"):
             publish_docs.copy_installer_entrypoints("0.5.0", self.paths, promote_latest=True)
 
-    def test_stage_publication_preserves_historical_files(self) -> None:
+    def test_stage_publication_preserves_existing_files(self) -> None:
         repo = self.root / "repo-stage-artifacts"
         repo.mkdir()
         git(repo, "init", "-q")
         git(repo, "config", "user.email", "docs@example.invalid")
         git(repo, "config", "user.name", "Docs Bot")
-        (repo / "schema-output-v2.2.json").write_text("historical", encoding="utf-8")
+        (repo / "historical.json").write_text("historical", encoding="utf-8")
         git(repo, "add", ".")
         git(repo, "commit", "-q", "-m", "base")
         git(repo, "branch", "gh-pages")
@@ -198,15 +198,14 @@ class PublishDocsTests(unittest.TestCase):
                 "3.0.0", self.paths, publish_docs.CommandRunner(), promote_latest=True
             )
 
-        self.assertEqual(git(repo, "show", "gh-pages:schema-output-v2.2.json"), "historical")
-        self.assertNotIn("schema-output-v3", git(repo, "ls-tree", "-r", "--name-only", "gh-pages"))
+        self.assertEqual(git(repo, "show", "gh-pages:historical.json"), "historical")
 
     def test_allowed_path_patterns_limit_gh_pages_diff(self) -> None:
         publish_docs.verify_allowed_paths(
             ["3.0.0/index.html", "latest/index.html", ".nojekyll", "versions.json", "install.sh"],
             publish_docs.allowed_path_patterns("3.0.0", promote_latest=True),
         )
-        for path in ["2.2.0/index.html", "schema-output-v3.0.json", "skill.md"]:
+        for path in ["2.2.0/index.html", "unexpected.json", "skill.md"]:
             with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
                 publish_docs.verify_allowed_paths(
                     [path], publish_docs.allowed_path_patterns("3.0.0", promote_latest=True)

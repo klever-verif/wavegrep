@@ -41,10 +41,7 @@ fn parse_stream(stdout: &[u8], expected_command: &str) -> Vec<Value> {
             .as_str()
             .expect("record type should be string")
         {
-            "begin" => {
-                assert_eq!(seq, 0, "begin must be the first record");
-                assert!(record.get("$schema").is_none());
-            }
+            "begin" => assert_eq!(seq, 0, "begin must be the first record"),
             "item" => {
                 assert!(!seen_diagnostic, "items should precede diagnostics");
                 items += 1;

@@ -371,10 +371,6 @@ fn waveform_help_avoids_inline_envelope_or_parse_hints() {
         let long_help = successful_stdout_text(&[command_name, "--help"]);
 
         assert!(
-            !long_help.contains("$schema"),
-            "help for {command_name} should not inline JSON envelope fields"
-        );
-        assert!(
             !long_help.contains("`data`"),
             "help for {command_name} should not inline JSON envelope field names"
         );

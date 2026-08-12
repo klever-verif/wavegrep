@@ -70,7 +70,6 @@ fn fsdb_info_json_matches_vcd_derived_fixture() {
     let fixture = path_str(&fixtures.signal_recursive_depth());
     let value = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
 
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(value["data"]["time_unit"], "1ns");

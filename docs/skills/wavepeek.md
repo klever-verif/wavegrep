@@ -25,7 +25,7 @@ Use the installed binary as the source of truth for exact syntax, defaults, and 
     wavepeek docs search <query>
     wavepeek docs show <topic-id>
 
-When asked about wavepeek itself, its command semantics, JSON schema, documentation, or supported waveform formats, answer from installed help/docs rather than memory. Follow relevant `see_also` topics when the question depends on cross-cutting behavior.
+When asked about wavepeek itself, its command semantics, machine output, documentation, or supported waveform formats, answer from installed help/docs rather than memory. Follow relevant `see_also` topics when the question depends on cross-cutting behavior.
 
 Use these routes first:
 
@@ -35,7 +35,7 @@ Use these routes first:
 - `property` semantics and capture modes: `wavepeek docs show commands/property`
 - `change` semantics, `--on`, and `--max`: `wavepeek docs show commands/change`
 - scope/name rules, time windows, ordering, bounds: `wavepeek docs show reference/command-model`
-- JSON envelopes, diagnostics, fatal errors, schema: `wavepeek docs show reference/machine-output`
+- JSON envelopes, JSONL streams, diagnostics, fatal errors: `wavepeek docs show reference/machine-output`
 - trigger and expression syntax for `change --on`, `property --on`, `property --eval`, `extract generic --on`, and `extract generic --when`: `wavepeek docs show reference/expression-language`
 - empty results, scoped-vs-canonical mistakes, time-token errors: `wavepeek docs search <symptom>`
 
@@ -51,7 +51,7 @@ Before using any command in a nontrivial way, read `wavepeek help <command>` or 
 - Timestamps where a Boolean condition is true or changes state: `property`.
 - Event/transaction rows, handshakes, beats, and counts with payload values: `extract`.
 - Fallback timestamp-only event enumeration: `property --capture match`, then `value --at <sample_time>` for payload sampling.
-- Machine parsing or aggregation: supported `--json`, plus `wavepeek schema` if the exact shape matters.
+- Machine parsing or aggregation: use supported `--json` or `--jsonl`; see `wavepeek docs show reference/machine-output` for exact shapes.
 
 Start most investigations with:
 

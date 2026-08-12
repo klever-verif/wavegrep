@@ -662,8 +662,6 @@ mod tests {
         let json = render_json(result).expect("json serialization should succeed");
         let value: Value = serde_json::from_str(&json).expect("json should parse");
 
-        assert!(value.get("$schema").is_none());
-        assert!(value.get("schema_version").is_none());
         assert_eq!(value["command"], "info");
         assert!(value["data"].is_object());
         assert!(value["diagnostics"].is_array());
@@ -792,7 +790,6 @@ mod tests {
         assert_eq!(records[0]["type"], "begin");
         assert_eq!(records[0]["seq"], 0);
         assert_eq!(records[0]["command"], "change");
-        assert!(records[0].get("$schema").is_none());
         assert_eq!(records[1]["type"], "item");
         assert_eq!(records[1]["seq"], 1);
         assert_eq!(records[2]["type"], "diagnostic");

@@ -17,7 +17,6 @@ fn scope_human_output_is_default_for_vcd() {
         .success()
         .stdout(predicate::str::contains("0 top kind=module"))
         .stdout(predicate::str::contains("1 top.cpu kind=module"))
-        .stdout(predicate::str::contains("schema_version").not())
         .stderr(predicate::str::is_empty());
 }
 
@@ -42,7 +41,6 @@ fn scope_json_order_is_deterministic_for_vcd() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("scope output should be valid json");
 
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "scope");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
@@ -489,7 +487,6 @@ fn scope_tree_mode_renders_visual_hierarchy() {
         .stdout(predicate::str::contains("top kind=module"))
         .stdout(predicate::str::contains("├── cpu kind=module"))
         .stdout(predicate::str::contains("└── mem kind=module"))
-        .stdout(predicate::str::contains("schema_version").not())
         .stderr(predicate::str::is_empty());
 }
 
