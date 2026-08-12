@@ -1,14 +1,14 @@
 # Quality Gates
 
-`wavepeek` quality gates are owned by the root `justfile`. Run them inside the devcontainer or CI image with `WAVEPEEK_IN_CONTAINER=1`; most recipes intentionally fail outside that environment so local and CI results do not drift.
+`wavepeek` quality gates are owned by the root `justfile`. Run them from the host through `./dev`; most recipes intentionally fail outside the shared development container so local and CI results do not drift.
 
 ## Standard Gates
 
-Use `just check` before handing off local work. It runs formatting checks, clippy, schema contract validation, GitHub Actions linting, docs-site generation checks, `cargo check`, commit-message validation, and the FSDB build gate when Verdi is available.
+Use `./dev just check` before handing off local work. It runs formatting checks, clippy, schema contract validation, GitHub Actions linting, docs-site generation checks, `cargo check`, commit-message validation, and the FSDB build gate when Verdi is available.
 
-Use `just ci` when tests should be included. It runs the same static checks plus auxiliary Python unit tests, the source coverage gate, `cargo check`, docs-site generation checks, and the FSDB regression path when Verdi is available. The Rust test execution used by CI is the `cargo llvm-cov` run behind `just coverage-src-check`; use `just test` when you want an explicit non-coverage Rust test pass while iterating. `just test` also runs the FSDB regression path when Verdi is available.
+Use `./dev just ci` when tests should be included. It runs the same static checks plus auxiliary Python unit tests, the source coverage gate, `cargo check`, docs-site generation checks, and the FSDB regression path when Verdi is available. The Rust test execution used by CI is the `cargo llvm-cov` run behind `just coverage-src-check`; use `just test` when you want an explicit non-coverage Rust test pass while iterating. `just test` also runs the FSDB regression path when Verdi is available.
 
-Use `just pre-commit` to run all installed pre-commit hooks across the repository. Hooks are installed by `just dev-setup` and must not be bypassed unless a maintainer explicitly asks. The hook path inherits conditional FSDB lint, test, and benchmark smoke behavior from the `just` recipes when Verdi is available, but the FSDB pre-commit benchmark smoke prepares only its small filtered RTL fixture set instead of the full FSDB benchmark catalog. Benchmark smoke validates that selected commands still run and emit artifacts; it does not compare against committed baselines.
+Use `./dev just pre-commit` to run all installed pre-commit hooks across the repository. Hooks are installed by `./dev just dev-setup` and must not be bypassed unless a maintainer explicitly asks. The hook path inherits conditional FSDB lint, test, and benchmark smoke behavior from the `just` recipes when Verdi is available, but the FSDB pre-commit benchmark smoke prepares only its small filtered RTL fixture set instead of the full FSDB benchmark catalog. Benchmark smoke validates that selected commands still run and emit artifacts; it does not compare against committed baselines.
 
 ## Focused Recipes
 

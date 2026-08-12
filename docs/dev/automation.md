@@ -4,23 +4,25 @@ Repository automation is exposed through the root `justfile`. Prefer invoking `j
 
 ## Main Entrypoints
 
-- `just dev-setup` prepares the local devcontainer and installs hooks.
-- `just check`, `just ci`, and `just pre-commit` are the main quality gates.
+Run container commands from the host through `./dev`.
+
+- `./dev just dev-setup` verifies the development container and installs hooks.
+- `./dev just check`, `./dev just ci`, and `./dev just pre-commit` are the main quality gates.
 - `just prepare-waveform-fixtures` regenerates ignored VCD/FST fixtures under `tests/fixtures/generated/` from `tests/fixtures/source/` and documented hand-derived outputs.
 - `just update-schema` regenerates `schema/output.json`, `schema/stream.json`, `schema/input.json`, and `schema/catalog.json` from Rust contract code; `just check-schema` validates freshness, runtime embedding, and schema URLs.
 - `just docs-site-build`, `just docs-site-check`, `just docs-site-stage-deploy`, `just docs-site-push-staged`, and `just docs-site-check-deploy` own GitHub Pages docs preparation, publication, and deployed endpoint verification.
 - `just bench-gate`, `just bench-capture`, and `just bench-compare` own manual performance review; generated benchmark runs are ignored and are not committed baselines.
 - `just check-fsdb-env`, `just test-fsdb`, and `just lint-fsdb` own optional Verdi/FSDB flows; see `fsdb.md` for the full contract.
 
-## Devcontainer Lifecycle Helpers
+## Devcontainer Lifecycle
 
-`.devcontainer/initialize.sh` runs on the host before container creation and prepares bind-mount and env-file prerequisites. `.devcontainer/setup-github-auth.sh` runs inside the container from `postCreateCommand` and configures optional repo-local GitHub auth. `tools/repo/setup_github_env.sh` is the optional one-shot host bootstrap for a clean GitHub auth env directory.
+The root `./dev` wrapper is the host lifecycle entrypoint. It selects one runtime container per absolute Git worktree, supplies linked-worktree Git and optional Verdi mounts, and then executes the requested command. Keep it aligned with `.devcontainer/devcontainer.json` and `environment.md`.
 
-When changing those helpers, keep `.devcontainer/devcontainer.json`, `environment.md`, and `github-auth.md` aligned. Do not duplicate the GitHub-auth runbook here; keep durable instructions in one source of truth.
+GitHub Actions uses `.devcontainer/devcontainer.json` directly. Workflows use job-scoped runner authentication when required; the development container does not provision local credentials.
 
 ## Workflows and Hooks
 
-GitHub Actions workflows live under `.github/workflows/`. The release workflow validates stable `vX.Y.Z` tag/version agreement, runs `just ci` and `cargo package --locked` in the CI devcontainer, uses `cargo-dist` to build VCD/FST binary archives, installers, checksums, and attestations, creates the GitHub Release, then dispatches docs and crates.io publication on the default branch. The docs workflow is manual-only, uses trusted tooling from `main`, downloads installer assets from the created GitHub Release, stages the `gh-pages` update without persisted contents-write checkout credentials, pushes only after verifying the staged bundle in a separate job, and deploys the verified tree through GitHub Pages Actions rather than relying on a branch-push Pages build. The crate publication workflow is manual-only, uses trusted tooling from `main`, checks out release source through `refs/tags/<tag>`, and treats already-published crates.io versions as a successful no-op.
+GitHub Actions workflows live under `.github/workflows/`. Pre-merge CI runs for pushes to `main` and pull requests targeting `main` or `dev*` branches. The release workflow validates stable `vX.Y.Z` tag/version agreement, runs `just ci` and `cargo package --locked` in the shared devcontainer, uses `cargo-dist` to build VCD/FST binary archives, installers, checksums, and attestations, creates the GitHub Release, then dispatches docs and crates.io publication on the default branch. The docs workflow is manual-only, uses trusted tooling from `main`, downloads installer assets from the created GitHub Release, stages the `gh-pages` update without persisted contents-write checkout credentials, pushes only after verifying the staged bundle in a separate job, and deploys the verified tree through GitHub Pages Actions rather than relying on a branch-push Pages build. The crate publication workflow is manual-only, uses trusted tooling from `main`, checks out release source through `refs/tags/<tag>`, and treats already-published crates.io versions as a successful no-op.
 
 Pre-commit configuration lives in `.pre-commit-config.yaml`. Hooks should stay deterministic, non-interactive, and wired through `just` where possible.
 

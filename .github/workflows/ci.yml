@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'dev*'
   push:
     branches:
       - main
@@ -18,8 +19,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       DEVCONTAINER_CACHE_REF: ghcr.io/${{ github.repository_owner }}/wavepeek-devcontainer:buildcache
-      DEVCONTAINER_CONFIG: .devcontainer/devcontainer.ci.json
-      DEVCONTAINER_CONFIG_ALIAS: .devcontainer/.devcontainer.json
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -37,17 +36,15 @@ jobs:
 
       - name: Print runtime provenance
         run: |
-          ln -sf devcontainer.ci.json .devcontainer/.devcontainer.json
-          echo "devcontainer_config=${DEVCONTAINER_CONFIG}"
-          echo "devcontainer_config_alias=${DEVCONTAINER_CONFIG_ALIAS}"
+          echo "devcontainer_config=.devcontainer/devcontainer.json"
           echo "devcontainer_dockerfile=.devcontainer/Dockerfile"
-          sha256sum .devcontainer/Dockerfile
+          sha256sum .devcontainer/devcontainer.json .devcontainer/Dockerfile
 
-      - name: Run checks in devcontainer baseline (cache write)
+      - name: Run checks in devcontainer (cache write)
         if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         uses: devcontainers/ci@v0.3
         with:
-          configFile: .devcontainer/.devcontainer.json
+          configFile: .devcontainer/devcontainer.json
           cacheFrom: |
             type=registry,ref=${{ env.DEVCONTAINER_CACHE_REF }}
           cacheTo: |
@@ -55,11 +52,11 @@ jobs:
           push: never
           runCmd: just ci
 
-      - name: Run checks in devcontainer baseline (cache read-only)
+      - name: Run checks in devcontainer (cache read-only)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         uses: devcontainers/ci@v0.3
         with:
-          configFile: .devcontainer/.devcontainer.json
+          configFile: .devcontainer/devcontainer.json
           push: never
           runCmd: just ci
 

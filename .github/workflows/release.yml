@@ -82,8 +82,6 @@ jobs:
       packages: write
     env:
       DEVCONTAINER_CACHE_REF: ghcr.io/${{ github.repository_owner }}/wavepeek-devcontainer:buildcache
-      DEVCONTAINER_CONFIG: .devcontainer/devcontainer.ci.json
-      DEVCONTAINER_CONFIG_ALIAS: .devcontainer/.devcontainer.json
     steps:
       - uses: actions/checkout@v6
         with:
@@ -101,16 +99,14 @@ jobs:
 
       - name: Print runtime provenance
         run: |
-          ln -sf devcontainer.ci.json .devcontainer/.devcontainer.json
-          echo "devcontainer_config=${DEVCONTAINER_CONFIG}"
-          echo "devcontainer_config_alias=${DEVCONTAINER_CONFIG_ALIAS}"
+          echo "devcontainer_config=.devcontainer/devcontainer.json"
           echo "devcontainer_dockerfile=.devcontainer/Dockerfile"
-          sha256sum .devcontainer/Dockerfile
+          sha256sum .devcontainer/devcontainer.json .devcontainer/Dockerfile
 
-      - name: Run release quality gate in devcontainer baseline
+      - name: Run release quality gate in devcontainer
         uses: devcontainers/ci@v0.3
         with:
-          configFile: .devcontainer/.devcontainer.json
+          configFile: .devcontainer/devcontainer.json
           cacheFrom: |
             type=registry,ref=${{ env.DEVCONTAINER_CACHE_REF }}
           cacheTo: |

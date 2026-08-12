@@ -1,45 +1,8 @@
-# ---- Shared Environment Contract -----------------------------------------------
-FROM scratch AS env_contract
-COPY .devcontainer/env_contract.sh /wavepeek-env-contract.sh
-
-# ---- Surfer Builder ------------------------------------------------------------
-FROM ubuntu:24.04 AS surfer_builder
-
-# Avoid prompts from apt
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Setup environment variables
-COPY --from=env_contract /wavepeek-env-contract.sh /tmp/wavepeek-env-contract.sh
-ENV SURFER_INSTALL=/opt/surfer \
-    RUSTUP_HOME=/opt/rustup \
-    CARGO_HOME=/opt/cargo
-
-# Install build dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    ca-certificates curl git pkg-config libssl-dev build-essential && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install Rust toolchain
-RUN . /tmp/wavepeek-env-contract.sh && \
-    curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal && \
-    ${CARGO_HOME}/bin/rustup toolchain install ${WAVEPEEK_RUST_VERSION} --profile minimal && \
-    ${CARGO_HOME}/bin/rustup default ${WAVEPEEK_RUST_VERSION}
-
-# Build Surfer
-RUN . /tmp/wavepeek-env-contract.sh && \
-    ${CARGO_HOME}/bin/cargo install --locked \
-    --git https://gitlab.com/surfer-project/surfer.git \
-    --tag ${WAVEPEEK_SURFER_VERSION} \
-    --root ${SURFER_INSTALL} \
-    surfer
-
 # ---- RTL Fixture Layer --------------------------------------------------------
 FROM ubuntu:24.04 AS rtl_artifacts
 
 ENV DEBIAN_FRONTEND=noninteractive
-COPY --from=env_contract /wavepeek-env-contract.sh /tmp/wavepeek-env-contract.sh
+COPY .devcontainer/env_contract.sh /tmp/wavepeek-env-contract.sh
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl && \
     apt-get clean && \
@@ -52,33 +15,30 @@ RUN . /tmp/wavepeek-env-contract.sh && \
         "https://github.com/kleverhq/rtl-artifacts/releases/download/${WAVEPEEK_RTL_ARTIFACTS_VERSION}/${artifact}"; \
     done
 
-# ---- Node Toolchain ----------------------------------------------------------
-FROM node:24-bookworm AS node_toolchain
-
-# ---- Base Image --------------------------------------------------------------
-FROM ubuntu:24.04 AS base
+# ---- Tool Image ---------------------------------------------------------------
+FROM ubuntu:24.04
 
 ARG TARGETARCH
-COPY --from=env_contract /wavepeek-env-contract.sh /tmp/wavepeek-env-contract.sh
+ENV DEBIAN_FRONTEND=noninteractive
+COPY .devcontainer/env_contract.sh /tmp/wavepeek-env-contract.sh
 
-# Install necessary system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    ca-certificates curl git make libatomic1 \
-    openssl libssl-dev pkg-config \
-    g++ mold ccache \
+    ca-certificates curl git libatomic1 g++ \
     python3 python3-venv \
     iverilog gtkwave \
-    locales \
-    && locale-gen en_US.UTF-8 \
+    libxt6t64 libxmu6 libnuma1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements-docs.txt /tmp/wavepeek-requirements-docs.txt
-RUN python3 -m venv /opt/wavepeek-docs-venv && \
-    /opt/wavepeek-docs-venv/bin/pip install --no-cache-dir -r /tmp/wavepeek-requirements-docs.txt && \
+RUN . /tmp/wavepeek-env-contract.sh && \
+    python3 -m venv /opt/wavepeek-python && \
+    /opt/wavepeek-python/bin/pip install --no-cache-dir \
+        -r /tmp/wavepeek-requirements-docs.txt \
+        "pre-commit==${WAVEPEEK_PRECOMMIT_VERSION}" \
+        "commitizen==${WAVEPEEK_COMMITIZEN_VERSION}" && \
     rm -f /tmp/wavepeek-requirements-docs.txt
-ENV PATH="/opt/wavepeek-docs-venv/bin:${PATH}"
 
 # Install GitHub Actions workflow linter for hooks and CI checks.
 RUN . /tmp/wavepeek-env-contract.sh && \
@@ -109,74 +69,7 @@ RUN . /tmp/wavepeek-env-contract.sh && \
     install -m 0755 "$tmp_dir"/*/hyperfine /usr/local/bin/hyperfine && \
     rm -rf "$tmp_dir"
 
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
-# Runtime processes do not inherit variables sourced in RUN steps, so the image
-# exports the same fixture location that .devcontainer/env_contract.sh defines.
-ENV RTL_ARTIFACTS_DIR=/opt/rtl-artifacts
-
-# Ensure the devcontainer user exists
-RUN if ! id -u ubuntu >/dev/null 2>&1; then useradd -m -s /bin/bash ubuntu; fi
-
-# Ensure user config directories exist and are writable
-RUN install -d -m 0755 -o ubuntu -g ubuntu \
-    /home/ubuntu/.config \
-    /home/ubuntu/.cache \
-    /home/ubuntu/.local \
-    /home/ubuntu/.local/bin \
-    /home/ubuntu/.local/share \
-    /home/ubuntu/.local/state
-
-# Ensure /workspaces exists and is writable
-RUN mkdir -p /workspaces && chown ubuntu:ubuntu /workspaces && chmod 775 /workspaces
-
-# Provision pinned RTL fixtures for tests and keep the generated-local FSDB
-# benchmark copies writable by the non-root devcontainer user.
-COPY --from=rtl_artifacts --chown=ubuntu:ubuntu /opt/rtl-artifacts ${RTL_ARTIFACTS_DIR}
-
-# Switch to non-root user
-USER ubuntu
-
-# Install Rust toolchain
-ENV HOME=/home/ubuntu
-ENV RUSTUP_HOME=/home/ubuntu/.rustup
-ENV CARGO_HOME=/home/ubuntu/.cargo
-RUN . /tmp/wavepeek-env-contract.sh && \
-    curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal && \
-    /home/ubuntu/.cargo/bin/rustup toolchain install ${WAVEPEEK_RUST_VERSION} --profile minimal && \
-    /home/ubuntu/.cargo/bin/rustup default ${WAVEPEEK_RUST_VERSION} && \
-    /home/ubuntu/.cargo/bin/rustup component add rustfmt clippy llvm-tools-preview --toolchain ${WAVEPEEK_RUST_VERSION} && \
-    /home/ubuntu/.cargo/bin/cargo install --locked cargo-llvm-cov --version ${WAVEPEEK_CARGO_LLVM_COV_VERSION} && \
-    /home/ubuntu/.cargo/bin/cargo install --locked just --version ${WAVEPEEK_JUST_VERSION} --root /home/ubuntu/.local
-
-# ---- CI Image ----------------------------------------------------------------
-FROM base AS ci
-
-# Update PATH
-ENV PATH="/home/ubuntu/.local/bin:${CARGO_HOME}/bin:${PATH}"
-
-# ---- Dev Image ---------------------------------------------------------------
-FROM base AS dev
-
-ARG TARGETARCH
-
-USER root
-
-COPY --from=node_toolchain /usr/local/ /usr/local/
-
-# Install development-only dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    nano tmux openssh-client bash-completion \
-    libx11-xcb1 libxkbcommon-x11-0 libegl1 libgl1 libglx-mesa0 libgl1-mesa-dri \
-    libxt6t64 libxmu6 libnuma1 \
-    jq ripgrep ugrep pdfgrep poppler-utils fd-find tree \
-    perl-doc z3 \
-    python3 pipx \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install pinned GitHub CLI; Ubuntu packages can lag API fields used by issue tooling.
+# Install pinned GitHub CLI for repository recipes.
 RUN . /tmp/wavepeek-env-contract.sh && \
     arch="${TARGETARCH:-amd64}" && \
     case "$arch" in \
@@ -190,11 +83,9 @@ RUN . /tmp/wavepeek-env-contract.sh && \
     install -m 0755 "$tmp_dir/gh_${WAVEPEEK_GH_VERSION}_linux_${gh_arch}/bin/gh" /usr/local/bin/gh && \
     rm -rf "$tmp_dir"
 
-# Expose selected Verdi FSDB utilities useful for debugging and exploration.
-# The wrapper preserves tool-name dispatch and invokes launchers with bash.
-COPY .devcontainer/verdi-tool-wrapper.sh /usr/local/bin/wavepeek-verdi-tool
-RUN chmod 0755 /usr/local/bin/wavepeek-verdi-tool && \
-    for tool in \
+# Expose selected command-line Verdi FSDB utilities when /opt/verdi is mounted.
+COPY --chmod=0755 .devcontainer/verdi-tool-wrapper.sh /usr/local/bin/wavepeek-verdi-tool
+RUN for tool in \
         vcd2fsdb fsdb2vcd fsdbdebug fsdbreport fsdbextract fsdbmerge \
         fsdbjoin fsdbrecover fsdbsanitycheck fsdbqry fsdbdir fsdbedit \
         fsdbmangle fsdb2saif fsdb2ns txt2fsdb merge_multi_swp_fsdb \
@@ -203,30 +94,24 @@ RUN chmod 0755 /usr/local/bin/wavepeek-verdi-tool && \
         ln -sf wavepeek-verdi-tool "/usr/local/bin/$tool"; \
     done
 
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV RTL_ARTIFACTS_DIR=/opt/rtl-artifacts
+ENV VERDI_HOME=/opt/verdi
+ENV PATH="/opt/wavepeek-python/bin:/home/ubuntu/.local/bin:/home/ubuntu/.cargo/bin:${PATH}"
+
+RUN install -d -m 0755 -o ubuntu -g ubuntu /home/ubuntu/.local /home/ubuntu/.local/bin /workspaces
+
+COPY --from=rtl_artifacts --chown=ubuntu:ubuntu /opt/rtl-artifacts ${RTL_ARTIFACTS_DIR}
+
 USER ubuntu
-
-# Install surfer
-ENV SURFER_INSTALL=/opt/surfer
-COPY --from=surfer_builder --chown=ubuntu:ubuntu ${SURFER_INSTALL} ${SURFER_INSTALL}
-
-# Install latest npm-based coding agents
-ENV NPM_CONFIG_PREFIX=/home/ubuntu/.local
+ENV HOME=/home/ubuntu
+ENV RUSTUP_HOME=/home/ubuntu/.rustup
+ENV CARGO_HOME=/home/ubuntu/.cargo
 RUN . /tmp/wavepeek-env-contract.sh && \
-    npm install -g \
-    @devcontainers/cli@${WAVEPEEK_DEVCONTAINERS_CLI_VERSION} \
-    @openai/codex \
-    @earendil-works/pi-coding-agent
-
-# Install latest Claude Code
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
-# Prefer X11 backend in devcontainer GUI sessions.
-ENV WINIT_UNIX_BACKEND=x11
-
-# Install Python tooling for hooks
-RUN . /tmp/wavepeek-env-contract.sh && \
-    pipx install pre-commit==${WAVEPEEK_PRECOMMIT_VERSION} && \
-    pipx install commitizen==${WAVEPEEK_COMMITIZEN_VERSION}
-
-# Update PATH
-ENV PATH="/home/ubuntu/.local/bin:${CARGO_HOME}/bin:${SURFER_INSTALL}/bin:${PATH}"
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal && \
+    rustup toolchain install ${WAVEPEEK_RUST_VERSION} --profile minimal && \
+    rustup default ${WAVEPEEK_RUST_VERSION} && \
+    rustup component add rustfmt clippy llvm-tools-preview --toolchain ${WAVEPEEK_RUST_VERSION} && \
+    cargo install --locked cargo-llvm-cov --version ${WAVEPEEK_CARGO_LLVM_COV_VERSION} && \
+    cargo install --locked just --version ${WAVEPEEK_JUST_VERSION} --root /home/ubuntu/.local

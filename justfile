@@ -91,16 +91,15 @@ dev-setup: require-container
     cargo fmt --version
     cargo clippy --version
     actionlint -version
-    devcontainer --version
-    gtkwave --version
+    gh --version
     iverilog -V >/dev/null
     vvp -V >/dev/null
     vcd2fst --help >/dev/null
     fst2vcd --help >/dev/null
-    surfer --version
     mkdocs --version
     mike --version
     just --version
+    cz version
     pre-commit install --hook-type commit-msg --hook-type pre-commit
 
 # Format root justfile in place

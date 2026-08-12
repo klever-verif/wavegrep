@@ -48,13 +48,13 @@ By default, `build.rs` embeds the selected Reader library directory as an ELF rp
 
 ## Devcontainer behavior
 
-The devcontainer sets `VERDI_HOME=/opt/verdi`. Before container startup, `.devcontainer/initialize.sh` prepares `~/.config/wavepeek-dev/verdi` from the host `VERDI_HOME`; the container bind-mounts that path at `/opt/verdi`. An empty `/opt/verdi` means Verdi is unavailable, not broken.
+When host `VERDI_HOME` is set, the root `./dev` wrapper validates the FSDB Reader SDK and mounts only the installation at `/opt/verdi`. It forwards `WAVEPEEK_FSDB_ABI`; an explicit `WAVEPEEK_FSDB_READER_LIBDIR` must be inside `VERDI_HOME` and is mapped under `/opt/verdi`. When `VERDI_HOME` is unset, `/opt/verdi` is not mounted and optional FSDB gates skip. Invalid paths or incomplete SDKs fail before container startup.
 
 Use the helper probe to distinguish available, skipped, and broken states:
 
 ```sh
-just check-fsdb-env
-python3 -B tools/fsdb/check_fsdb_env.py --require
+./dev just check-fsdb-env
+./dev python3 -B tools/fsdb/check_fsdb_env.py --require
 ```
 
 The devcontainer also exposes selected Verdi FSDB utilities on `PATH` through `.devcontainer/verdi-tool-wrapper.sh`, including tools such as `vcd2fsdb`, `fsdb2vcd`, `fsdbdebug`, and `fsdbextract`. GTKWave conversion tools such as `vcd2fst` and `fst2vcd` come from the base image. Use wrapper commands for local debugging and fixture conversion instead of hard-coding `$VERDI_HOME/bin/...` paths.

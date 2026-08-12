@@ -1,6 +1,6 @@
 # Benchmarking Guide
 
-Benchmark work must run in the devcontainer or CI image so fixture availability, Rust toolchain versions, and helper behavior match project gates. Preserve the public behavior contracts in `docs/public/reference/command-model.md` and `docs/public/reference/machine-output.md` while optimizing.
+Benchmark work must run in the shared devcontainer image so fixture availability, Rust toolchain versions, and helper behavior match project gates. Preserve the public behavior contracts in `docs/public/reference/command-model.md` and `docs/public/reference/machine-output.md` while optimizing.
 
 ## Manual performance gate
 
@@ -8,11 +8,11 @@ Benchmark work must run in the devcontainer or CI image so fixture availability,
 
 Public benchmark entrypoints are:
 
-    just bench-gate <baseline-ref> [revised-ref] [fsdb-mode]
-    just bench-capture [ref] [fsdb-mode]
-    just bench-compare <golden-capture-dir> <revised-capture-dir>
+    ./dev just bench-gate <baseline-ref> [revised-ref] [fsdb-mode]
+    ./dev just bench-capture [ref] [fsdb-mode]
+    ./dev just bench-compare <golden-capture-dir> <revised-capture-dir>
 
-`just bench-gate vX.Y.Z HEAD` clones both refs under `tmp/bench-gate/` and builds release binaries from those refs. Benchmark scripts, catalogs, fixtures, FSDB preparation helpers, and compare logic come from the current working tree. The helper refuses to run from a dirty current worktree because current benchmark tooling is part of the measurement apparatus and must be reproducible.
+`./dev just bench-gate vX.Y.Z HEAD` clones both refs under `tmp/bench-gate/` and builds release binaries from those refs. Benchmark scripts, catalogs, fixtures, FSDB preparation helpers, and compare logic come from the current working tree. The helper refuses to run from a dirty current worktree because current benchmark tooling is part of the measurement apparatus and must be reproducible.
 
 Same-format FST and FSDB comparisons use functional checks plus median timing. Timing first fails when revised median time exceeds golden median time by more than `max(5%, 5ms)` by default. When a same-format suite fails only because of median timing, with no functional mismatches, missing/invalid artifacts, or timeout warnings, the gate runs a separate best-sample confirmation over those failed tests using the minimum hyperfine sample from each binary. Timing is accepted when `revised_best - golden_best <= max(golden_best * 5%, 5ms)` for every confirmed test. Mean timing is still recorded by hyperfine but is not a gate metric. Cross-format FST-vs-FSDB checks are functional-only within each capture because FST and FSDB use different readers and timing them against each other is not meaningful. Cross-format checks use an explicit ignored-test list for metadata-only hierarchy and signal cases where FST and FSDB expose arrays, memories, or scalar ranges with different path strings; each ignored test and reason is recorded in the compare manifest.
 

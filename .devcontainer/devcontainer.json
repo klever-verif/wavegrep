@@ -1,66 +1,22 @@
 {
-    "name": "wavepeek-workspace",
+    "name": "wavepeek",
     "build": {
         "context": "..",
         "dockerfile": "Dockerfile",
-        "target": "dev"
+        "options": [
+            "--network=host"
+        ]
     },
     "containerEnv": {
-        "WAVEPEEK_IN_CONTAINER": "1",
-        "VERDI_HOME": "/opt/verdi",
-        "WAVEPEEK_UPSTREAM_REPO": "kleverhq/wavepeek",
-        "GH_PROMPT_DISABLED": "1"
+        "WAVEPEEK_IN_CONTAINER": "1"
     },
     "runArgs": [
-        "--network=host",
-        "--env-file",
-        "${localEnv:HOME}/.config/wavepeek-dev/github.env"
-    ],
-    "initializeCommand": [
-        "bash",
-        "${localWorkspaceFolder}/.devcontainer/initialize.sh"
+        "--network=host"
     ],
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
-    "mounts": [
-        "source=${localEnv:HOME}/.config/wavepeek-dev/claude,target=/home/ubuntu/.claude,type=bind",
-        "source=${localEnv:HOME}/.config/wavepeek-dev/claude.json,target=/home/ubuntu/.claude.json,type=bind",
-        "source=${localEnv:HOME}/.config/wavepeek-dev/codex,target=/home/ubuntu/.codex,type=bind",
-        "source=${localEnv:HOME}/.config/wavepeek-dev/pi,target=/home/ubuntu/.pi,type=bind",
-        "source=${localEnv:HOME}/.config/wavepeek-dev/verdi,target=/opt/verdi,type=bind"
-    ],
     "remoteUser": "ubuntu",
     "updateRemoteUserUID": true,
-    "postCreateCommand": "git config --global --add safe.directory \"$PWD\" && bash .devcontainer/setup-github-auth.sh",
-    "postStartCommand": "just dev-setup",
-    "customizations": {
-        "vscode": {
-            "settings": {
-                "files.trimTrailingWhitespace": true,
-                "extensions.verifySignature": false,
-                "terminal.integrated.sendKeybindingsToShell": true,
-                "terminal.integrated.commandsToSkipShell": [
-                    "-workbench.action.quickOpen",
-                    "-workbench.action.showCommands",
-                    "-workbench.action.toggleSidebarVisibility",
-                    "-workbench.action.files.save",
-                    "-workbench.action.closeActiveEditor",
-                    "-workbench.action.terminal.focusFind"
-                ]
-            },
-            "extensions": [
-                "rust-lang.rust-analyzer",
-                "tamasfe.even-better-toml",
-                "yzhang.markdown-all-in-one",
-                "redhat.vscode-yaml",
-                "gruntfuggly.todo-tree",
-                "github.vscode-github-actions",
-                "github.vscode-pull-request-github",
-                "d-koppenhagen.vscode-code-review",
-                "mhutchie.git-graph",
-                "bierner.markdown-mermaid",
-                "tomoki1207.pdf"
-            ]
-        }
-    }
+    "postCreateCommand": "git config --global --add safe.directory \"$PWD\"",
+    "postStartCommand": "just dev-setup"
 }
