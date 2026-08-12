@@ -21,7 +21,7 @@ This work does not move Git commits or hooks to the host, implement the Codex We
 - [x] (2026-08-12 06:35Z) Updated maintainer documentation and breadcrumbs for the unified container and host entrypoint.
 - [x] (2026-08-12 10:34Z) Built the image and ran `./dev just dev-setup`, eight focused wrapper tests, converter checks, clean-image exclusions, `./dev just ci`, and FSDB checks with the mounted Verdi SDK. The no-Verdi path is covered by focused mount tests and the FSDB helper suite.
 - [x] (2026-08-12 10:35Z) Committed the implementation and Verdi runtime correction through the normal pre-commit and commit-msg hooks.
-- [x] (2026-08-12 11:12Z) Ran parallel correctness/docs and KISS+YAGNI+ponytail reviews, fixed findings, reran affected checks, and completed an independent control review. The control pass found Devcontainer CLI signal loss; its targeted recheck then challenged startup races and child cleanup. Token- and process-start-validated process-group forwarding now passes focused and real-container SIGTERM checks, including child cleanup.
+- [x] (2026-08-12 11:12Z) Ran parallel correctness/docs and KISS+YAGNI+ponytail reviews, fixed findings, reran affected checks, and completed an independent control review. The control pass found Devcontainer CLI signal loss; its targeted recheck then challenged startup races and child cleanup. Token- and process-start-validated forwarding now delegates command process-group ownership to a standard-library Python helper and passes focused plus real-container SIGINT/SIGTERM checks, including child cleanup.
 - [ ] Remove this branch-local plan, push the branch, and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -152,3 +152,5 @@ Plan revision note (2026-08-12 10:58Z): Recorded first-pass correctness, docs, a
 Plan revision note (2026-08-12 11:12Z): Recorded the control-review signal-forwarding finding and evidence from focused plus real-container validation.
 
 Plan revision note (2026-08-12 11:24Z): Recorded the targeted signal recheck and hardened process-group forwarding evidence, including no orphaned child process.
+
+Plan revision note (2026-08-12 11:33Z): The final signal control identified terminal process-group SIGINT behavior. Added a stdlib helper that owns the command process group, records status, and terminates children; nine focused tests and a real-container group-SIGINT check pass.

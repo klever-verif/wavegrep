@@ -71,16 +71,20 @@ elif [ -z "$container_id" ]; then
 fi
 
 pidfile="/tmp/wavepeek-dev-$$-$RANDOM.pid"
+statusfile="$pidfile.status"
 token="$$-$RANDOM-$RANDOM"
 forward_signal() {
     local signal="$1"
-    while kill -0 "$exec_pid" 2>/dev/null; do
+    while :; do
         if docker exec "$container_id" bash -c '
             read -r token pid start < "$1" || exit 1
             [ "$token" = "$2" ] || exit 1
             [ "$(awk "{print \$22}" "/proc/$pid/stat" 2>/dev/null)" = "$start" ] || exit 1
             kill -s "$3" -- "-$pid"
         ' bash "$pidfile" "$token" "$signal" >/dev/null 2>&1; then
+            return
+        fi
+        if ! kill -0 "$exec_pid" 2>/dev/null && ! docker exec "$container_id" test -e "$pidfile" 2>/dev/null; then
             return
         fi
         sleep 0.01
@@ -90,13 +94,9 @@ for signal in HUP INT QUIT TERM; do
     trap "forward_signal $signal" "$signal"
 done
 
-devcontainer exec --container-id "$container_id" setsid --wait bash -c '
-    start="$(awk "{print \$22}" /proc/$$/stat)"
-    printf "%s %s %s\n" "$1" "$$" "$start" > "$2"
-    cd "$3"
-    shift 3
-    exec "$@"
-' bash "$token" "$pidfile" "$container_dir" "$@" <&0 &
+setsid --wait devcontainer exec --container-id "$container_id" -- \
+    python3 "$workspace/tools/repo/dev_exec.py" \
+    "$token" "$pidfile" "$statusfile" "$container_dir" "$@" <&0 &
 exec_pid=$!
 set +e
 while kill -0 "$exec_pid" 2>/dev/null; do
@@ -106,5 +106,9 @@ wait "$exec_pid"
 status=$?
 set -e
 trap - HUP INT QUIT TERM
-docker exec "$container_id" rm -f "$pidfile" >/dev/null 2>&1 || true
+command_status="$(docker exec "$container_id" cat "$statusfile" 2>/dev/null || true)"
+docker exec "$container_id" rm -f "$pidfile" "$statusfile" >/dev/null 2>&1 || true
+if [[ "$command_status" =~ ^[0-9]+$ ]]; then
+    status="$command_status"
+fi
 exit "$status"

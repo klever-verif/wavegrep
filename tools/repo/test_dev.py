@@ -72,12 +72,8 @@ elif args[:2] == ["exec", "container-1"]:
         for index, value in enumerate(command):
             if value.startswith("/tmp/wavepeek-dev-"):
                 command[index] = os.environ["FAKE_ROOT"] + "/" + pathlib.Path(value).name
-        token, pid, _ = pathlib.Path(command[4]).read_text().split()
-        if token != command[5]:
-            raise SystemExit(1)
-        os.killpg(int(pid), getattr(signal, f"SIG{command[6]}"))
-    else:
-        raise SystemExit(2)
+        os.execvp(command[0], command)
+    raise SystemExit(2)
 else:
     raise SystemExit(2)
 """
@@ -95,13 +91,15 @@ if args[:1] == ["up"]:
     raise SystemExit(int(os.environ.get("FAKE_UP_STATUS", "0")))
 if args[:1] != ["exec"]:
     raise SystemExit(2)
-command = args[args.index("setsid"):]
+command = args[args.index("--") + 1:]
 workspace = f"/workspaces/{pathlib.Path(os.environ['FAKE_ROOT']).name}"
 for index, value in enumerate(command):
     if value == workspace or value.startswith(workspace + "/"):
         command[index] = os.environ["FAKE_ROOT"] + value[len(workspace):]
     elif value.startswith("/tmp/wavepeek-dev-"):
         command[index] = os.environ["FAKE_ROOT"] + "/" + pathlib.Path(value).name
+    elif value.startswith("/workspaces/") and value.endswith("/tools/repo/dev_exec.py"):
+        command[index] = os.environ["FAKE_ROOT"] + "/tools/repo/dev_exec.py"
 os.execvp(command[0], command)
 """
         )
@@ -132,6 +130,9 @@ os.execvp(command[0], command)
             checker = root / "tools" / "fsdb" / "check_fsdb_env.py"
             checker.parent.mkdir(parents=True)
             checker.write_bytes((REPO_ROOT / "tools/fsdb/check_fsdb_env.py").read_bytes())
+            helper = root / "tools" / "repo" / "dev_exec.py"
+            helper.parent.mkdir(parents=True)
+            helper.write_bytes((REPO_ROOT / "tools/repo/dev_exec.py").read_bytes())
 
     def _run(
         self,
