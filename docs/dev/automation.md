@@ -5,7 +5,6 @@ Repository automation is exposed through the root `justfile`. Prefer invoking `j
 ## Main Entrypoints
 
 - `just dev-setup` prepares the local devcontainer and installs hooks.
-- `just codex-setup` and `just codex-resume` prepare Codex cloud sessions.
 - `just check`, `just ci`, and `just pre-commit` are the main quality gates.
 - `just prepare-waveform-fixtures` regenerates ignored VCD/FST fixtures under `tests/fixtures/generated/` from `tests/fixtures/source/` and documented hand-derived outputs.
 - `just update-schema` regenerates `schema/output.json`, `schema/stream.json`, `schema/input.json`, and `schema/catalog.json` from Rust contract code; `just check-schema` validates freshness, runtime embedding, and schema URLs.

@@ -20,7 +20,7 @@
 
 Maintainer workflow lives under `docs/dev/`:
 
-- `docs/dev/environment.md` for devcontainer, CI image, Codex, fixtures, and `tmp/`.
+- `docs/dev/environment.md` for devcontainer, CI image, agent state, fixtures, and `tmp/`.
 - `docs/dev/github-auth.md` for optional repo-scoped GitHub auth in the devcontainer.
 - `docs/dev/quality.md` for `just check`, `just ci`, coverage, and hooks.
 - `docs/dev/testing.md` for test strategy and fixtures.

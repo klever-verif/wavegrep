@@ -16,9 +16,9 @@ This work does not remove the Codex command-line tool from the development conta
 
 - [x] (2026-08-12 05:27Z) Read issue #93, repository guidance, current automation, environment documentation, breadcrumb policy, and quality-gate instructions.
 - [x] (2026-08-12 05:27Z) Located current Codex Web setup references and separated them from Codex CLI state support that must remain.
-- [ ] Delete the Codex Web helpers and remove their `justfile` variables and recipes.
-- [ ] Update current maintainer documentation, comments, breadcrumbs, and the Unreleased changelog while preserving published history and Codex CLI state support.
-- [ ] Validate focused acceptance checks, `just dev-setup`, `just check`, and `just ci` in the development container.
+- [x] (2026-08-12 05:35Z) Deleted the Codex Web helpers and removed their `justfile` variables and recipes.
+- [x] (2026-08-12 05:35Z) Updated current maintainer documentation, comments, breadcrumbs, and the Unreleased changelog while preserving published history and Codex CLI state support.
+- [ ] Validate focused acceptance checks, `just dev-setup`, `just check`, and `just ci` in the development container (completed: focused checks, format check, and `just dev-setup`; remaining: `just check` and `just ci`).
 - [ ] Commit implementation milestones and remove this branch-local plan before handoff.
 - [ ] Run parallel correctness/docs and KISS+YAGNI+ponytail reviews, address findings, and run a fresh control review.
 - [ ] Push the branch and open a pull request targeting `dev3`.
@@ -30,6 +30,9 @@ This work does not remove the Codex command-line tool from the development conta
 
 - Observation: Current Codex references include both removable Codex Web bootstrap support and retained Codex CLI state support.
   Evidence: `tools/codex/`, `just codex-setup`, and `just codex-resume` are removable, while `.devcontainer/devcontainer.json` mounts `/home/ubuntu/.codex` and `tools/repo/test_devcontainer_initialize.py` verifies host-side state preparation.
+
+- Observation: Opening this linked Git worktree with `devcontainer up` requires mounting the repository's common `.git` directory into the container.
+  Evidence: The first container failed because the worktree `.git` file pointed to an unmounted host path; rerunning with `--mount type=bind,source=/home/esynr3z/projects/wavepeek/.git,target=/home/esynr3z/projects/wavepeek/.git` completed `postCreateCommand` and `just dev-setup`.
 
 ## Decision Log
 
@@ -51,7 +54,7 @@ This work does not remove the Codex command-line tool from the development conta
 
 ## Outcomes & Retrospective
 
-Work is in progress. The intended outcome is complete removal of repository-owned Codex Web bootstrap support with the existing devcontainer, CI profile, and Codex CLI persistence unchanged.
+The repository-owned Codex Web scripts, recipes, setup instructions, and coupling comments are removed. Focused checks confirm the directory is absent, the recipes are not listed, retained Codex CLI installation and state paths remain, and the local devcontainer completes `just dev-setup`. Full quality gates and review remain.
 
 ## Context and Orientation
 
@@ -125,3 +128,5 @@ The initial search identified removable references in `tools/codex/`, `justfile`
 No new interface or dependency is introduced. The public `just` interface loses only `codex-setup` and `codex-resume`. The remaining development interface is `just dev-setup` inside `.devcontainer/devcontainer.json`; CI and release retain `.devcontainer/devcontainer.ci.json`. Codex CLI remains installed as `@openai/codex`, persists state at `/home/ubuntu/.codex`, and remains available as the `openai-codex` provider under `tools/agent/`.
 
 Revision note (2026-08-12 05:27Z): Created the initial self-contained execution plan after repository and issue inspection; recorded the maintainer-owned external configuration as an explicit non-goal.
+
+Revision note (2026-08-12 05:35Z): Recorded implementation completion, focused acceptance evidence, successful devcontainer setup, and the linked-worktree mount requirement discovered during validation.
