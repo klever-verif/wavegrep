@@ -32,7 +32,7 @@ This work does not add another wrapper for ordinary development commands, start 
 - Observation: the existing auxiliary test discovery can include an opt-in Docker smoke test without adding a recipe, while skipping it inside the normal container gate.
   Evidence: `./dev just test-aux` discovered 20 `tools/repo` tests and reported one Docker smoke skip.
 - Observation: the Git common directory is writable from linked-worktree containers, so it cannot safely hold active host hook executables.
-  Evidence: the correctness reviewer identified host-code execution from container-modified hooks; installation now targets host data storage, and both focused and Docker tests prove that path is outside container mounts.
+  Evidence: the correctness reviewer identified host-code execution from container-modified hooks; installation now targets host data storage, and focused tests reject direct and symlinked destinations inside repository mounts.
 
 ## Decision Log
 
