@@ -29,7 +29,6 @@ class DockerGitHookSmokeTests(unittest.TestCase):
                 if not name.startswith(("GIT_", "WAVEPEEK_FSDB_"))
                 and name != "VERDI_HOME"
             }
-            env["XDG_DATA_HOME"] = str(root / "data")
             containers: list[str] = []
             try:
                 branch = subprocess.run(
@@ -85,11 +84,15 @@ class DockerGitHookSmokeTests(unittest.TestCase):
                     containers.extend(ids)
                 self.assertEqual(len(set(containers)), 2)
 
-                self._run(main, env, "./dev", "--install-hooks")
-                hooks_dir = self._git(
-                    main, env, "config", "--local", "--get", "core.hooksPath"
+                for worktree in (main, linked):
+                    self._run(worktree, env, "./dev", "--install-hooks")
+                main_hooks = self._git(
+                    main, env, "config", "--worktree", "--get", "core.hooksPath"
                 ).stdout.strip()
-                self._run(main, env, "./dev", "--exec-only", "test", "!", "-e", hooks_dir)
+                linked_hooks = self._git(
+                    linked, env, "config", "--worktree", "--get", "core.hooksPath"
+                ).stdout.strip()
+                self.assertNotEqual(main_hooks, linked_hooks)
                 commit_env = env | {"SKIP": PRE_COMMIT_SKIPS}
                 for worktree, name in ((main, "main"), (linked, "linked")):
                     (worktree / f"{name}-hook-smoke").write_text("smoke\n")

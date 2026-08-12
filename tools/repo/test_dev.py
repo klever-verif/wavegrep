@@ -1,7 +1,6 @@
 import json
 import os
 import pty
-import shutil
 import signal
 import subprocess
 import tempfile
@@ -58,14 +57,11 @@ args = sys.argv[1:]
 if args[:1] == ["ps"]:
     if "-aq" in args and os.environ.get("FAKE_EXISTING") == "1":
         print("container-1")
-    elif "-q" in args and not (
-        any(value == "id=container-1" for value in args)
-        and os.environ.get("FAKE_STOPPED") == "1"
-    ):
+    elif "-q" in args and not (any(value == "id=container-1" for value in args) and os.environ.get("FAKE_STOPPED") == "1"):
         print("container-1")
 elif args[:1] == ["inspect"]:
-    for source, target, writable in json.loads(os.environ.get("FAKE_MOUNTS", "[]")):
-        print(f"{source}\\t{target}\\t{str(writable).lower()}")
+    for source, target in json.loads(os.environ.get("FAKE_MOUNTS", "[]")):
+        print(f"{source}\\t{target}")
 elif args[:2] == ["exec", "container-1"]:
     if args[2] in {"cat", "rm"}:
         command = args[2:]
@@ -94,9 +90,6 @@ with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
     log.write(json.dumps(["devcontainer", *sys.argv[1:]]) + "\\n")
 args = sys.argv[1:]
 if args[:1] == ["up"]:
-    override = args[args.index("--override-config") + 1]
-    with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as log:
-        log.write(json.dumps(["override", json.loads(pathlib.Path(override).read_text())]) + "\\n")
     raise SystemExit(int(os.environ.get("FAKE_UP_STATUS", "0")))
 if args[:1] != ["exec"]:
     raise SystemExit(2)
@@ -211,18 +204,17 @@ os.execvp(command[0], command)
             self.assertEqual(result.returncode, 0, result.stderr)
             up = next(call for call in self._calls() if call[:2] == ["devcontainer", "up"])
             self.assertEqual(up[up.index("--workspace-folder") + 1], str(root))
-            override = next(call[1] for call in self._calls() if call[0] == "override")
-            common = str((self.main / ".git").resolve())
-            expected = [
-                f"type=bind,source={common}/config,target=/workspaces/{root.name}/.git/config,readonly"
+            mount_values = [
+                up[index + 1] for index, value in enumerate(up) if value == "--mount"
             ]
-            if root == self.linked:
-                expected = [
-                    f"type=bind,source={root}/.git,target=/workspaces/{root.name}/.git,readonly",
-                    f"type=bind,source={common},target={common}",
-                    f"type=bind,source={common}/config,target={common}/config,readonly",
-                ]
-            self.assertEqual(override["mounts"], expected)
+            if root == self.main:
+                self.assertEqual(mount_values, [])
+            else:
+                common = str((self.main / ".git").resolve())
+                self.assertEqual(
+                    mount_values,
+                    [f"type=bind,source={common},target={common}"],
+                )
 
     def test_optional_verdi_mount_and_validation(self) -> None:
         verdi = self.tmp / "verdi"
@@ -326,24 +318,17 @@ os.execvp(command[0], command)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Verdi FSDB Reader SDK not found", result.stderr)
 
-        hooks = verdi / "hooks"
-        hooks.mkdir()
-        self._git("config", "core.hooksPath", str(hooks))
-        result = self._run(self.main, "true", env_updates={"VERDI_HOME": str(verdi)})
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("hooks must be outside VERDI_HOME", result.stderr)
-
     def test_stale_mounts_are_rejected_with_recreation_command(self) -> None:
         env = {
             "FAKE_EXISTING": "1",
-            "FAKE_MOUNTS": json.dumps([[str(self.main), "/wrong-workspace", True]]),
+            "FAKE_MOUNTS": json.dumps([[str(self.main), "/wrong-workspace"]]),
         }
         result = self._run(self.main, "true", env_updates=env)
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("stale worktree, Git common-directory, or Verdi mounts", result.stderr)
-        self.assertIn("docker rm -f", result.stderr)
-        self.assertIn("./dev true", result.stderr)
+        self.assertIn("devcontainer up", result.stderr)
+        self.assertIn("--remove-existing-container", result.stderr)
         self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
 
     def test_exec_only_uses_existing_container_without_up(self) -> None:
@@ -352,10 +337,8 @@ os.execvp(command[0], command)
             "FAKE_EXISTING": "1",
             "FAKE_MOUNTS": json.dumps(
                 [
-                    [str(self.linked), "/workspaces/linked", True],
-                    [str(self.linked / ".git"), "/workspaces/linked/.git", False],
-                    [common, common, True],
-                    [f"{common}/config", f"{common}/config", False],
+                    [str(self.linked), "/workspaces/linked"],
+                    [common, common],
                 ]
             ),
         }
@@ -371,27 +354,6 @@ os.execvp(command[0], command)
         result = self._run(self.main, "--exec-only", "true")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no existing container", result.stderr)
-        self.assertIn("./dev true", result.stderr)
-        self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
-
-        self.log.unlink()
-        env = {
-            "FAKE_EXISTING": "1",
-            "FAKE_STOPPED": "1",
-            "FAKE_MOUNTS": json.dumps(
-                [
-                    [str(self.main), "/workspaces/main", True],
-                    [
-                        str(self.main / ".git/config"),
-                        "/workspaces/main/.git/config",
-                        False,
-                    ],
-                ]
-            ),
-        }
-        result = self._run(self.main, "--exec-only", "true", env_updates=env)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("container is stopped", result.stderr)
         self.assertIn("./dev true", result.stderr)
         self.assertFalse(any(call[0] == "devcontainer" for call in self._calls()))
 
@@ -470,25 +432,6 @@ os.execvp(command[0], command)
                 process.wait()
 
         self.assertEqual(process.returncode, 42, (stdout, stderr))
-
-    def test_missing_host_tools_have_startup_guidance(self) -> None:
-        for name in ("bash", "git"):
-            (self.fake_bin / name).symlink_to(shutil.which(name))
-        isolated_path = str(self.fake_bin)
-        for executable, diagnostic in (
-            ("docker", "Docker is unavailable"),
-            ("devcontainer", "Devcontainer CLI is unavailable"),
-        ):
-            tool = self.fake_bin / executable
-            missing = self.fake_bin / f"{executable}.missing"
-            tool.rename(missing)
-            result = self._run(
-                self.main, "--exec-only", "true", env_updates={"PATH": isolated_path}
-            )
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(diagnostic, result.stderr)
-            self.assertIn("./dev true", result.stderr)
-            missing.rename(tool)
 
     def test_requires_command_and_git_worktree(self) -> None:
         result = self._run(self.main)

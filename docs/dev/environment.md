@@ -13,7 +13,7 @@ git commit -m "chore: update development workflow"
 git push
 ```
 
-`./dev --install-hooks` explicitly installs reviewed `pre-commit`, `commit-msg`, and `./dev` copies under `${XDG_DATA_HOME:-$HOME/.local/share}/wavepeek/git-hooks/` and activates them with repository-local `core.hooksPath`. This host-only location is not mounted into the credentialless container. Installation is idempotent and refuses to replace another configured hooks path. The installed set is shared by linked worktrees; rerunning the command from one worktree updates active hooks for every sibling. Branch switches do not alter the active copies.
+`./dev --install-hooks` explicitly installs reviewed `pre-commit`, `commit-msg`, and `./dev` copies under the current worktree's Git directory and activates them with worktree-local `core.hooksPath`. Each linked worktree therefore uses and updates its own hook copies. Installation is idempotent and refuses to replace another configured worktree hooks path. Branch switches do not alter the active copies.
 
 `./dev` finds the enclosing Git worktree when called from any directory inside it, preserves that relative directory in the container, starts the worktree's container when needed, and passes command arguments, standard streams, signals, and exit status through unchanged. Each absolute worktree has its own runtime container and can use its own revision of the container definition. The image layers remain shared through Docker.
 

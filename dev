@@ -10,68 +10,19 @@ if [ "${1-}" = "--install-hooks" ]; then
         printf '%s\n' "error: dev: current directory is not inside a Git worktree" >&2
         exit 1
     }
-    common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
-    common_dir="$(cd "$common_dir" && pwd -P)"
-    data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-    [[ "$data_home" = /* ]] || {
-        printf '%s\n' "error: dev: XDG_DATA_HOME must be an absolute path" >&2
-        exit 1
-    }
-    repo_id="$(printf '%s' "$common_dir" | sha256sum | cut -d ' ' -f 1)"
-    hooks_dir="$(realpath -m -- "$data_home/wavepeek/git-hooks/$repo_id")"
-    worktrees=()
-    while IFS= read -r worktree; do
-        [ -d "$worktree" ] || continue
-        worktree="$(cd "$worktree" && pwd -P)"
-        worktrees+=("$worktree")
-        case "$hooks_dir/" in
-            "$worktree/"*)
-                printf '%s\n' "error: dev: host Git hooks must be outside registered worktrees" >&2
-                exit 1
-                ;;
-        esac
-    done < <(git worktree list --porcelain | sed -n 's/^worktree //p')
-    case "$hooks_dir/" in
-        "$common_dir/"*)
-            printf '%s\n' "error: dev: host Git hooks must be outside the Git common directory" >&2
-            exit 1
-            ;;
-    esac
-    containers="$(for worktree in "${worktrees[@]}"; do
-        docker ps -aq --filter "label=devcontainer.local_folder=$worktree" || exit
-    done)" || {
-        printf '%s\n' "error: dev: cannot inspect existing worktree containers" >&2
-        exit 1
-    }
-    for container in $containers; do
-        mounts="$(docker inspect --format '{{range .Mounts}}{{printf "%s\t%t\n" .Source .RW}}{{end}}' "$container")" || {
-            printf '%s\n' "error: dev: cannot inspect existing worktree container: $container" >&2
-            exit 1
-        }
-        while IFS=$'\t' read -r source writable; do
-            [ "$writable" = true ] || continue
-            source="$(realpath -m -- "$source")"
-            case "$hooks_dir/" in
-                "$source/"*)
-                    printf '%s\n' "error: dev: host Git hooks must be outside writable container mounts" >&2
-                    exit 1
-                    ;;
-            esac
-        done <<< "$mounts"
-    done
-    configured="$(git config --get core.hooksPath || true)"
-    if [ -n "$configured" ]; then
-        configured="$(realpath -m -- "$configured")"
-    fi
+    git_dir="$(git rev-parse --path-format=absolute --absolute-git-dir)"
+    hooks_dir="$git_dir/wavepeek-hooks"
+    git config extensions.worktreeConfig true
+    configured="$(git config --worktree --get core.hooksPath || true)"
     if [ -n "$configured" ] && [ "$configured" != "$hooks_dir" ]; then
-        printf '%s\n' "error: dev: refusing to replace existing core.hooksPath: $configured" >&2
+        printf '%s\n' "error: dev: refusing to replace existing worktree core.hooksPath: $configured" >&2
         exit 1
     fi
-    install -d -m 0700 "$hooks_dir"
-    install -m 0700 "$root/dev" "$hooks_dir/dev"
-    install -m 0700 "$root/tools/repo/git-hook" "$hooks_dir/pre-commit"
-    install -m 0700 "$root/tools/repo/git-hook" "$hooks_dir/commit-msg"
-    git config --local core.hooksPath "$hooks_dir"
+    install -d -m 0755 "$hooks_dir"
+    install -m 0755 "$root/dev" "$hooks_dir/dev"
+    install -m 0755 "$root/tools/repo/git-hook" "$hooks_dir/pre-commit"
+    install -m 0755 "$root/tools/repo/git-hook" "$hooks_dir/commit-msg"
+    git config --worktree core.hooksPath "$hooks_dir"
     printf '%s\n' "Installed host Git hooks in $hooks_dir"
     exit 0
 fi
@@ -105,39 +56,12 @@ container_dir="$workspace/${prefix%/}"
 common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
 common_dir="$(cd "$common_dir" && pwd -P)"
 
-override="$(mktemp)"
-trap 'rm -f "$override"' EXIT
-python3 - "$root/.devcontainer/devcontainer.json" "$override" "$root/.git" "$workspace/.git" "$common_dir" "$root/.git" <<'PY'
-import json
-import os
-import sys
-
-source, output, git_entry, git_target, common_dir, main_git_dir = sys.argv[1:]
-with open(source, encoding="utf-8") as file:
-    config = json.load(file)
-mounts = config.setdefault("mounts", [])
-if os.path.isfile(git_entry):
-    mounts.append(f"type=bind,source={git_entry},target={git_target},readonly")
-    mounts.append(f"type=bind,source={common_dir},target={common_dir}")
-    config_target = f"{common_dir}/config"
-else:
-    config_target = f"{git_target}/config"
-mounts.append(f"type=bind,source={common_dir}/config,target={config_target},readonly")
-with open(output, "w", encoding="utf-8") as file:
-    json.dump(config, file)
-PY
-
 mount_args=()
 remote_env_args=()
-expected_mounts=("$root"$'\t'"$workspace"$'\ttrue')
-if [ -f "$root/.git" ]; then
-    expected_mounts+=(
-        "$root/.git"$'\t'"$workspace/.git"$'\tfalse'
-        "$common_dir"$'\t'"$common_dir"$'\ttrue'
-        "$common_dir/config"$'\t'"$common_dir/config"$'\tfalse'
-    )
-else
-    expected_mounts+=("$common_dir/config"$'\t'"$workspace/.git/config"$'\tfalse')
+expected_mounts=("$root"$'\t'"$workspace")
+if [ "$common_dir" != "$root/.git" ]; then
+    mount_args+=(--mount "type=bind,source=$common_dir,target=$common_dir")
+    expected_mounts+=("$common_dir"$'\t'"$common_dir")
 fi
 if [ -n "${WAVEPEEK_FSDB_ABI-}${WAVEPEEK_FSDB_READER_LIBDIR-}" ] && [ -z "${VERDI_HOME-}" ]; then
     printf '%s\n' "error: dev: VERDI_HOME is required when FSDB Reader overrides are set" >&2
@@ -149,19 +73,9 @@ if [ -n "${VERDI_HOME-}" ]; then
         exit 1
     fi
     verdi_home="$(cd "$VERDI_HOME" && pwd -P)"
-    configured_hooks="$(git config --get core.hooksPath || true)"
-    if [ -n "$configured_hooks" ]; then
-        configured_hooks="$(realpath -m -- "$configured_hooks")"
-        case "$configured_hooks/" in
-            "$verdi_home/"*)
-                printf '%s\n' "error: dev: host Git hooks must be outside VERDI_HOME" >&2
-                exit 1
-                ;;
-        esac
-    fi
     VERDI_HOME="$verdi_home" python3 -B "$root/tools/fsdb/check_fsdb_env.py" --require >/dev/null
     mount_args+=(--mount "type=bind,source=$verdi_home,target=/opt/verdi")
-    expected_mounts+=("$verdi_home"$'\t'/opt/verdi$'\ttrue')
+    expected_mounts+=("$verdi_home"$'\t'/opt/verdi)
     if [ -n "${WAVEPEEK_FSDB_ABI-}" ]; then
         remote_env_args+=(--remote-env "WAVEPEEK_FSDB_ABI=$WAVEPEEK_FSDB_ABI")
     fi
@@ -183,19 +97,18 @@ fi
 container_id="${containers[0]-}"
 
 if [ -n "$container_id" ]; then
-    mapfile -t actual_mounts < <(docker inspect --format '{{range .Mounts}}{{if eq .Type "bind"}}{{printf "%s\t%s\t%t\n" .Source .Destination .RW}}{{end}}{{end}}' "$container_id" | grep -v '^$')
+    mapfile -t actual_mounts < <(docker inspect --format '{{range .Mounts}}{{if eq .Type "bind"}}{{printf "%s\t%s\n" .Source .Destination}}{{end}}{{end}}' "$container_id" | grep -v '^$')
     if [ "$(printf '%s\n' "${expected_mounts[@]}" | sort)" != "$(printf '%s\n' "${actual_mounts[@]}" | sort)" ]; then
         printf '%s\n' "error: dev: existing container has stale worktree, Git common-directory, or Verdi mounts" >&2
         printf 'recreate with:' >&2
-        printf ' %q' docker rm -f "$container_id" >&2
-        printf ' && ./dev true' >&2
+        printf ' %q' devcontainer up --workspace-folder "$root" "${mount_args[@]}" "${remote_env_args[@]}" --remove-existing-container >&2
         printf '\n' >&2
         exit 1
     fi
 fi
 
 if [ "$exec_only" -eq 0 ]; then
-    devcontainer up --workspace-folder "$root" --override-config "$override" "${mount_args[@]}" "${remote_env_args[@]}"
+    devcontainer up --workspace-folder "$root" "${mount_args[@]}" "${remote_env_args[@]}"
     mapfile -t containers < <(docker ps -q --filter "label=devcontainer.local_folder=$root")
     if [ "${#containers[@]}" -ne 1 ]; then
         printf '%s\n' "error: dev: expected one running container for $root" >&2
