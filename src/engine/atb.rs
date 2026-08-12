@@ -6,7 +6,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AtbArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
@@ -208,8 +207,6 @@ fn event_kind(source: &str) -> Result<AtbEventKind, WavepeekError> {
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -284,10 +281,6 @@ impl AtbProfile {
     fn contains_standard(self, standard: &str) -> bool {
         self.signals().contains(&standard)
     }
-}
-
-pub(crate) const fn profile_specs() -> [AtbProfile; 3] {
-    [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC]
 }
 
 pub fn run(args: AtbArgs) -> Result<CommandResult, WavepeekError> {
@@ -472,14 +465,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AtbConfig, WavepeekError
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "ATB extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "ATB extract source file '{}' has kind {}; expected {}",
@@ -932,7 +917,6 @@ fn standard_suffix_start(tokens: &[String], standard: &str) -> Option<usize> {
 mod tests {
     use super::{
         AtbProfile, candidate_matches_standard, event_kind, parse_cli_maps, parse_profile,
-        profile_specs,
     };
 
     #[test]
@@ -951,7 +935,7 @@ mod tests {
 
     #[test]
     fn profile_signal_sets_match_issue_c_contract() {
-        let profiles = profile_specs();
+        let profiles = [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC];
         assert_eq!(profiles.map(AtbProfile::name), ["atb-a", "atb-b", "atb-c"]);
         assert_eq!(
             AtbProfile::AtbA.signals(),

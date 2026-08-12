@@ -19,7 +19,7 @@ Behavior:
 - Uses manager-facing HREADY; HREADYOUT, HSELx, and parity/check signals are outside this interface.
 - Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
 - In source-file mode, --source provides profile, name, inclusion flags, includes, and maps.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Source-file fields and behavior are documented in the corresponding protocol topic.
 - JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.
 - Does not reconstruct bursts, aggregate transactions, or join address and data phases.
 
@@ -33,14 +33,14 @@ Use this command to inspect accepted AHB transfers and their pipeline completion
 
 Behavior:
 - Supports APB3, APB4, and APB5 profiles from Arm IHI 0024E; APB4 is the default.
-- Generated schemas accept canonical lowercase profile and PREADY-mode values only.
+- Source files accept canonical lowercase profile and PREADY-mode values only.
 - Emits setup and access-complete rows by default; --include-wait adds one access-wait row per waited Access cycle.
 - Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.
 - Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
 - Maps one concrete Completer PSELx as canonical psel.
 - Samples reset, event predicates, direction, and payload values at the pre-edge sample point.
 - In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps and conflicts with their CLI flags.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Source-file fields and behavior are documented in the corresponding protocol topic.
 - JSON output includes APB metadata, mappings, and event rows.
 - Reports independent sampled events only; it does not correlate or validate transactions.
 
@@ -54,7 +54,7 @@ Use this command to inspect APB activity without writing generic Setup and Acces
 
 Behavior:
 - Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.
-- Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; generated schemas accept canonical hyphenated profile names only.
+- Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; source files accept canonical hyphenated profile names only.
 - Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
 - Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.
 - Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.
@@ -62,7 +62,7 @@ Behavior:
 - Emits same-edge events in transfer, flush, then sync-request order.
 - Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.
 - In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Source-file fields and behavior are documented in the corresponding protocol topic.
 - JSON output includes ATB metadata, mappings, and event rows.
 - Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
 
@@ -79,13 +79,13 @@ Behavior:
 - AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles use Arm IHI 0022L ready/valid transport.
 - Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles.
 - ACE5-Lite aliases are ace5_lite; ACE5-LiteDVM aliases are ace5-litedvm, ace5_litedvm, and ace5_lite_dvm; ACE5-LiteACP aliases are ace5-liteacp, ace5_liteacp, and ace5_lite_acp.
-- Generated schemas accept canonical hyphenated profile names only.
+- Source files accept canonical hyphenated profile names only.
 - Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
 - Builds one extraction source per complete ready/valid channel.
 - AXI5 and ACE5-LiteDVM can add DVM ac and cr channels but do not add cd.
 - Samples reset, ready/valid predicates, and payload values at the pre-edge sample point.
 - In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Source-file fields and behavior are documented in the corresponding protocol topic.
 - JSON output includes AXI metadata, mappings, and transfer rows.
 - Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.
 
@@ -107,7 +107,7 @@ Behavior:
 - One invocation maps one stream interface and emits one row per completed transfer without a synthetic channel.
 - AXI5-Stream wake-up and parity/check signals are outside this transfer extractor.
 - In source-file mode, --source provides profile, TREADY mode, name, includes, and maps and conflicts with --profile, --tready-mode, --name, --map, and --include.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Source-file fields and behavior are documented in the corresponding protocol topic.
 
 Use this command to inspect AXI-Stream transfers without writing a generic extraction source."#,
         after_long_help = "See also:\n  wavepeek docs show commands/extract"
@@ -122,7 +122,7 @@ Behavior:
 - Always samples --when and --payload at the pre-edge sample point.
 - In single-source mode, --on, --when, and --payload define one source named by --name or "transfer".
 - In source-file mode, --source provides one or more sources and conflicts with --name, --on, --when, and --payload.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Source-file fields and behavior are documented in the corresponding protocol topic.
 - JSON and JSONL rows include time, sample_time, source, and ordered payload values.
 
 Use this command to extract synchronous handshakes or transfer-like rows without joining property and value output outside wavepeek."#,

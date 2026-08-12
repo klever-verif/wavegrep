@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use tempfile::{NamedTempFile, TempDir};
 
 mod common;
-use common::{expected_schema_url, fixture_path, wavepeek_cmd};
+use common::{fixture_path, wavepeek_cmd};
 
 const SCOPE_KIND_ALIASES: &[&str] = &[
     "module",
@@ -70,8 +70,6 @@ fn fsdb_info_json_matches_vcd_derived_fixture() {
     let fixture = path_str(&fixtures.signal_recursive_depth());
     let value = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
 
-    assert_eq!(value["$schema"], expected_schema_url());
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(value["data"]["time_unit"], "1ns");
@@ -229,7 +227,6 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
     let info = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
     let info_again = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
     assert_eq!(info, info_again);
-    assert_eq!(info["$schema"], expected_schema_url());
     assert_eq!(info["command"], "info");
     assert_eq!(info["diagnostics"], json!([]));
     for field in ["time_unit", "time_start", "time_end"] {
@@ -445,7 +442,6 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
     let fsdb_value = run_json_success_with_waves(fsdb_fixture.as_str(), &args);
     let vcd_value = run_json_success_with_waves(vcd_fixture.as_str(), &args);
 
-    assert_eq!(fsdb_value["$schema"], expected_schema_url());
     assert_eq!(fsdb_value["command"], "value");
     assert_eq!(fsdb_value["diagnostics"], json!([]));
     assert_eq!(fsdb_value["data"], vcd_value["data"]);
@@ -725,7 +721,6 @@ fn fsdb_change_json_matches_vcd_contracts() {
     ];
     let fsdb_edge = run_json_success_with_waves(fsdb_fixture.as_str(), &edge_args);
     let vcd_edge = run_json_success_with_waves(vcd_fixture.as_str(), &edge_args);
-    assert_eq!(fsdb_edge["$schema"], expected_schema_url());
     assert_eq!(fsdb_edge["command"], "change");
     assert_eq!(fsdb_edge["diagnostics"], json!([]));
     assert_eq!(fsdb_edge["data"], vcd_edge["data"]);
@@ -763,7 +758,6 @@ fn fsdb_change_json_matches_vcd_contracts() {
     ];
     let fsdb_wildcard = run_json_success_with_waves(fsdb_fixture.as_str(), &wildcard_args);
     let vcd_wildcard = run_json_success_with_waves(vcd_fixture.as_str(), &wildcard_args);
-    assert_eq!(fsdb_wildcard["$schema"], expected_schema_url());
     assert_eq!(fsdb_wildcard["command"], "change");
     assert_eq!(fsdb_wildcard["diagnostics"], vcd_wildcard["diagnostics"]);
     assert_eq!(fsdb_wildcard["data"], vcd_wildcard["data"]);
@@ -871,7 +865,6 @@ fn fsdb_property_json_matches_vcd_contracts() {
     ];
     let fsdb_switch = run_json_success_with_waves(fsdb_core.as_str(), &switch_args);
     let vcd_switch = run_json_success_with_waves(vcd_core.as_str(), &switch_args);
-    assert_eq!(fsdb_switch["$schema"], expected_schema_url());
     assert_eq!(fsdb_switch["command"], "property");
     assert_eq!(fsdb_switch["diagnostics"], json!([]));
     assert_eq!(fsdb_switch["data"], vcd_switch["data"]);
@@ -896,7 +889,6 @@ fn fsdb_property_json_matches_vcd_contracts() {
     ];
     let fsdb_match = run_json_success_with_waves(fsdb_core.as_str(), &match_args);
     let vcd_match = run_json_success_with_waves(vcd_core.as_str(), &match_args);
-    assert_eq!(fsdb_match["$schema"], expected_schema_url());
     assert_eq!(fsdb_match["command"], "property");
     assert_eq!(fsdb_match["diagnostics"], vcd_match["diagnostics"]);
     assert_eq!(fsdb_match["data"], vcd_match["data"]);
@@ -1313,7 +1305,7 @@ fn assert_scope_entry(entry: &Value) {
     let kind = entry["kind"].as_str().expect("scope kind should be string");
     assert!(
         SCOPE_KIND_ALIASES.contains(&kind),
-        "scope kind {kind:?} should be public-schema compatible"
+        "scope kind {kind:?} should use a stable public alias"
     );
 }
 
@@ -1332,7 +1324,7 @@ fn assert_signal_entry(entry: &Value) {
         .expect("signal kind should be string");
     assert!(
         SIGNAL_KIND_ALIASES.contains(&kind),
-        "signal kind {kind:?} should be public-schema compatible"
+        "signal kind {kind:?} should use a stable public alias"
     );
     if let Some(width) = entry.get("width") {
         assert!(

@@ -7,7 +7,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AhbArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{
@@ -201,10 +200,6 @@ const AHB5_PROFILE: AhbProfileSpec = AhbProfileSpec {
     signals: AHB5_SIGNALS,
 };
 
-pub(crate) fn profile_specs() -> &'static [AhbProfileSpec] {
-    &[AHB_LITE_PROFILE, AHB5_PROFILE]
-}
-
 #[derive(Debug, Clone, Copy)]
 struct AhbProfile {
     spec: &'static AhbProfileSpec,
@@ -230,8 +225,6 @@ impl AhbProfile {
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -1222,14 +1215,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AhbConfig, WavepeekError
             path.display()
         ))
     })?;
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AHB extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AHB extract source file '{}' has kind {}; expected {}",
@@ -1563,10 +1548,10 @@ fn tokenize_candidate(name: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AHB_LITE_SIGNALS, AHB5_SIGNALS, AhbSignalMapping, Direction, EdgeSamples, Inclusion,
-        PipelineState, SignalCandidate, Walker, auto_mappings, candidate_chunk_raw_span,
-        candidate_matching_standards, is_mapping_decoy, parse_cli_maps, parse_profile,
-        profile_specs,
+        AHB_LITE_PROFILE, AHB_LITE_SIGNALS, AHB5_PROFILE, AHB5_SIGNALS, AhbSignalMapping,
+        Direction, EdgeSamples, Inclusion, PipelineState, SignalCandidate, Walker, auto_mappings,
+        candidate_chunk_raw_span, candidate_matching_standards, is_mapping_decoy, parse_cli_maps,
+        parse_profile,
     };
     use std::collections::HashMap;
 
@@ -1588,14 +1573,14 @@ mod tests {
         assert_eq!(parse_profile("ahb5").unwrap().name(), "ahb5");
         assert!(parse_profile("ahb").is_err());
         assert_eq!(
-            profile_specs()
+            [AHB_LITE_PROFILE, AHB5_PROFILE]
                 .iter()
                 .map(|profile| (profile.name, profile.issue))
                 .collect::<Vec<_>>(),
             [("ahb-lite", "C"), ("ahb5", "C")]
         );
-        assert_eq!(profile_specs()[0].signals, AHB_LITE_SIGNALS);
-        assert_eq!(profile_specs()[1].signals, AHB5_SIGNALS);
+        assert_eq!(AHB_LITE_PROFILE.signals, AHB_LITE_SIGNALS);
+        assert_eq!(AHB5_PROFILE.signals, AHB5_SIGNALS);
     }
 
     #[test]

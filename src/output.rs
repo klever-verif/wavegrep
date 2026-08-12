@@ -182,10 +182,7 @@ pub fn write_jsonl_result<W: Write>(
                 writer.item(row)?;
             }
         }
-        CommandData::Schema(_)
-        | CommandData::Text(_)
-        | CommandData::DocsTopics(_)
-        | CommandData::DocsSearch(_) => {
+        CommandData::Text(_) | CommandData::DocsTopics(_) | CommandData::DocsSearch(_) => {
             return Err(WavepeekError::Args(
                 "--jsonl is available only for waveform commands".to_string(),
             ));
@@ -227,7 +224,6 @@ fn render_json(result: CommandResult) -> Result<String, WavepeekError> {
 
 fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
     match data {
-        CommandData::Schema(schema) => schema.clone(),
         CommandData::Text(text) => text.clone(),
         CommandData::Info(info) => {
             let mut lines = Vec::new();
@@ -640,7 +636,6 @@ mod tests {
 
     use serde_json::Value;
 
-    use crate::contract::schema::{OUTPUT_SCHEMA_URL, STREAM_SCHEMA_URL};
     use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
     use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
     use crate::output_mode::OutputMode;
@@ -667,8 +662,6 @@ mod tests {
         let json = render_json(result).expect("json serialization should succeed");
         let value: Value = serde_json::from_str(&json).expect("json should parse");
 
-        assert_eq!(value["$schema"], OUTPUT_SCHEMA_URL);
-        assert!(value.get("schema_version").is_none());
         assert_eq!(value["command"], "info");
         assert!(value["data"].is_object());
         assert!(value["diagnostics"].is_array());
@@ -797,7 +790,6 @@ mod tests {
         assert_eq!(records[0]["type"], "begin");
         assert_eq!(records[0]["seq"], 0);
         assert_eq!(records[0]["command"], "change");
-        assert_eq!(records[0]["$schema"], STREAM_SCHEMA_URL);
         assert_eq!(records[1]["type"], "item");
         assert_eq!(records[1]["seq"], 1);
         assert_eq!(records[2]["type"], "diagnostic");
@@ -959,13 +951,7 @@ mod tests {
     }
 
     #[test]
-    fn render_human_exercises_schema_signal_and_docs_search_variants() {
-        let schema = render_human(
-            &CommandData::Schema("{\"type\":\"object\"}".to_string()),
-            HumanRenderOptions::default(),
-        );
-        assert_eq!(schema, "{\"type\":\"object\"}");
-
+    fn render_human_exercises_signal_and_docs_search_variants() {
         let info = render_human(
             &CommandData::Info(crate::engine::info::InfoData {
                 time_unit: "1ps".to_string(),
@@ -1060,15 +1046,6 @@ mod tests {
 
     #[test]
     fn write_entrypoint_exercises_json_empty_human_and_diagnostic_paths() {
-        write(CommandResult {
-            command: CommandName::Schema,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::Schema("{}".to_string()),
-            diagnostics: Vec::new(),
-        })
-        .expect("schema output should write");
-
         write(CommandResult {
             command: CommandName::DocsSearch,
             output_mode: OutputMode::Human,

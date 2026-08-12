@@ -1836,7 +1836,7 @@ mod tests {
     }
 
     #[test]
-    fn stable_schema_kind_aliases_cover_full_inventory() {
+    fn stable_kind_aliases_cover_full_inventory() {
         let scope_cases = [
             (wellen::ScopeType::Module, "module"),
             (wellen::ScopeType::Task, "task"),

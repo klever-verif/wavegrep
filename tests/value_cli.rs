@@ -3,7 +3,7 @@ use predicates::prelude::*;
 use serde_json::{Value, json};
 
 mod common;
-use common::{expected_schema_url, fixture_path, wavepeek_cmd};
+use common::{fixture_path, wavepeek_cmd};
 
 #[test]
 fn value_human_output_with_scope_is_default() {
@@ -96,7 +96,6 @@ fn value_json_shape_with_scope_is_stable_and_ordered() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("value output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "value");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(

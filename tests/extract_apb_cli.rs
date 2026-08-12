@@ -6,38 +6,11 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
+use common::{fixture_path, wavepeek_cmd};
 
 const APB4_AUTO_INCLUDE: &str = "^uart_apb_(p_clk_i|presetn_i|psel_o|penable_o|pwrite_o|pready_i|p_addr_o|pprot_o|pwdata_o|pstrb_o|prdata_i|pslverr_i)$";
 const APB4_INCLUDE_WITH_DECOYS: &str = "^uart_apb_(p_clk_i|presetn_i|psel_o|penable_o|pwrite_o|pready_i|p_addr_o|pprot_o|pwdata_o|pstrb_o|prdata_i|pslverr_i|misc_o|preadychk_i|psel0_o|pselx_o)$";
 const APB5_AUTO_INCLUDE: &str = "^apb5_(pclk_i|presetn_i|psel_o|penable_o|pwrite_o|pready_i|paddr_o|pprot_o|pnse_o|pauser_o|pwdata_o|pstrb_o|pwuser_o|prdata_i|pslverr_i|pruser_i|pbuser_i)$";
-
-fn output_schema_validator() -> jsonschema::Validator {
-    schema_validator("output.json")
-}
-
-fn stream_schema_validator() -> jsonschema::Validator {
-    schema_validator("stream.json")
-}
-
-fn input_schema_validator() -> jsonschema::Validator {
-    schema_validator("input.json")
-}
-
-fn schema_validator(name: &str) -> jsonschema::Validator {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join(name);
-    let schema: Value = serde_json::from_str(
-        &fs::read_to_string(path).unwrap_or_else(|error| panic!("{name} should read: {error}")),
-    )
-    .unwrap_or_else(|error| panic!("{name} should parse: {error}"));
-    jsonschema::validator_for(&schema)
-        .unwrap_or_else(|error| panic!("{name} should compile: {error}"))
-}
 
 fn fixture(filename: &str) -> String {
     fixture_path(filename).to_string_lossy().into_owned()
@@ -52,22 +25,15 @@ fn write_source(contents: &str) -> NamedTempFile {
 
 fn parse_json(stdout: &[u8]) -> Value {
     let value: Value = serde_json::from_slice(stdout).expect("stdout should be valid JSON");
-    output_schema_validator()
-        .validate(&value)
-        .unwrap_or_else(|error| panic!("output should validate: {error}\n{value}"));
     value
 }
 
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let text = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(text.ends_with('\n'));
-    let validator = stream_schema_validator();
     text.lines()
         .map(|line| {
             let value: Value = serde_json::from_str(line).expect("JSONL line should parse");
-            validator
-                .validate(&value)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{value}"));
             value
         })
         .collect()
@@ -194,7 +160,6 @@ fn extract_apb_json_emits_waits_and_filters_payload_by_event_and_direction() {
     );
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "extract apb");
     assert_eq!(value["data"]["profile"], "apb4");
     assert_eq!(value["data"]["issue"], "E");
@@ -261,7 +226,6 @@ fn extract_apb_jsonl_streams_context_items_and_row_limit_summary() {
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
-    assert_eq!(records[0]["$schema"], expected_stream_schema_url());
     assert_eq!(records[0]["command"], "extract apb");
     assert_eq!(records[0]["context"]["profile"], "apb4");
     assert_eq!(records[0]["context"]["pready_mode"], "mapped");
@@ -480,7 +444,6 @@ fn extract_apb_vcd_and_fst_are_equivalent_for_every_profile() {
 fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
     let source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "profile": "APB4",
             "pready_mode": "MAPPED",
@@ -531,7 +494,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     let defaults_source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "maps": {
                 "pclk": "uart_apb_p_clk_i",
@@ -566,11 +528,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     for (field, field_value, error_fragment) in [
         (
-            "$schema",
-            json!("https://kleverhq.github.io/wavepeek/schema-input-v2.1.json"),
-            "unsupported $schema",
-        ),
-        (
             "kind",
             json!("extract.axi.source"),
             "expected extract.apb.source",
@@ -583,7 +540,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
         ("maps", Value::Null, "invalid type: null"),
     ] {
         let mut invalid = json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "maps": {}
         });
@@ -603,10 +559,8 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
             .stderr(predicate::str::contains(error_fragment));
     }
 
-    let duplicate_source = write_source(&format!(
-        r#"{{"$schema":"{}","kind":"extract.apb.source","maps":{{"pclk":"clk_a","pclk":"clk_b"}}}}"#,
-        expected_input_schema_url()
-    ));
+    let duplicate_source =
+        write_source(r#"{"kind":"extract.apb.source","maps":{"pclk":"clk_a","pclk":"clk_b"}}"#);
     wavepeek_cmd()
         .args([
             "extract",
@@ -622,7 +576,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     let implicit_wait_source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "pready_mode": "implicit-high",
             "include_wait": true,
@@ -647,7 +600,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     let outside_profile_source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "profile": "apb3",
             "maps": {"pprot": "top.uart_apb_pprot_o"}
@@ -671,62 +623,9 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 }
 
 #[test]
-fn extract_apb_source_schema_accepts_canonical_values_only() {
-    let validator = input_schema_validator();
-    let canonical = json!({
-        "$schema": expected_input_schema_url(),
-        "kind": "extract.apb.source",
-        "profile": "apb5",
-        "pready_mode": "mapped",
-        "include_wait": true,
-        "maps": {"pclk": "clk", "pready": "ready"}
-    });
-    validator
-        .validate(&canonical)
-        .unwrap_or_else(|error| panic!("canonical source should validate: {error}"));
-
-    for invalid in [
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "profile": "APB5"
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "pready_mode": "implicit_high"
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "pready_mode": "implicit-high", "include_wait": true
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "pready_mode": "implicit-high", "maps": {"pready": "ready"}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "profile": "apb3", "maps": {"pprot": "prot"}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "maps": {"pclk": ""}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "maps": {"pclk": "  \t\n"}
-        }),
-    ] {
-        assert!(
-            !validator.is_valid(&invalid),
-            "source must be rejected: {invalid}"
-        );
-    }
-}
-
-#[test]
 fn extract_apb_source_conflicts_with_profile_mapping_and_wait_flags() {
     let source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "pready_mode": "implicit-high",
             "maps": {

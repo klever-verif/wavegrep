@@ -11,21 +11,6 @@ pub fn wavepeek_cmd() -> Command {
 }
 
 #[allow(dead_code)]
-pub fn expected_schema_url() -> &'static str {
-    "https://kleverhq.github.io/wavepeek/schema-output-v2.2.json"
-}
-
-#[allow(dead_code)]
-pub fn expected_stream_schema_url() -> &'static str {
-    "https://kleverhq.github.io/wavepeek/schema-stream-v2.2.json"
-}
-
-#[allow(dead_code)]
-pub fn expected_input_schema_url() -> &'static str {
-    "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json"
-}
-
-#[allow(dead_code)]
 pub fn fixture_path(filename: &str) -> PathBuf {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for directory in ["generated", "hand"] {

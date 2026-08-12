@@ -1,4 +1,3 @@
-use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::Serialize;
 
 use crate::diagnostic::Diagnostic;
@@ -12,24 +11,14 @@ use super::output::{
     ExtractAxiStreamMapping, ExtractAxiStreamTransfer, ExtractAxiTransfer, ExtractGenericRow,
     InfoData, PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
 };
-use super::schema::STREAM_SCHEMA_URL;
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "beginRecord")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct BeginRecord<'a> {
     #[serde(rename = "type")]
-    #[schemars(schema_with = "begin_record_type_schema")]
     record_type: &'static str,
-    #[schemars(schema_with = "sequence_ref_schema")]
     seq: usize,
-    #[schemars(schema_with = "stream_command_ref_schema")]
     command: &'static str,
-    #[serde(rename = "$schema")]
-    #[schemars(schema_with = "stream_schema_url_schema")]
-    schema: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(default)]
     context: Option<StreamContextData<'a>>,
 }
 
@@ -40,7 +29,6 @@ impl BeginRecord<'static> {
             record_type: "begin",
             seq,
             command: command.as_str(),
-            schema: STREAM_SCHEMA_URL,
             context: None,
         })
     }
@@ -57,22 +45,16 @@ impl<'a> BeginRecord<'a> {
             record_type: "begin",
             seq,
             command: command.as_str(),
-            schema: STREAM_SCHEMA_URL,
             context: Some(context.stream_context(command)?),
         })
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "itemRecord")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ItemRecord<'a> {
     #[serde(rename = "type")]
-    #[schemars(schema_with = "item_record_type_schema")]
     record_type: &'static str,
-    #[schemars(schema_with = "sequence_ref_schema")]
     seq: usize,
-    #[schemars(schema_with = "stream_command_ref_schema")]
     command: &'static str,
     item: StreamItemData<'a>,
 }
@@ -93,16 +75,11 @@ impl<'a> ItemRecord<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "diagnosticRecord")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct DiagnosticRecord<'a> {
     #[serde(rename = "type")]
-    #[schemars(schema_with = "diagnostic_record_type_schema")]
     record_type: &'static str,
-    #[schemars(schema_with = "sequence_ref_schema")]
     seq: usize,
-    #[schemars(schema_with = "stream_command_ref_schema")]
     command: &'static str,
     diagnostic: ContractDiagnostic<'a>,
 }
@@ -123,16 +100,11 @@ impl<'a> DiagnosticRecord<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "endRecord")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct EndRecord {
     #[serde(rename = "type")]
-    #[schemars(schema_with = "end_record_type_schema")]
     record_type: &'static str,
-    #[schemars(schema_with = "sequence_ref_schema")]
     seq: usize,
-    #[schemars(schema_with = "stream_command_ref_schema")]
     command: &'static str,
     summary: StreamSummary,
 }
@@ -160,21 +132,15 @@ impl EndRecord {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "streamSummary")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 struct StreamSummary {
-    #[schemars(schema_with = "ok_status_schema")]
     status: &'static str,
-    #[schemars(schema_with = "nonnegative_count_schema")]
     items: usize,
-    #[schemars(schema_with = "nonnegative_count_schema")]
     diagnostics: usize,
     truncated: bool,
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "streamContextData")]
+#[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum StreamContextData<'a> {
     Ahb(ExtractAhbContext<'a>),
@@ -184,8 +150,7 @@ pub enum StreamContextData<'a> {
     AxiStream(ExtractAxiStreamContext<'a>),
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAhbContext")]
+#[derive(Debug, Serialize)]
 pub struct ExtractAhbContext<'a> {
     name: &'a str,
     profile: &'a str,
@@ -216,9 +181,7 @@ impl<'a> From<&'a crate::engine::ahb::AhbContext> for ExtractAhbContext<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractApbContext")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractApbContext<'a> {
     name: &'a str,
     profile: &'a str,
@@ -245,9 +208,7 @@ impl<'a> From<&'a crate::engine::apb::ApbContext> for ExtractApbContext<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAtbContext")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAtbContext<'a> {
     name: &'a str,
     profile: &'a str,
@@ -270,9 +231,7 @@ impl<'a> From<&'a crate::engine::atb::AtbContext> for ExtractAtbContext<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiContext")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiContext<'a> {
     name: &'a str,
     profile: &'a str,
@@ -327,9 +286,7 @@ impl StreamContext for crate::engine::axi::AxiContext {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiStreamContext")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiStreamContext<'a> {
     name: &'a str,
     profile: &'a str,
@@ -368,8 +325,7 @@ impl StreamContext for crate::engine::axistream::AxiStreamContext {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "streamItemData")]
+#[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum StreamItemData<'a> {
     Info(InfoData<'a>),
@@ -478,42 +434,6 @@ impl StreamItem for crate::engine::extract::ExtractGenericRow {
     }
 }
 
-fn begin_record_type_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"const": "begin"})
-}
-
-fn item_record_type_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"const": "item"})
-}
-
-fn diagnostic_record_type_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"const": "diagnostic"})
-}
-
-fn end_record_type_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"const": "end"})
-}
-
-fn ok_status_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"const": "ok"})
-}
-
-fn sequence_ref_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"$ref": "#/$defs/sequence"})
-}
-
-fn nonnegative_count_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"type": "integer", "minimum": 0})
-}
-
-fn stream_command_ref_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"$ref": "#/$defs/streamCommand"})
-}
-
-fn stream_schema_url_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({"type": "string", "const": STREAM_SCHEMA_URL})
-}
-
 fn require_item_command(actual: CommandName, expected: CommandName) -> Result<(), WavepeekError> {
     if actual == expected {
         Ok(())
@@ -555,16 +475,15 @@ mod tests {
     use super::{BeginRecord, ItemRecord};
 
     #[test]
-    fn begin_record_uses_stream_schema_url() {
+    fn begin_record_has_stable_shape() {
         let value = serde_json::to_value(
             BeginRecord::new(0, CommandName::Change).expect("change begin should convert"),
         )
         .expect("begin record should serialize");
 
-        assert_eq!(value["type"], "begin");
         assert_eq!(
-            value["$schema"],
-            "https://kleverhq.github.io/wavepeek/schema-stream-v2.2.json"
+            value,
+            json!({"type": "begin", "seq": 0, "command": "change"})
         );
     }
 

@@ -91,135 +91,6 @@ class PublishDocsTests(unittest.TestCase):
         with self.assertRaisesRegex(publish_docs.PublishError, "release tag"):
             publish_docs.require_ref_matches_version("main", "0.5.0")
 
-    def test_schema_artifact_names_use_legacy_major_then_family_v2_minor(self) -> None:
-        self.assertEqual(publish_docs.schema_artifact_name("1.1.0"), "wavepeek_v1.json")
-        self.assertEqual(publish_docs.stream_schema_artifact_name("1.1.0"), "wavepeek-stream-v1.json")
-        self.assertEqual(publish_docs.schema_artifact_name("2.0.0"), "schema-output-v2.0.json")
-        self.assertEqual(publish_docs.stream_schema_artifact_name("2.0.0"), "schema-stream-v2.0.json")
-        self.assertTrue(publish_docs.valid_schema_artifact_name("wavepeek_v1.json"))
-        self.assertTrue(publish_docs.valid_schema_artifact_name("wavepeek_v2.0.json"))
-        self.assertTrue(publish_docs.valid_schema_artifact_name("schema-output-v2.0.json"))
-        self.assertFalse(publish_docs.valid_schema_artifact_name("wavepeek_v1.1.json"))
-        self.assertFalse(publish_docs.valid_schema_artifact_name("wavepeek_v2.json"))
-        self.assertFalse(publish_docs.valid_schema_artifact_name("schema-output-v2.json"))
-        self.assertTrue(publish_docs.valid_stream_schema_artifact_name("wavepeek-stream-v1.json"))
-        self.assertTrue(publish_docs.valid_stream_schema_artifact_name("wavepeek-stream-v2.0.json"))
-        self.assertTrue(publish_docs.valid_stream_schema_artifact_name("schema-stream-v2.0.json"))
-        self.assertTrue(publish_docs.valid_input_schema_artifact_name("schema-input-v2.1.json"))
-        self.assertFalse(publish_docs.valid_input_schema_artifact_name("wavepeek-input-v2.1.json"))
-        self.assertFalse(publish_docs.valid_stream_schema_artifact_name("wavepeek-stream-v1.1.json"))
-        self.assertFalse(publish_docs.valid_stream_schema_artifact_name("wavepeek-stream-v2.json"))
-        self.assertFalse(publish_docs.valid_stream_schema_artifact_name("schema-stream-v2.json"))
-
-    def test_collect_root_artifacts_copies_versioned_schema(self) -> None:
-        source = self.root / "source"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek_v0.json").write_text("{}", encoding="utf-8")
-        (source / "schema" / "wavepeek-stream-v0.json").write_text("{}", encoding="utf-8")
-
-        copied = publish_docs.collect_root_artifacts(source, self.paths, "0.5.0")
-
-        self.assertEqual(sorted(path.name for path in copied), ["wavepeek-stream-v0.json", "wavepeek_v0.json"])
-        self.assertFalse((self.paths.root_artifacts / "skill.md").exists())
-
-    def test_collect_root_artifacts_allows_pre_jsonl_release_without_stream_schema(self) -> None:
-        source = self.root / "source-pre-jsonl"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek_v1.json").write_text("{}", encoding="utf-8")
-
-        copied = publish_docs.collect_root_artifacts(source, self.paths, "1.0.1")
-
-        self.assertEqual(sorted(path.name for path in copied), ["wavepeek_v1.json"])
-        self.assertFalse(publish_docs.stream_schema_required("1.0.1"))
-        self.assertTrue(publish_docs.stream_schema_required("1.1.0"))
-
-    def test_collect_root_artifacts_copies_v2_catalog_family_schema(self) -> None:
-        source = self.root / "source-v2"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek_v1.json").write_text("v1", encoding="utf-8")
-        (source / "schema" / "wavepeek-stream-v1.json").write_text("stream-v1", encoding="utf-8")
-        (source / "schema" / "output.json").write_text("v2.1", encoding="utf-8")
-        (source / "schema" / "stream.json").write_text("stream-v2.1", encoding="utf-8")
-        (source / "schema" / "input.json").write_text("input-v2.1", encoding="utf-8")
-        (source / "schema" / "catalog.json").write_text(
-            json.dumps({
-                "families": [
-                    {"id": "wavepeek.output", "version": "2.1", "path": "schema/output.json", "url": "https://kleverhq.github.io/wavepeek/schema-output-v2.1.json"},
-                    {"id": "wavepeek.stream-record", "version": "2.1", "path": "schema/stream.json", "url": "https://kleverhq.github.io/wavepeek/schema-stream-v2.1.json"},
-                    {"id": "wavepeek.input", "version": "2.1", "path": "schema/input.json", "url": "https://kleverhq.github.io/wavepeek/schema-input-v2.1.json"},
-                ],
-            }),
-            encoding="utf-8",
-        )
-
-        copied = publish_docs.collect_root_artifacts(source, self.paths, "2.1.0")
-
-        self.assertEqual(
-            sorted(path.name for path in copied),
-            [
-                "schema-input-v2.1.json",
-                "schema-output-v2.1.json",
-                "schema-stream-v2.1.json",
-                "wavepeek-stream-v1.json",
-                "wavepeek_v1.json",
-            ],
-        )
-        self.assertEqual((self.paths.root_artifacts / "schema-output-v2.1.json").read_text(), "v2.1")
-        self.assertEqual((self.paths.root_artifacts / "schema-input-v2.1.json").read_text(), "input-v2.1")
-
-    def test_collect_root_artifacts_allows_legacy_v2_without_catalog(self) -> None:
-        source = self.root / "source-v2-legacy"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek_v2.0.json").write_text("v2", encoding="utf-8")
-        (source / "schema" / "wavepeek-stream-v2.0.json").write_text("stream-v2", encoding="utf-8")
-
-        copied = publish_docs.collect_root_artifacts(source, self.paths, "2.0.0")
-
-        self.assertEqual(
-            sorted(path.name for path in copied),
-            ["wavepeek-stream-v2.0.json", "wavepeek_v2.0.json"],
-        )
-
-    def test_collect_root_artifacts_rejects_new_v2_without_catalog(self) -> None:
-        source = self.root / "source-v2-new-no-catalog"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek_v2.1.json").write_text("v2", encoding="utf-8")
-        (source / "schema" / "wavepeek-stream-v2.1.json").write_text("stream-v2", encoding="utf-8")
-
-        with self.assertRaisesRegex(publish_docs.PublishError, "missing schema catalog"):
-            publish_docs.collect_root_artifacts(source, self.paths, "2.1.0")
-
-    def test_collect_root_artifacts_rejects_invalid_schema_aliases(self) -> None:
-        source = self.root / "source-invalid-schema"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek_v2.0.json").write_text("v2", encoding="utf-8")
-        (source / "schema" / "wavepeek_v2.json").write_text("bad", encoding="utf-8")
-        (source / "schema" / "output.json").write_text("v2", encoding="utf-8")
-        (source / "schema" / "stream.json").write_text("stream-v2", encoding="utf-8")
-        (source / "schema" / "catalog.json").write_text(
-            json.dumps({
-                "families": [
-                    {"id": "wavepeek.output", "version": "2.0", "path": "schema/output.json", "url": "https://kleverhq.github.io/wavepeek/schema-output-v2.0.json"},
-                    {"id": "wavepeek.stream-record", "version": "2.0", "path": "schema/stream.json", "url": "https://kleverhq.github.io/wavepeek/schema-stream-v2.0.json"},
-                ],
-            }),
-            encoding="utf-8",
-        )
-
-        with self.assertRaisesRegex(publish_docs.PublishError, "wavepeek_v2.json"):
-            publish_docs.collect_root_artifacts(source, self.paths, "2.0.0")
-
-    def test_collect_root_artifacts_maps_legacy_major_zero_schema(self) -> None:
-        source = self.root / "legacy-source"
-        (source / "schema").mkdir(parents=True)
-        (source / "schema" / "wavepeek.json").write_text("legacy", encoding="utf-8")
-
-        publish_docs.collect_root_artifacts(source, self.paths, "0.5.0")
-
-        self.assertEqual(
-            (self.paths.root_artifacts / "wavepeek_v0.json").read_text(), "legacy"
-        )
-
     def test_read_stage_metadata_requires_matching_flags(self) -> None:
         self.paths.work_dir.mkdir(parents=True)
         self.paths.bundle.write_text("bundle", encoding="utf-8")
@@ -233,7 +104,6 @@ class PublishDocsTests(unittest.TestCase):
                     "repair_existing_version": False,
                     "allowed_path_patterns": publish_docs.allowed_path_patterns("0.5.0", promote_latest=True),
                     "promote_latest": True,
-                    "schema_artifacts": [],
                 }
             ),
             encoding="utf-8",
@@ -309,147 +179,37 @@ class PublishDocsTests(unittest.TestCase):
         with self.assertRaisesRegex(publish_docs.PublishError, "missing release installer"):
             publish_docs.copy_installer_entrypoints("0.5.0", self.paths, promote_latest=True)
 
-    def test_stage_publication_artifacts_stages_envelope_and_stream_schema(self) -> None:
+    def test_stage_publication_preserves_existing_files(self) -> None:
         repo = self.root / "repo-stage-artifacts"
         repo.mkdir()
         git(repo, "init", "-q")
         git(repo, "config", "user.email", "docs@example.invalid")
         git(repo, "config", "user.name", "Docs Bot")
-        (repo / "README.md").write_text("base", encoding="utf-8")
-        git(repo, "add", "README.md")
+        (repo / "historical.json").write_text("historical", encoding="utf-8")
+        git(repo, "add", ".")
         git(repo, "commit", "-q", "-m", "base")
         git(repo, "branch", "gh-pages")
-
-        self.paths.root_artifacts.mkdir(parents=True)
-        (self.paths.root_artifacts / "wavepeek_v1.json").write_text("envelope", encoding="utf-8")
-        (self.paths.root_artifacts / "wavepeek-stream-v1.json").write_text("stream", encoding="utf-8")
         self.paths.release_assets.mkdir(parents=True)
         (self.paths.release_assets / "wavepeek-installer.sh").write_text("shell", encoding="utf-8")
         (self.paths.release_assets / "wavepeek-installer.ps1").write_text("powershell", encoding="utf-8")
 
         with chdir(repo):
             publish_docs.stage_publication_artifacts(
-                "1.1.0",
-                self.paths,
-                publish_docs.CommandRunner(),
-                promote_latest=True,
+                "3.0.0", self.paths, publish_docs.CommandRunner(), promote_latest=True
             )
-            self.assertEqual(
-                git(repo, "show", "gh-pages:wavepeek-stream-v1.json"),
-                "stream",
-            )
-            self.assertEqual(git(repo, "show", "gh-pages:wavepeek_v1.json"), "envelope")
 
-    def test_stage_publication_artifacts_refuses_to_overwrite_historical_schema(self) -> None:
-        repo = self.root / "repo-stage-immutable-historical"
-        repo.mkdir()
-        git(repo, "init", "-q")
-        git(repo, "config", "user.email", "docs@example.invalid")
-        git(repo, "config", "user.name", "Docs Bot")
-        (repo / "wavepeek_v1.json").write_text("old", encoding="utf-8")
-        git(repo, "add", "wavepeek_v1.json")
-        git(repo, "commit", "-q", "-m", "base")
-        git(repo, "branch", "gh-pages")
-
-        self.paths.root_artifacts.mkdir(parents=True)
-        (self.paths.root_artifacts / "wavepeek_v1.json").write_text("new", encoding="utf-8")
-        self.paths.release_assets.mkdir(parents=True)
-        (self.paths.release_assets / "wavepeek-installer.sh").write_text("shell", encoding="utf-8")
-        (self.paths.release_assets / "wavepeek-installer.ps1").write_text("powershell", encoding="utf-8")
-
-        with chdir(repo):
-            with self.assertRaisesRegex(publish_docs.PublishError, "immutable schema artifact"):
-                publish_docs.stage_publication_artifacts(
-                    "1.1.0",
-                    self.paths,
-                    publish_docs.CommandRunner(),
-                    promote_latest=True,
-                )
+        self.assertEqual(git(repo, "show", "gh-pages:historical.json"), "historical")
 
     def test_allowed_path_patterns_limit_gh_pages_diff(self) -> None:
         publish_docs.verify_allowed_paths(
-            [
-                "0.5.0/index.html",
-                "latest/index.html",
-                ".nojekyll",
-                "versions.json",
-                "install.sh",
-                "install.ps1",
-                "wavepeek-stream-v0.json",
-                "wavepeek_v2.0.json",
-                "wavepeek-stream-v2.0.json",
-                "schema-output-v2.0.json",
-                "schema-stream-v2.0.json",
-            ],
-            publish_docs.allowed_path_patterns("0.5.0", promote_latest=True),
+            ["3.0.0/index.html", "latest/index.html", ".nojekyll", "versions.json", "install.sh"],
+            publish_docs.allowed_path_patterns("3.0.0", promote_latest=True),
         )
-
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["0.4.0/index.html"], publish_docs.allowed_path_patterns("0.5.0", promote_latest=True)
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek_v0.json/extra.json"],
-                publish_docs.allowed_path_patterns("0.5.0", promote_latest=True),
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek_v2.json"],
-                publish_docs.allowed_path_patterns("2.0.0", promote_latest=True),
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek_v1.1.json"],
-                publish_docs.allowed_path_patterns("1.1.0", promote_latest=True),
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek-stream-v0.json/extra.json"],
-                publish_docs.allowed_path_patterns("0.5.0", promote_latest=True),
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek-stream-v2.json"],
-                publish_docs.allowed_path_patterns("2.0.0", promote_latest=True),
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek-stream-v1.1.json"],
-                publish_docs.allowed_path_patterns("1.1.0", promote_latest=True),
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["skill.md"], publish_docs.allowed_path_patterns("0.5.0", promote_latest=True)
-            )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["latest/index.html", "install.sh", "wavepeek_v0.json", "wavepeek-stream-v0.json"],
-                publish_docs.allowed_path_patterns("0.4.0", promote_latest=False),
-            )
-        publish_docs.verify_allowed_paths(
-            ["schema-output-v2.0.json", "schema-stream-v2.0.json"],
-            publish_docs.allowed_path_patterns("2.0.0", promote_latest=False),
-        )
-        with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
-            publish_docs.verify_allowed_paths(
-                ["wavepeek_v2.0.json", "wavepeek-stream-v2.0.json"],
-                publish_docs.allowed_path_patterns("2.0.0", promote_latest=False),
-            )
-
-    def test_required_pages_artifacts_use_legacy_v2_without_catalog_artifacts(self) -> None:
-        self.assertEqual(
-            publish_docs.required_pages_artifact_paths("2.0.0"),
-            ["index.html", "versions.json", "wavepeek_v2.0.json", "wavepeek-stream-v2.0.json"],
-        )
-
-    def test_required_pages_artifacts_use_catalog_artifacts_when_provided(self) -> None:
-        self.assertEqual(
-            publish_docs.required_pages_artifact_paths(
-                "2.10.0", ["schema-output-v2.0.json", "schema-stream-v2.0.json"]
-            ),
-            ["index.html", "versions.json", "schema-output-v2.0.json", "schema-stream-v2.0.json"],
-        )
+        for path in ["2.2.0/index.html", "unexpected.json", "skill.md"]:
+            with self.assertRaisesRegex(publish_docs.PublishError, "disallowed"):
+                publish_docs.verify_allowed_paths(
+                    [path], publish_docs.allowed_path_patterns("3.0.0", promote_latest=True)
+                )
 
     def test_changed_paths_reports_old_path_for_renames(self) -> None:
         repo = self.root / "repo-rename"
@@ -489,7 +249,7 @@ class PublishDocsTests(unittest.TestCase):
         git(repo, "commit", "-q", "-m", "pages")
 
         with chdir(repo):
-            publish_docs.export_pages_artifact("HEAD", "1.1.0", self.paths, publish_docs.CommandRunner())
+            publish_docs.export_pages_artifact("HEAD", self.paths, publish_docs.CommandRunner())
 
         self.assertEqual((self.paths.pages_artifact / "index.html").read_text(), "redirect")
         self.assertEqual((self.paths.pages_artifact / "1.1.0" / "index.html").read_text(), "docs")
@@ -512,40 +272,7 @@ class PublishDocsTests(unittest.TestCase):
 
         with chdir(repo):
             with self.assertRaisesRegex(publish_docs.PublishError, "index.html"):
-                publish_docs.export_pages_artifact("HEAD", "0.5.0", self.paths, publish_docs.CommandRunner())
-
-    def test_verify_root_artifacts_requires_major_schema(self) -> None:
-        repo = self.root / "repo-root-artifacts"
-        repo.mkdir()
-        git(repo, "init", "-q")
-        git(repo, "config", "user.email", "docs@example.invalid")
-        git(repo, "config", "user.name", "Docs Bot")
-        (repo / "wavepeek_v1.json").write_text("{}", encoding="utf-8")
-        (repo / "wavepeek-stream-v1.json").write_text("{}", encoding="utf-8")
-        git(repo, "add", "wavepeek_v1.json", "wavepeek-stream-v1.json")
-        git(repo, "commit", "-q", "-m", "artifacts")
-        runner = publish_docs.CommandRunner()
-
-        with chdir(repo):
-            publish_docs.verify_root_artifacts("HEAD", "1.1.0", runner)
-            git(repo, "rm", "-q", "wavepeek-stream-v1.json")
-            git(repo, "commit", "-q", "-m", "remove stream schema")
-            with self.assertRaisesRegex(publish_docs.PublishError, "wavepeek-stream-v1.json"):
-                publish_docs.verify_root_artifacts("HEAD", "1.1.0", runner)
-
-        repo_tree = self.root / "repo-root-artifacts-tree"
-        repo_tree.mkdir()
-        git(repo_tree, "init", "-q")
-        git(repo_tree, "config", "user.email", "docs@example.invalid")
-        git(repo_tree, "config", "user.name", "Docs Bot")
-        (repo_tree / "wavepeek_v0.json").mkdir()
-        (repo_tree / "wavepeek_v0.json" / "extra.json").write_text("{}", encoding="utf-8")
-        (repo_tree / "wavepeek-stream-v0.json").write_text("{}", encoding="utf-8")
-        git(repo_tree, "add", "wavepeek_v0.json/extra.json", "wavepeek-stream-v0.json")
-        git(repo_tree, "commit", "-q", "-m", "tree artifact")
-        with chdir(repo_tree):
-            with self.assertRaisesRegex(publish_docs.PublishError, "wavepeek_v0.json"):
-                publish_docs.verify_root_artifacts("HEAD", "0.5.0", runner)
+                publish_docs.export_pages_artifact("HEAD", self.paths, publish_docs.CommandRunner())
 
     def test_versions_json_rejects_duplicate_versions_and_bad_aliases(self) -> None:
         with self.assertRaisesRegex(publish_docs.PublishError, "duplicate version"):

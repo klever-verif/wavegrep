@@ -51,33 +51,6 @@ class CheckDeployTests(unittest.TestCase):
         )
         self.assertFalse(args.expect_latest)
 
-    def test_version_validation_and_artifact_names_cover_legacy_families(self) -> None:
-        self.assertEqual(check_deploy.validate_version("2.2.0"), "2.2.0")
-        for invalid in ["v2.2.0", "2.2", "02.2.0", "next"]:
-            with self.assertRaises(check_deploy.DeployCheckError):
-                check_deploy.validate_version(invalid)
-
-        self.assertEqual(check_deploy.schema_artifact_name("1.0.0"), "wavepeek_v1.json")
-        self.assertEqual(check_deploy.schema_artifact_name("2.0.0"), "wavepeek_v2.0.json")
-        self.assertEqual(
-            check_deploy.schema_artifact_name("2.2.0"),
-            "schema-output-v2.2.json",
-        )
-        self.assertEqual(
-            check_deploy.stream_schema_artifact_name("2.2.0"),
-            "schema-stream-v2.2.json",
-        )
-        self.assertEqual(
-            check_deploy.input_schema_artifact_name("2.2.0"),
-            "schema-input-v2.2.json",
-        )
-
-    def test_schema_requirement_thresholds_preserve_historical_checks(self) -> None:
-        self.assertFalse(check_deploy.stream_schema_required("1.0.9"))
-        self.assertTrue(check_deploy.stream_schema_required("1.1.0"))
-        self.assertFalse(check_deploy.input_schema_required("2.0.9"))
-        self.assertTrue(check_deploy.input_schema_required("2.1.0"))
-
     def test_url_and_repository_validation(self) -> None:
         self.assertEqual(
             check_deploy.normalize_base_url(" https://example.test/docs/ "),
@@ -176,13 +149,10 @@ class CheckDeployTests(unittest.TestCase):
                 "https://example.test/wavepeek/2.2.0/",
                 "https://example.test/wavepeek/latest/",
                 "https://example.test/wavepeek/versions.json",
-                "https://example.test/wavepeek/schema-output-v2.2.json",
-                "https://example.test/wavepeek/schema-stream-v2.2.json",
-                "https://example.test/wavepeek/schema-input-v2.2.json",
             ],
         )
 
-    def test_check_deploy_omits_latest_and_optional_legacy_schemas(self) -> None:
+    def test_check_deploy_can_omit_latest(self) -> None:
         args = check_deploy.parse_args(
             [
                 "--version",
@@ -205,33 +175,8 @@ class CheckDeployTests(unittest.TestCase):
                 "https://example.test/wavepeek/",
                 "https://example.test/wavepeek/1.0.0/",
                 "https://example.test/wavepeek/versions.json",
-                "https://example.test/wavepeek/wavepeek_v1.json",
             ],
         )
-
-    def test_explicit_schema_artifacts_are_always_fetched(self) -> None:
-        args = check_deploy.parse_args(
-            [
-                "--version",
-                "1.0.0",
-                "--base-url",
-                "https://example.test",
-                "--schema-artifact",
-                "output.json",
-                "--stream-schema-artifact",
-                "stream.json",
-                "--input-schema-artifact",
-                "input.json",
-                "--retries",
-                "1",
-            ]
-        )
-        with mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok") as fetch:
-            check_deploy.check_deploy(args)
-        urls = [call.args[0] for call in fetch.call_args_list]
-        self.assertIn("https://example.test/output.json", urls)
-        self.assertIn("https://example.test/stream.json", urls)
-        self.assertIn("https://example.test/input.json", urls)
 
     def test_pages_site_requires_workflow_build_and_matching_url(self) -> None:
         check_deploy.validate_pages_site(

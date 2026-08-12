@@ -1,7 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 export RTL_ARTIFACTS_DIR := `. ./.devcontainer/env_contract.sh; printf '%s\n' "$RTL_ARTIFACTS_DIR"`
-schema_check_dir := "tmp/schema-check"
 bench_e2e_fsdb_tests := "bench/e2e/tests_fsdb.json"
 bench_e2e_fsdb_smoke_filter := "^(info_picorv32_ez|scope_scr1_all_depth7_json|signal_scr1_top_recursive_depth2_json|value_scr1_signals_1|change_scr1_signals_1_window_2ns_trigger_any)$"
 bench_e2e_fsdb_smoke_artifact_filter := "^(picorv32_test_ez_vcd|scr1_max_axi_riscv_compliance)[.]fst$"
@@ -61,16 +60,6 @@ check-rtl-artifacts: require-container
 # Regenerate source-backed waveform fixtures under tests/fixtures/generated
 prepare-waveform-fixtures: require-container
     {{ python }} tools/waveform/prepare_fixtures.py
-
-# Regenerate canonical schema artifacts from Rust contract code
-update-schema: require-container
-    cargo run --quiet --manifest-path tools/schema-gen/Cargo.toml -- --out schema
-
-# Validate canonical schema freshness and JSON contract URL
-check-schema: require-container prepare-waveform-fixtures
-    @rm -rf "{{ schema_check_dir }}"
-    cargo run --quiet --manifest-path tools/schema-gen/Cargo.toml -- --out "{{ schema_check_dir }}"
-    @{{ python }} tools/schema/check_schema_contract.py --schema-dir schema --generated-dir "{{ schema_check_dir }}"
 
 # Lint GitHub Actions workflows
 check-actions: require-container
@@ -238,7 +227,6 @@ test-aux: require-container
     {{ python }} -m unittest discover -s tools/bench -p "test_*.py"
     {{ python }} -m unittest discover -s tools/docs -p "test_*.py"
     {{ python }} -m unittest discover -s tools/release -p "test_*.py"
-    {{ python }} -m unittest discover -s tools/schema -p "test_*.py"
     {{ python }} -m unittest tools/coverage/test_check_coverage.py
     {{ python }} -m unittest discover -s tools/fsdb -p "test_*.py"
     {{ python }} -m unittest discover -s tools/repo -p "test_*.py"
@@ -308,11 +296,9 @@ docs-site-check-deploy version=docs_version base_url=docs_pages_url repository=d
         if [ -n "{{ repository }}" ]; then \
             repo_arg=(--repository "{{ repository }}"); \
         fi; \
-        schema_args=($({{ python }} -c 'import json, pathlib, tomllib, urllib.parse; requested="{{ version }}"; package=tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["package"]["version"]; p=pathlib.Path("schema/catalog.json"); c=json.loads(p.read_text(encoding="utf-8")) if requested == package and p.is_file() else {"families": []}; flags={"wavepeek.output":"--schema-artifact","wavepeek.stream-record":"--stream-schema-artifact","wavepeek.input":"--input-schema-artifact"}; [print(flags[e["id"]], pathlib.PurePosixPath(urllib.parse.urlparse(e["url"]).path).name) for e in c.get("families", []) if e.get("id") in flags]')); \
         {{ python }} tools/docs/check_deploy.py \
             --version "{{ version }}" \
             --base-url "{{ base_url }}" \
-            "${schema_args[@]}" \
             "${repo_arg[@]}"
 
 # Build release binary
@@ -361,15 +347,15 @@ check-commit message=`git rev-parse --git-path COMMIT_EDITMSG`: require-containe
     cz check --commit-msg-file {{ quote(message) }}
 
 # Check everything
-check: format-check lint check-schema check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check check-commit
+check: format-check lint check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check check-commit
     @just run-if-verdi check-fsdb-build
 
 # CI quality gate (no commit-msg hook)
-ci: format-check lint check-schema check-actions test-aux coverage-src-check check-build docs-site-check
+ci: format-check lint check-actions test-aux coverage-src-check check-build docs-site-check
     @just run-if-verdi test-fsdb
 
 # Fix everything
-fix: format lint-fix update-schema
+fix: format lint-fix
 
 # Clean up
 clean: require-container

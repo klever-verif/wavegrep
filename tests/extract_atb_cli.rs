@@ -6,10 +6,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
+use common::{fixture_path, wavepeek_cmd};
 
 const AUTO_INCLUDE: &str = "^trace_";
 
@@ -19,43 +16,17 @@ fn fixture(extension: &str) -> String {
         .into_owned()
 }
 
-fn output_schema_validator() -> jsonschema::Validator {
-    schema_validator("output.json")
-}
-
-fn stream_schema_validator() -> jsonschema::Validator {
-    schema_validator("stream.json")
-}
-
-fn schema_validator(filename: &str) -> jsonschema::Validator {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join(filename);
-    let schema: Value = serde_json::from_str(
-        &fs::read_to_string(path).unwrap_or_else(|_| panic!("{filename} should read")),
-    )
-    .unwrap_or_else(|_| panic!("{filename} should parse"));
-    jsonschema::validator_for(&schema).unwrap_or_else(|_| panic!("{filename} should compile"))
-}
-
 fn parse_json(stdout: &[u8]) -> Value {
     let value: Value = serde_json::from_slice(stdout).expect("stdout should be JSON");
-    output_schema_validator()
-        .validate(&value)
-        .unwrap_or_else(|error| panic!("output should validate: {error}\n{value}"));
     value
 }
 
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let text = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(text.ends_with('\n'));
-    let validator = stream_schema_validator();
     text.lines()
         .map(|line| {
             let value: Value = serde_json::from_str(line).expect("JSONL line should parse");
-            validator
-                .validate(&value)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{value}"));
             value
         })
         .collect()
@@ -337,7 +308,6 @@ fn extract_atb_supports_independent_channels_optional_reset_and_payload() {
 fn extract_atb_json_abs_and_source_modes_preserve_contracts() {
     let waves = fixture("vcd");
     let source = write_source(&json!({
-        "$schema": expected_input_schema_url(),
         "kind": "extract.atb.source",
         "profile": "atb_b",
         "name": "etm_trace",
@@ -365,7 +335,6 @@ fn extract_atb_json_abs_and_source_modes_preserve_contracts() {
         String::from_utf8_lossy(&output.stderr)
     );
     let value = parse_json(&output.stdout);
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "extract atb");
     assert_eq!(value["data"]["name"], "etm_trace");
     assert_eq!(value["data"]["profile"], "atb-b");
@@ -416,7 +385,6 @@ fn extract_atb_jsonl_orders_rows_and_counts_max_split() {
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
     assert_eq!(records[0]["command"], "extract atb");
-    assert_eq!(records[0]["$schema"], expected_stream_schema_url());
     assert_eq!(records[0]["context"]["profile"], "atb-c");
     assert_eq!(records[1]["item"]["event"], "transfer");
     assert_eq!(records[2]["item"]["event"], "flush");
@@ -617,22 +585,14 @@ fn extract_atb_rejects_invalid_map_include_scope_and_source_inputs() {
 
     for source in [
         json!({
-            "$schema": "https://example.invalid/input.json",
-            "kind": "extract.atb.source",
-            "maps": {}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.axi.source",
             "maps": {}
         }),
         json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.atb.source",
             "profile": null
         }),
         json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.atb.source",
             "name": null
         }),
@@ -652,7 +612,6 @@ fn extract_atb_rejects_invalid_map_include_scope_and_source_inputs() {
     }
 
     let valid_source = write_source(&json!({
-        "$schema": expected_input_schema_url(),
         "kind": "extract.atb.source",
         "maps": {
             "atclk": "top.trace_at_clk_i",

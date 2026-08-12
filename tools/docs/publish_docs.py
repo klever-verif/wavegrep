@@ -12,7 +12,6 @@ import shutil
 import subprocess
 import sys
 import tomllib
-import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Sequence
 
@@ -38,8 +37,6 @@ PUSH_TOKEN_ENV = {
     "GITHUB_PAT",
     "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
 }
-STREAM_SCHEMA_MIN_VERSION = (1, 1, 0)
-INPUT_SCHEMA_MIN_VERSION = (2, 1, 0)
 
 
 class PublishError(Exception):
@@ -52,7 +49,6 @@ class Paths:
     export_dir: pathlib.Path
     mkdocs_src: pathlib.Path
     mkdocs_config: pathlib.Path
-    root_artifacts: pathlib.Path
     source_worktree: pathlib.Path
     gh_pages_worktree: pathlib.Path
     metadata: pathlib.Path
@@ -101,13 +97,6 @@ class CommandRunner:
         )
 
 
-@dataclass(frozen=True)
-class CheckResult:
-    source_root: pathlib.Path
-    cli_version: str
-    root_artifacts: list[pathlib.Path]
-
-
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build and stage wavepeek GitHub Pages docs.")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -143,7 +132,6 @@ def paths(work_dir: pathlib.Path) -> Paths:
         export_dir=work_dir / "export",
         mkdocs_src=work_dir / "mkdocs-src",
         mkdocs_config=work_dir / "mkdocs.yml",
-        root_artifacts=work_dir / "root-artifacts",
         source_worktree=work_dir / "source",
         gh_pages_worktree=work_dir / "gh-pages",
         metadata=work_dir / METADATA_NAME,
@@ -198,140 +186,6 @@ def package_version(source_root: pathlib.Path) -> str:
 
 def major_version(version: str) -> int:
     return int(validate_version(version).split(".", maxsplit=1)[0])
-
-
-def version_tuple(version: str) -> tuple[int, int, int]:
-    return tuple(int(part) for part in validate_version(version).split("."))  # type: ignore[return-value]
-
-
-def stream_schema_required(version: str) -> bool:
-    return version_tuple(version) >= STREAM_SCHEMA_MIN_VERSION
-
-
-def input_schema_required(version: str) -> bool:
-    return version_tuple(version) >= INPUT_SCHEMA_MIN_VERSION
-
-
-def schema_artifact_suffix(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if major >= 2:
-        return f"{major}.{minor}"
-    return str(major)
-
-
-def schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if major >= 2:
-        return f"schema-output-v{major}.{minor}.json"
-    return f"wavepeek_v{major}.json"
-
-
-def stream_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if major >= 2:
-        return f"schema-stream-v{major}.{minor}.json"
-    return f"wavepeek-stream-v{major}.json"
-
-
-def legacy_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if major >= 2:
-        return f"wavepeek_v{major}.{minor}.json"
-    return f"wavepeek_v{major}.json"
-
-
-def legacy_stream_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if major >= 2:
-        return f"wavepeek-stream-v{major}.{minor}.json"
-    return f"wavepeek-stream-v{major}.json"
-
-
-def input_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    return f"schema-input-v{major}.{minor}.json"
-
-
-def valid_legacy_schema_artifact_name(name: str) -> bool:
-    return re.fullmatch(r"wavepeek_v(?:[01]|[2-9][0-9]*[.][0-9]+)[.]json", name) is not None
-
-
-def valid_legacy_stream_schema_artifact_name(name: str) -> bool:
-    return re.fullmatch(r"wavepeek-stream-v(?:[01]|[2-9][0-9]*[.][0-9]+)[.]json", name) is not None
-
-
-def valid_family_schema_artifact_name(name: str) -> bool:
-    return re.fullmatch(r"schema-output-v[1-9][0-9]*[.][0-9]+[.]json", name) is not None
-
-
-def valid_family_stream_schema_artifact_name(name: str) -> bool:
-    return re.fullmatch(r"schema-stream-v[1-9][0-9]*[.][0-9]+[.]json", name) is not None
-
-
-def valid_family_input_schema_artifact_name(name: str) -> bool:
-    return re.fullmatch(r"schema-input-v[1-9][0-9]*[.][0-9]+[.]json", name) is not None
-
-
-def valid_schema_artifact_name(name: str) -> bool:
-    return valid_legacy_schema_artifact_name(name) or valid_family_schema_artifact_name(name)
-
-
-def valid_stream_schema_artifact_name(name: str) -> bool:
-    return valid_legacy_stream_schema_artifact_name(name) or valid_family_stream_schema_artifact_name(name)
-
-
-def valid_input_schema_artifact_name(name: str) -> bool:
-    return valid_family_input_schema_artifact_name(name)
-
-
-def valid_versioned_schema_artifact_name(name: str) -> bool:
-    return (
-        valid_schema_artifact_name(name)
-        or valid_stream_schema_artifact_name(name)
-        or valid_input_schema_artifact_name(name)
-    )
-
-
-def legacy_no_catalog_allowed(version: str) -> bool:
-    return version_tuple(version) <= (2, 0, 0)
-
-
-def catalog_artifact_names(root_artifacts: Sequence[pathlib.Path]) -> set[str]:
-    return {
-        path.name
-        for path in root_artifacts
-        if re.fullmatch(r"schema-(output|stream|input)-v[1-9][0-9]*[.][0-9]+[.]json", path.name)
-    }
-
-
-def load_schema_catalog(schema_dir: pathlib.Path) -> list[dict[str, str]]:
-    catalog_path = schema_dir / "catalog.json"
-    if not catalog_path.is_file():
-        return []
-    try:
-        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        fail(f"schema catalog {catalog_path} is invalid JSON: {error}")
-    if not isinstance(catalog.get("families"), list):
-        fail(f"schema catalog {catalog_path} must contain a families array")
-    entries: list[dict[str, str]] = []
-    for entry in catalog["families"]:
-        if not isinstance(entry, dict):
-            fail(f"schema catalog {catalog_path} contains a non-object entry")
-        required = {"id", "version", "path", "url"}
-        if any(not isinstance(entry.get(key), str) for key in required):
-            fail(f"schema catalog {catalog_path} entries must contain string {sorted(required)}")
-        artifact = pathlib.PurePosixPath(urllib.parse.urlparse(entry["url"]).path).name
-        if not (
-            valid_schema_artifact_name(artifact)
-            or valid_stream_schema_artifact_name(artifact)
-            or valid_input_schema_artifact_name(artifact)
-        ):
-            fail(f"schema catalog artifact name is invalid: {artifact}")
-        copied = {key: entry[key] for key in required}
-        copied["artifact"] = artifact
-        entries.append(copied)
-    return entries
 
 
 def clean_owned_path(path: pathlib.Path) -> None:
@@ -405,84 +259,6 @@ def build_mkdocs(run_paths: Paths, version: str, runner: CommandRunner) -> str:
     return cli_version
 
 
-def collect_root_artifacts(source_root: pathlib.Path, run_paths: Paths, version: str) -> list[pathlib.Path]:
-    clean_owned_path(run_paths.root_artifacts)
-    run_paths.root_artifacts.mkdir(parents=True, exist_ok=True)
-
-    schema_dir = source_root / "schema"
-    if not schema_dir.is_dir():
-        fail(f"missing schema directory at {schema_dir}")
-
-    copied: list[pathlib.Path] = []
-    catalog_entries = load_schema_catalog(schema_dir)
-    if catalog_entries:
-        for entry in catalog_entries:
-            source = source_root / entry["path"]
-            if not source.is_file():
-                fail(f"schema catalog references missing artifact {source}")
-            target = run_paths.root_artifacts / entry["artifact"]
-            shutil.copyfile(source, target)
-            copied.append(target)
-    elif major_version(version) >= 2 and not legacy_no_catalog_allowed(version):
-        fail(f"missing schema catalog at {schema_dir / 'catalog.json'}")
-
-    schema_candidates = sorted(schema_dir.glob("wavepeek_v*.json"))
-    stream_schema_candidates = sorted(schema_dir.glob("wavepeek-stream-v*.json"))
-    input_schema_candidates: list[pathlib.Path] = []
-    invalid = [
-        path.name
-        for path in [*schema_candidates, *stream_schema_candidates, *input_schema_candidates]
-        if not (
-            valid_schema_artifact_name(path.name)
-            or valid_stream_schema_artifact_name(path.name)
-            or valid_input_schema_artifact_name(path.name)
-        )
-    ]
-    if invalid:
-        fail("invalid schema artifact name(s): " + ", ".join(sorted(invalid)))
-    for schema in [*schema_candidates, *stream_schema_candidates, *input_schema_candidates]:
-        if (
-            valid_schema_artifact_name(schema.name)
-            or valid_stream_schema_artifact_name(schema.name)
-            or valid_input_schema_artifact_name(schema.name)
-        ):
-            target = run_paths.root_artifacts / schema.name
-            shutil.copyfile(schema, target)
-            copied.append(target)
-
-    if not copied:
-        legacy_schema = schema_dir / "wavepeek.json"
-        if major_version(version) == 0 and legacy_schema.is_file():
-            target = run_paths.root_artifacts / "wavepeek_v0.json"
-            shutil.copyfile(legacy_schema, target)
-            copied.append(target)
-        else:
-            fail(f"missing schema artifacts under {schema_dir}")
-
-    if catalog_entries:
-        catalog_ids = {entry["id"] for entry in catalog_entries}
-        if "wavepeek.output" not in catalog_ids:
-            fail(f"schema catalog under {schema_dir} is missing wavepeek.output")
-        if stream_schema_required(version) and "wavepeek.stream-record" not in catalog_ids:
-            fail(f"schema catalog under {schema_dir} is missing wavepeek.stream-record")
-        if input_schema_required(version) and "wavepeek.input" not in catalog_ids:
-            fail(f"schema catalog under {schema_dir} is missing wavepeek.input")
-    else:
-        expected_schema = legacy_schema_artifact_name(version)
-        expected_stream_schema = legacy_stream_schema_artifact_name(version)
-        if not any(path.name == expected_schema for path in copied):
-            fail(f"missing current schema artifact {expected_schema} under {schema_dir}")
-        if stream_schema_required(version) and not any(
-            path.name == expected_stream_schema for path in copied
-        ):
-            fail(f"missing current stream schema artifact {expected_stream_schema} under {schema_dir}")
-        if input_schema_required(version):
-            expected_input_schema = input_schema_artifact_name(version)
-            if not any(path.name == expected_input_schema for path in copied):
-                fail(f"missing current input schema artifact {expected_input_schema} under {schema_dir}")
-    return copied
-
-
 def resolve_source_root(
     *,
     source_root: pathlib.Path | None,
@@ -509,7 +285,7 @@ def perform_check(
     source_root: pathlib.Path | None = None,
     source_ref: str | None = None,
     for_stage: bool = False,
-) -> CheckResult:
+) -> str:
     actual_source_root = resolve_source_root(
         source_root=source_root,
         source_ref=source_ref,
@@ -526,11 +302,10 @@ def perform_check(
     try:
         export_docs(actual_source_root, run_paths, runner)
         cli_version = build_mkdocs(run_paths, version, runner)
-        artifacts = collect_root_artifacts(actual_source_root, run_paths, version)
     finally:
         if worktree_source:
             remove_git_worktree(run_paths.source_worktree, runner)
-    return CheckResult(actual_source_root, cli_version, artifacts)
+    return cli_version
 
 
 def git_capture(args: Sequence[str | pathlib.Path], runner: CommandRunner) -> str:
@@ -721,25 +496,11 @@ def stage_publication_artifacts(
     runner: CommandRunner,
     *,
     promote_latest: bool,
-) -> list[str]:
+) -> None:
     remove_git_worktree(run_paths.gh_pages_worktree, runner)
     runner.run(["git", "worktree", "add", run_paths.gh_pages_worktree, GH_PAGES_BRANCH])
-    staged_paths: list[str] = []
-    current_exact_artifacts = catalog_artifact_names(list(run_paths.root_artifacts.iterdir()))
-    for artifact in sorted(run_paths.root_artifacts.iterdir()):
-        if not artifact.is_file():
-            continue
-        should_stage = promote_latest or artifact.name in current_exact_artifacts
-        if not should_stage:
-            continue
-        target = run_paths.gh_pages_worktree / artifact.name
-        if valid_versioned_schema_artifact_name(artifact.name) and target.is_file():
-            if target.read_bytes() != artifact.read_bytes():
-                fail(f"refusing to overwrite immutable schema artifact {artifact.name}")
-        shutil.copyfile(artifact, target)
-        staged_paths.append(artifact.name)
     installer_paths = copy_installer_entrypoints(version, run_paths, promote_latest=promote_latest)
-    runner.run(["git", "add", *staged_paths, *installer_paths], cwd=run_paths.gh_pages_worktree)
+    runner.run(["git", "add", *installer_paths], cwd=run_paths.gh_pages_worktree)
     diff = runner.run(
         ["git", "diff", "--cached", "--quiet"],
         cwd=run_paths.gh_pages_worktree,
@@ -751,7 +512,6 @@ def stage_publication_artifacts(
             ["git", "commit", "-m", f"docs: publish artifacts for {version}"],
             cwd=run_paths.gh_pages_worktree,
         )
-    return staged_paths
 
 
 def allowed_path_patterns(version: str, *, promote_latest: bool) -> list[str]:
@@ -760,7 +520,6 @@ def allowed_path_patterns(version: str, *, promote_latest: bool) -> list[str]:
         ".nojekyll",
         "versions.json",
     ]
-    patterns.extend(["schema-output-v*.json", "schema-stream-v*.json", "schema-input-v*.json"])
     if promote_latest:
         patterns.extend(
             [
@@ -768,8 +527,6 @@ def allowed_path_patterns(version: str, *, promote_latest: bool) -> list[str]:
                 "404.html",
                 "sitemap.xml",
                 "sitemap.xml.gz",
-                "wavepeek_v*.json",
-                "wavepeek-stream-v*.json",
                 "latest/**",
                 "install.sh",
                 "install.ps1",
@@ -787,7 +544,6 @@ def write_stage_metadata(
     run_paths: Paths,
     runner: CommandRunner,
     promote_latest: bool,
-    schema_artifacts: list[str],
 ) -> dict[str, Any]:
     final_commit = git_capture(["rev-parse", GH_PAGES_BRANCH], runner)
     metadata = {
@@ -801,7 +557,6 @@ def write_stage_metadata(
         "repair_existing_version": repair_existing_version,
         "allowed_path_patterns": allowed_path_patterns(version, promote_latest=promote_latest),
         "promote_latest": promote_latest,
-        "schema_artifacts": schema_artifacts,
     }
     run_paths.metadata.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return metadata
@@ -823,7 +578,7 @@ def stage_deploy(
 ) -> dict[str, Any]:
     validate_version(version)
     require_ref_matches_version(source_ref, version)
-    check_result = perform_check(
+    perform_check(
         version=version,
         run_paths=run_paths,
         runner=runner,
@@ -843,14 +598,7 @@ def stage_deploy(
         runner=runner,
     )
     run_mike_deploy(version, run_paths, runner, promote_latest=promote_latest)
-    staged_schema_artifacts = stage_publication_artifacts(
-        version, run_paths, runner, promote_latest=promote_latest
-    )
-    expected_schema_artifacts = sorted(catalog_artifact_names(check_result.root_artifacts))
-    if staged_schema_artifacts and expected_schema_artifacts:
-        staged_schema_artifacts = sorted(
-            name for name in staged_schema_artifacts if name in expected_schema_artifacts
-        )
+    stage_publication_artifacts(version, run_paths, runner, promote_latest=promote_latest)
     metadata = write_stage_metadata(
         version=version,
         source_ref=source_ref,
@@ -859,7 +607,6 @@ def stage_deploy(
         run_paths=run_paths,
         runner=runner,
         promote_latest=promote_latest,
-        schema_artifacts=staged_schema_artifacts,
     )
     create_bundle(run_paths, runner)
     return metadata
@@ -886,11 +633,6 @@ def read_stage_metadata(run_paths: Paths, version: str, repair_existing_version:
         fail("staged deploy metadata allowed_path_patterns is missing")
     if not isinstance(metadata.get("promote_latest"), bool):
         fail("staged deploy metadata promote_latest is missing")
-    schema_artifacts = metadata.get("schema_artifacts")
-    if not isinstance(schema_artifacts, list) or any(
-        not isinstance(item, str) for item in schema_artifacts
-    ):
-        fail("staged deploy metadata schema_artifacts is missing")
     expected_patterns = allowed_path_patterns(
         version, promote_latest=metadata["promote_latest"]
     )
@@ -949,22 +691,7 @@ def changed_paths(remote_base: str | None, staged_branch: str, runner: CommandRu
 
 def path_allowed(path: str, patterns: list[str]) -> bool:
     for pattern in patterns:
-        if pattern == "wavepeek_v*.json":
-            if valid_legacy_schema_artifact_name(path):
-                return True
-        elif pattern == "schema-output-v*.json":
-            if valid_family_schema_artifact_name(path):
-                return True
-        elif pattern == "wavepeek-stream-v*.json":
-            if valid_legacy_stream_schema_artifact_name(path):
-                return True
-        elif pattern == "schema-stream-v*.json":
-            if valid_family_stream_schema_artifact_name(path):
-                return True
-        elif pattern == "schema-input-v*.json":
-            if valid_family_input_schema_artifact_name(path):
-                return True
-        elif pattern.endswith("/**"):
+        if pattern.endswith("/**"):
             prefix = pattern[:-3] + "/"
             if path.startswith(prefix):
                 return True
@@ -999,57 +726,10 @@ def comparable_entry(entry: dict[str, Any]) -> dict[str, Any]:
     return clone
 
 
-def fallback_root_schema_artifacts(version: str) -> list[str]:
-    if legacy_no_catalog_allowed(version):
-        artifacts = [legacy_schema_artifact_name(version)]
-        if stream_schema_required(version):
-            artifacts.append(legacy_stream_schema_artifact_name(version))
-        return artifacts
-    artifacts = [schema_artifact_name(version)]
-    if stream_schema_required(version):
-        artifacts.append(stream_schema_artifact_name(version))
-    if input_schema_required(version):
-        artifacts.append(input_schema_artifact_name(version))
-    return artifacts
-
-
-def required_pages_artifact_paths(
-    version: str, schema_artifacts: Sequence[str] | None = None
-) -> list[str]:
-    artifacts = list(schema_artifacts or [])
-    if not artifacts:
-        artifacts = fallback_root_schema_artifacts(version)
-    return ["index.html", "versions.json", *artifacts]
-
-
-def verify_root_artifacts(
-    staged_branch: str,
-    version: str,
-    runner: CommandRunner,
-    schema_artifacts: Sequence[str] | None = None,
-) -> None:
-    missing: list[str] = []
-    artifacts = list(schema_artifacts or [])
-    if not artifacts:
-        artifacts = fallback_root_schema_artifacts(version)
-    for artifact in artifacts:
-        result = runner.run(
-            ["git", "cat-file", "-t", f"{staged_branch}:{artifact}"],
-            check=False,
-            capture=True,
-        )
-        if result.returncode != 0 or (result.stdout or "").strip() != "blob":
-            missing.append(artifact)
-    if missing:
-        fail("staged gh-pages bundle is missing root artifact(s): " + ", ".join(missing))
-
-
 def export_pages_artifact(
     staged_branch: str,
-    version: str,
     run_paths: Paths,
     runner: CommandRunner,
-    schema_artifacts: Sequence[str] | None = None,
 ) -> None:
     clean_owned_path(run_paths.pages_artifact)
     remove_git_worktree(run_paths.pages_worktree, runner)
@@ -1068,7 +748,7 @@ def export_pages_artifact(
 
     missing = [
         path
-        for path in required_pages_artifact_paths(version, schema_artifacts)
+        for path in ["index.html", "versions.json"]
         if not (run_paths.pages_artifact / path).is_file()
     ]
     if missing:
@@ -1187,9 +867,6 @@ def push_staged(
     changed = changed_paths(remote_base, STAGED_BRANCH, runner)
     verify_allowed_paths(changed, [str(pattern) for pattern in metadata["allowed_path_patterns"]])
     promote_latest = bool(metadata["promote_latest"])
-    schema_artifacts = [str(item) for item in metadata.get("schema_artifacts", [])]
-    if promote_latest:
-        verify_root_artifacts(STAGED_BRANCH, version, runner, schema_artifacts)
     verify_versions_semantics(
         remote_base=remote_base,
         staged_branch=STAGED_BRANCH,
@@ -1211,7 +888,7 @@ def push_staged(
         promote_latest=promote_latest,
         runner=runner,
     )
-    export_pages_artifact(STAGED_BRANCH, version, run_paths, runner, schema_artifacts)
+    export_pages_artifact(STAGED_BRANCH, run_paths, runner)
     runner.run(["git", "push", "origin", f"{STAGED_BRANCH}:{GH_PAGES_BRANCH}"])
 
 
@@ -1219,7 +896,7 @@ def run_check_command(args: argparse.Namespace, runner: CommandRunner) -> None:
     run_paths = paths(args.work_dir)
     if args.source_root is not None and args.source_ref is not None:
         fail("check accepts either --source-root or --source-ref, not both")
-    result = perform_check(
+    cli_version = perform_check(
         version=validate_version(args.version),
         run_paths=run_paths,
         runner=runner,
@@ -1227,10 +904,7 @@ def run_check_command(args: argparse.Namespace, runner: CommandRunner) -> None:
         source_ref=args.source_ref,
         for_stage=False,
     )
-    print(
-        f"checked docs for wavepeek {result.cli_version}; "
-        f"prepared {len(result.root_artifacts)} root artifact(s) under {run_paths.root_artifacts}"
-    )
+    print(f"checked docs for wavepeek {cli_version}")
 
 
 def main(argv: list[str] | None = None, runner: CommandRunner | None = None) -> int:

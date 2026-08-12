@@ -6,40 +6,20 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
-
-fn schema_validator(name: &str) -> jsonschema::Validator {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join(name);
-    let schema: Value =
-        serde_json::from_str(&fs::read_to_string(path).expect("schema should read"))
-            .expect("schema should parse");
-    jsonschema::validator_for(&schema).expect("schema should compile")
-}
+use common::{fixture_path, wavepeek_cmd};
 
 fn parse_json(stdout: &[u8]) -> Value {
     let value: Value = serde_json::from_slice(stdout).expect("stdout should be valid JSON");
-    schema_validator("output.json")
-        .validate(&value)
-        .unwrap_or_else(|error| panic!("output should validate: {error}\n{value}"));
     value
 }
 
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let output = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(output.ends_with('\n'));
-    let validator = schema_validator("stream.json");
     output
         .lines()
         .map(|line| {
             let record: Value = serde_json::from_str(line).expect("record should parse");
-            validator
-                .validate(&record)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{record}"));
             record
         })
         .collect()
@@ -97,7 +77,6 @@ fn extract_ahb_lite_defaults_emit_pipeline_events_without_idle_spam() {
         .clone();
     let value = parse_json(&output);
 
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "extract ahb");
     assert_eq!(value["data"]["name"], "ahb");
     assert_eq!(value["data"]["profile"], "ahb-lite");
@@ -297,7 +276,6 @@ fn extract_ahb_limit_can_split_a_same_edge_pair_and_counts_public_rows_only() {
         .stdout
         .clone();
     let records = parse_stream(&output);
-    assert_eq!(records[0]["$schema"], expected_stream_schema_url());
     assert_eq!(records[0]["command"], "extract ahb");
     assert_eq!(
         records[0]["context"]["initial_data_phase"]["state"],
@@ -485,7 +463,6 @@ fn extract_ahb_requires_manager_progress_and_pipeline_control_mappings() {
 fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
     let waveform = fixture("extract_ahb_lite.vcd");
     let base = json!({
-        "$schema": expected_input_schema_url(),
         "kind": "extract.ahb.source",
         "profile": "ahb-lite",
         "include_stall": true,
@@ -496,9 +473,6 @@ fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
         "maps": {"hclk": "clk"},
         "extension": {"owner": "test"}
     });
-    schema_validator("input.json")
-        .validate(&base)
-        .expect("extension-friendly source should validate");
     let source = write_source(&base);
     let source_path = source.path().to_string_lossy().into_owned();
     let output = wavepeek_cmd()
@@ -540,7 +514,6 @@ fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
         .stdout(predicate::str::is_empty());
 
     for (field, value) in [
-        ("$schema", json!("https://example.invalid/input.json")),
         ("kind", json!("extract.axi.source")),
         ("profile", Value::Null),
         ("include_stall", Value::Null),
@@ -562,28 +535,4 @@ fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
             .failure()
             .stdout(predicate::str::is_empty());
     }
-}
-
-#[test]
-fn extract_ahb_output_schema_gates_optional_events_by_context_flags() {
-    let output = lite_command("vcd")
-        .arg("--json")
-        .assert()
-        .success()
-        .get_output()
-        .stdout
-        .clone();
-    let mut value = parse_json(&output);
-    value["data"]["events"]
-        .as_array_mut()
-        .expect("events")
-        .push(json!({
-            "time": "20ns",
-            "sample_time": "19ns",
-            "profile": "ahb-lite",
-            "event": "data-stall",
-            "direction": "read",
-            "payload": {"hresp": "1'h0"}
-        }));
-    assert!(schema_validator("output.json").validate(&value).is_err());
 }

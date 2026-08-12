@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{expected_schema_url, fixture_path, wavepeek_cmd};
+use common::{fixture_path, wavepeek_cmd};
 
 fn parse_json(stdout: &[u8]) -> Value {
     serde_json::from_slice(stdout).expect("stdout should be valid json")
@@ -293,7 +293,6 @@ fn change_default_when_matches_expected_json_payload() {
     assert!(output.stderr.is_empty());
 
     let value = parse_json(&output.stdout);
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "change");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(

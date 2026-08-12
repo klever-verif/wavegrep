@@ -6,7 +6,6 @@ use serde::de::{Error as _, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::ApbArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
@@ -240,8 +239,6 @@ fn payload_allowed(event: &str, direction: ApbDirection, standard: &str) -> bool
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -377,34 +374,6 @@ const APB5_PROFILE: ApbProfileSpec = ApbProfileSpec {
     issue: ISSUE,
     signals: APB5_SIGNALS,
 };
-
-pub(crate) fn profile_specs() -> &'static [ApbProfileSpec] {
-    &[APB3_PROFILE, APB4_PROFILE, APB5_PROFILE]
-}
-
-pub(crate) fn standard_signals(
-    profile: &ApbProfileSpec,
-) -> impl Iterator<Item = &'static str> + '_ {
-    ORDERED_SIGNALS
-        .iter()
-        .copied()
-        .filter(|standard| profile.signals.contains(standard))
-}
-
-pub(crate) fn event_payload_signals<'a>(
-    profile: &'a ApbProfileSpec,
-    event: &'a str,
-    direction: &'a str,
-) -> impl Iterator<Item = &'static str> + 'a {
-    standard_signals(profile).filter(move |standard| {
-        !matches!(
-            *standard,
-            "pclk" | "presetn" | "psel" | "penable" | "pready"
-        ) && (event == "access-complete" || !COMPLETION_ONLY_SIGNALS.contains(standard))
-            && (direction != "read" || !WRITE_ONLY_SIGNALS.contains(standard))
-            && (direction != "write" || !READ_ONLY_SIGNALS.contains(standard))
-    })
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PreadyMode {
@@ -625,14 +594,6 @@ fn config_from_source(path: &std::path::Path) -> Result<ApbConfig, WavepeekError
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "APB extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "APB extract source file '{}' has kind {}; expected {}",
@@ -1180,20 +1141,20 @@ impl ApbProfile {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApbDirection, candidate_matching_standards, direction_from_pwrite, event_payload_signals,
-        parse_pready_mode, parse_profile, payload_allowed, profile_specs,
+        APB3_PROFILE, APB4_PROFILE, APB5_PROFILE, ApbDirection, candidate_matching_standards,
+        direction_from_pwrite, parse_pready_mode, parse_profile, payload_allowed,
     };
 
     #[test]
     fn profiles_expose_issue_e_and_expected_signal_boundaries() {
-        assert_eq!(profile_specs().len(), 3);
-        for profile in profile_specs() {
+        let profiles = [APB3_PROFILE, APB4_PROFILE, APB5_PROFILE];
+        for profile in &profiles {
             assert_eq!(profile.issue, "E");
             assert!(profile.signals.contains(&"pwrite"));
         }
-        assert!(!profile_specs()[0].signals.contains(&"pprot"));
-        assert!(profile_specs()[1].signals.contains(&"pprot"));
-        assert!(profile_specs()[2].signals.contains(&"pnse"));
+        assert!(!APB3_PROFILE.signals.contains(&"pprot"));
+        assert!(APB4_PROFILE.signals.contains(&"pprot"));
+        assert!(APB5_PROFILE.signals.contains(&"pnse"));
     }
 
     #[test]
@@ -1241,19 +1202,5 @@ mod tests {
             ApbDirection::Unknown,
             "prdata"
         ));
-    }
-
-    #[test]
-    fn schema_payload_helper_applies_profile_event_and_direction() {
-        let apb5 = &profile_specs()[2];
-        let setup_read = event_payload_signals(apb5, "setup", "read").collect::<Vec<_>>();
-        assert!(setup_read.contains(&"pwrite"));
-        assert!(!setup_read.contains(&"pwdata"));
-        assert!(!setup_read.contains(&"pslverr"));
-        let complete_unknown =
-            event_payload_signals(apb5, "access-complete", "unknown").collect::<Vec<_>>();
-        assert!(complete_unknown.contains(&"pwdata"));
-        assert!(complete_unknown.contains(&"prdata"));
-        assert!(complete_unknown.contains(&"pslverr"));
     }
 }

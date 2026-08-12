@@ -8,7 +8,6 @@ mod engine;
 mod error;
 mod output;
 mod output_mode;
-mod schema_contract;
 mod waveform;
 
 pub mod expr;

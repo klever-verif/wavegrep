@@ -6,7 +6,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AxiStreamArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
@@ -166,8 +165,6 @@ impl<S: AxiStreamTransferSink + ?Sized> ExtractRowSink for GenericToAxiStreamSin
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -237,18 +234,6 @@ const AXI5_STREAM_PROFILE: AxiStreamProfileSpec = AxiStreamProfileSpec {
     name: "axi5-stream",
     issue: "B",
 };
-
-pub(crate) fn profile_specs() -> &'static [AxiStreamProfileSpec] {
-    &[AXI4_STREAM_PROFILE, AXI5_STREAM_PROFILE]
-}
-
-pub(crate) const fn standard_signals() -> &'static [&'static str] {
-    STANDARD_SIGNALS
-}
-
-pub(crate) const fn payload_signals() -> &'static [&'static str] {
-    PAYLOAD_SIGNALS
-}
 
 pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
@@ -422,14 +407,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AxiStreamConfig, Wavepee
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AXI-Stream extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AXI-Stream extract source file '{}' has kind {}; expected {}",
@@ -816,10 +793,7 @@ impl TreadyMode {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        STANDARD_SIGNALS, TreadyMode, parse_cli_maps, parse_profile, parse_tready_mode,
-        profile_specs,
-    };
+    use super::{STANDARD_SIGNALS, TreadyMode, parse_cli_maps, parse_profile, parse_tready_mode};
     use crate::engine::signal_mapping::candidate_matching_standards;
 
     #[test]
@@ -832,13 +806,6 @@ mod tests {
         ] {
             assert_eq!(parse_profile(input).unwrap().name(), canonical);
         }
-        assert_eq!(
-            profile_specs()
-                .iter()
-                .map(|profile| (profile.name, profile.issue))
-                .collect::<Vec<_>>(),
-            [("axi4-stream", "B"), ("axi5-stream", "B")]
-        );
     }
 
     #[test]

@@ -1,7 +1,5 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::Serialize;
 
 use crate::diagnostic::Diagnostic;
@@ -12,14 +10,9 @@ use super::common::{
     CanonicalPath, ContractDiagnostic, NormalizedTime, SampledValue, ScopeKind, SignalKind,
     validate_scope_kind, validate_signal_kind,
 };
-use super::schema::OUTPUT_SCHEMA_URL;
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "outputEnvelope")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct OutputEnvelope<'a> {
-    #[serde(rename = "$schema")]
-    schema: &'static str,
     command: &'static str,
     data: OutputData<'a>,
     diagnostics: Vec<ContractDiagnostic<'a>>,
@@ -28,7 +21,6 @@ pub struct OutputEnvelope<'a> {
 impl<'a> OutputEnvelope<'a> {
     pub fn from_result(result: &'a CommandResult) -> Result<Self, WavepeekError> {
         Ok(Self {
-            schema: OUTPUT_SCHEMA_URL,
             command: result.command.as_str(),
             data: OutputData::from_command_data(result.command, &result.data)?,
             diagnostics: diagnostics(&result.diagnostics)?,
@@ -43,8 +35,7 @@ fn diagnostics(diagnostics: &[Diagnostic]) -> Result<Vec<ContractDiagnostic<'_>>
         .collect()
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "outputData")]
+#[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum OutputData<'a> {
     Info(InfoData<'a>),
@@ -121,17 +112,10 @@ impl<'a> OutputData<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "infoData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct InfoData<'a> {
-    #[schemars(
-        description = "Dump time unit used to normalize timestamps in this waveform, for example 1ns."
-    )]
     time_unit: &'a str,
-    #[schemars(description = "Earliest timestamp present in the waveform.")]
     time_start: NormalizedTime<'a>,
-    #[schemars(description = "Latest timestamp present in the waveform.")]
     time_end: NormalizedTime<'a>,
 }
 
@@ -145,18 +129,10 @@ impl<'a> From<&'a crate::engine::info::InfoData> for InfoData<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "scopeEntry")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ScopeEntry<'a> {
-    #[schemars(description = "Canonical hierarchy path for this scope entry.")]
     path: CanonicalPath<'a>,
-    #[schemars(schema_with = "nonnegative_integer_schema")]
-    #[schemars(
-        description = "Zero-based scope depth from the dump root used by list and tree renderers."
-    )]
     depth: usize,
-    #[schemars(description = "Stable scope kind alias for this scope entry.")]
     kind: ScopeKind<'a>,
 }
 
@@ -172,20 +148,12 @@ impl<'a> TryFrom<&'a crate::engine::scope::ScopeEntry> for ScopeEntry<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "signalEntry")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct SignalEntry<'a> {
-    #[schemars(description = "Signal name as declared inside its immediate parent scope.")]
     name: &'a str,
-    #[schemars(description = "Canonical hierarchy path for this signal entry.")]
     path: CanonicalPath<'a>,
-    #[schemars(description = "Stable signal kind alias for this signal entry.")]
     kind: SignalKind<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(default)]
-    #[schemars(schema_with = "signal_width_schema")]
-    #[schemars(description = "Declared packed bit width when the waveform backend reports one.")]
     width: Option<u32>,
 }
 
@@ -202,31 +170,9 @@ impl<'a> TryFrom<&'a crate::engine::signal::SignalEntry> for SignalEntry<'a> {
     }
 }
 
-fn signal_width_schema(generator: &mut SchemaGenerator) -> Schema {
-    positive_integer_schema(generator)
-}
-
-fn positive_integer_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({
-        "type": "integer",
-        "minimum": 1
-    })
-}
-
-fn nonnegative_integer_schema(_: &mut SchemaGenerator) -> Schema {
-    json_schema!({
-        "type": "integer",
-        "minimum": 0
-    })
-}
-
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "sampledSignalValue")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct SampledSignalValue<'a> {
-    #[schemars(description = "Canonical path of the sampled signal.")]
     path: CanonicalPath<'a>,
-    #[schemars(description = "Sampled value for this signal in the selected timestamp snapshot.")]
     value: SampledValue<'a>,
 }
 
@@ -239,13 +185,9 @@ impl<'a> From<&'a crate::engine::value::ValueSignalValue> for SampledSignalValue
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "changeSignalValue")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ChangeSignalValue<'a> {
-    #[schemars(description = "Canonical path of the changed signal.")]
     path: CanonicalPath<'a>,
-    #[schemars(description = "Changed signal value at the reported sample point.")]
     value: SampledValue<'a>,
 }
 
@@ -258,13 +200,9 @@ impl<'a> From<&'a crate::engine::change::ChangeSignalValue> for ChangeSignalValu
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "valueSnapshot")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ValueSnapshot<'a> {
-    #[schemars(description = "Timestamp requested by the value command.")]
     time: NormalizedTime<'a>,
-    #[schemars(description = "Signal values sampled at this timestamp.")]
     signals: Vec<SampledSignalValue<'a>>,
 }
 
@@ -281,15 +219,10 @@ impl<'a> From<&'a crate::engine::value::ValueSnapshot> for ValueSnapshot<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "changeSnapshot")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ChangeSnapshot<'a> {
-    #[schemars(description = "Trigger timestamp emitted by the change command.")]
     time: NormalizedTime<'a>,
-    #[schemars(description = "Timestamp used to sample values for this change row.")]
     sample_time: NormalizedTime<'a>,
-    #[schemars(description = "Changed signal values for this row.")]
     signals: Vec<ChangeSignalValue<'a>>,
 }
 
@@ -315,20 +248,6 @@ pub enum PropertyKind {
     Deassert,
 }
 
-impl JsonSchema for PropertyKind {
-    fn inline_schema() -> bool {
-        true
-    }
-
-    fn schema_name() -> Cow<'static, str> {
-        "propertyKind".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({"type": "string", "enum": ["match", "assert", "deassert"]})
-    }
-}
-
 impl From<crate::engine::property::PropertyResultKind> for PropertyKind {
     fn from(kind: crate::engine::property::PropertyResultKind) -> Self {
         match kind {
@@ -339,15 +258,10 @@ impl From<crate::engine::property::PropertyResultKind> for PropertyKind {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "propertyRow")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct PropertyRow<'a> {
-    #[schemars(description = "Trigger timestamp emitted by the property command.")]
     time: NormalizedTime<'a>,
-    #[schemars(description = "Timestamp used to evaluate the property expression.")]
     sample_time: NormalizedTime<'a>,
-    #[schemars(description = "Property result kind captured for this row.")]
     kind: PropertyKind,
 }
 
@@ -361,13 +275,9 @@ impl<'a> From<&'a crate::engine::property::PropertyCaptureRow> for PropertyRow<'
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractPayloadValue")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractPayloadValue<'a> {
-    #[schemars(description = "Canonical path of the sampled payload signal.")]
     path: CanonicalPath<'a>,
-    #[schemars(description = "Sampled payload value formatted as a Verilog-style literal string.")]
     value: SampledValue<'a>,
 }
 
@@ -380,19 +290,11 @@ impl<'a> From<&'a crate::engine::extract::ExtractPayloadValue> for ExtractPayloa
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractGenericRow")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractGenericRow<'a> {
-    #[schemars(description = "Selected event timestamp emitted by extract generic.")]
     time: NormalizedTime<'a>,
-    #[schemars(
-        description = "Pre-edge timestamp used to evaluate the predicate and sample payload values."
-    )]
     sample_time: NormalizedTime<'a>,
-    #[schemars(description = "Source name supplied by CLI flags or source JSON.")]
     source: &'a str,
-    #[schemars(description = "Ordered payload values sampled for this row.")]
     payload: Vec<ExtractPayloadValue<'a>>,
 }
 
@@ -407,10 +309,8 @@ impl<'a> From<&'a crate::engine::extract::ExtractGenericRow> for ExtractGenericR
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAhbMapping")]
+#[derive(Debug, Serialize)]
 pub struct ExtractAhbMapping<'a> {
-    #[schemars(description = "Canonical waveform signal path mapped to this AHB standard signal.")]
     path: CanonicalPath<'a>,
 }
 
@@ -422,8 +322,7 @@ impl<'a> From<&'a crate::engine::ahb::AhbSignalMapping> for ExtractAhbMapping<'a
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAhbAddressSnapshot")]
+#[derive(Debug, Serialize)]
 pub struct ExtractAhbAddressSnapshot<'a> {
     time: NormalizedTime<'a>,
     sample_time: NormalizedTime<'a>,
@@ -444,12 +343,10 @@ impl<'a> From<&'a crate::engine::ahb::AhbAddressSnapshot> for ExtractAhbAddressS
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAhbInitialDataPhase")]
+#[derive(Debug, Serialize)]
 pub struct ExtractAhbInitialDataPhase<'a> {
     state: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(default)]
     address: Option<ExtractAhbAddressSnapshot<'a>>,
 }
 
@@ -465,21 +362,17 @@ impl<'a> From<&'a crate::engine::ahb::AhbInitialDataPhase> for ExtractAhbInitial
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAhbEvent")]
+#[derive(Debug, Serialize)]
 pub struct ExtractAhbEvent<'a> {
     time: NormalizedTime<'a>,
     sample_time: NormalizedTime<'a>,
     profile: &'a str,
     event: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(default)]
     transfer: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(default)]
     direction: Option<&'a str>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    #[schemars(default)]
     payload: BTreeMap<&'a str, SampledValue<'a>>,
 }
 
@@ -497,8 +390,7 @@ impl<'a> From<&'a crate::engine::ahb::AhbEvent> for ExtractAhbEvent<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAhbData")]
+#[derive(Debug, Serialize)]
 pub struct ExtractAhbData<'a> {
     name: &'a str,
     profile: &'a str,
@@ -545,11 +437,8 @@ fn ahb_payload<'a>(
         .collect()
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractApbMapping")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractApbMapping<'a> {
-    #[schemars(description = "Canonical waveform signal path mapped to this APB standard signal.")]
     path: CanonicalPath<'a>,
 }
 
@@ -561,21 +450,13 @@ impl<'a> From<&'a crate::engine::apb::ApbSignalMapping> for ExtractApbMapping<'a
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractApbEvent")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractApbEvent<'a> {
-    #[schemars(description = "Selected APB event timestamp.")]
     time: NormalizedTime<'a>,
-    #[schemars(description = "Pre-edge timestamp used to classify and sample the APB event.")]
     sample_time: NormalizedTime<'a>,
-    #[schemars(description = "APB profile name for this event row.")]
     profile: &'a str,
-    #[schemars(description = "Sampled APB event kind.")]
     event: &'a str,
-    #[schemars(description = "Direction derived from the sampled pwrite value.")]
     direction: &'a str,
-    #[schemars(description = "Observed values keyed by lowercase APB standard signal name.")]
     payload: BTreeMap<&'a str, SampledValue<'a>>,
 }
 
@@ -601,25 +482,14 @@ impl<'a> From<&'a crate::engine::apb::ApbEvent> for ExtractApbEvent<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractApbData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractApbData<'a> {
-    #[schemars(description = "APB port name supplied by CLI or source JSON.")]
     name: &'a str,
-    #[schemars(description = "APB profile name used for standard signal mapping.")]
     profile: &'a str,
-    #[schemars(description = "Arm IHI 0024 issue used for this profile definition.")]
     issue: &'a str,
-    #[schemars(description = "PREADY handling mode.")]
     pready_mode: &'a str,
-    #[schemars(description = "Whether waited Access cycles are emitted.")]
     include_wait: bool,
-    #[schemars(
-        description = "Resolved waveform mappings keyed by lowercase APB standard signal name."
-    )]
     mappings: BTreeMap<&'a str, ExtractApbMapping<'a>>,
-    #[schemars(description = "Extracted APB sampled events in event order.")]
     events: Vec<ExtractApbEvent<'a>>,
 }
 
@@ -641,11 +511,8 @@ impl<'a> From<&'a crate::engine::apb::ApbData> for ExtractApbData<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAtbMapping")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAtbMapping<'a> {
-    #[schemars(description = "Canonical waveform signal path mapped to this ATB standard signal.")]
     path: CanonicalPath<'a>,
 }
 
@@ -657,9 +524,8 @@ impl<'a> From<&'a crate::engine::atb::AtbSignalMapping> for ExtractAtbMapping<'a
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
-#[schemars(rename = "extractAtbEventKind")]
 pub enum ExtractAtbEventKind {
     Transfer,
     Flush,
@@ -676,23 +542,12 @@ impl From<crate::engine::atb::AtbEventKind> for ExtractAtbEventKind {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAtbEvent")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAtbEvent<'a> {
-    #[schemars(description = "Selected ATB event timestamp.")]
     time: NormalizedTime<'a>,
-    #[schemars(
-        description = "Pre-edge timestamp used to evaluate the ATB predicate and sample payload values."
-    )]
     sample_time: NormalizedTime<'a>,
-    #[schemars(description = "ATB profile name for this event row: atb-a, atb-b, or atb-c.")]
     profile: &'a str,
-    #[schemars(description = "Stateless ATB event kind.")]
     event: ExtractAtbEventKind,
-    #[schemars(
-        description = "Raw transfer observations keyed by lowercase ATB standard signal name; empty for flush and sync-request events."
-    )]
     payload: BTreeMap<&'a str, SampledValue<'a>>,
 }
 
@@ -717,21 +572,12 @@ impl<'a> From<&'a crate::engine::atb::AtbEvent> for ExtractAtbEvent<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAtbData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAtbData<'a> {
-    #[schemars(description = "ATB interface name supplied by CLI or source JSON.")]
     name: &'a str,
-    #[schemars(description = "ATB profile name used for standard signal mapping.")]
     profile: &'a str,
-    #[schemars(description = "Arm IHI 0032 issue used for this profile definition.")]
     issue: &'a str,
-    #[schemars(
-        description = "Resolved waveform mappings keyed by lowercase ATB standard signal name."
-    )]
     mappings: BTreeMap<&'a str, ExtractAtbMapping<'a>>,
-    #[schemars(description = "Extracted stateless ATB events in deterministic source order.")]
     events: Vec<ExtractAtbEvent<'a>>,
 }
 
@@ -751,11 +597,8 @@ impl<'a> From<&'a crate::engine::atb::AtbData> for ExtractAtbData<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiMapping")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiMapping<'a> {
-    #[schemars(description = "Canonical waveform signal path mapped to this AXI standard signal.")]
     path: CanonicalPath<'a>,
 }
 
@@ -767,25 +610,12 @@ impl<'a> From<&'a crate::engine::axi::AxiSignalMapping> for ExtractAxiMapping<'a
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiTransfer")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiTransfer<'a> {
-    #[schemars(description = "Selected AXI transfer event timestamp.")]
     time: NormalizedTime<'a>,
-    #[schemars(
-        description = "Pre-edge timestamp used to evaluate ready/valid and sample payload values."
-    )]
     sample_time: NormalizedTime<'a>,
-    #[schemars(
-        description = "AXI profile name for this transfer row: axi3, axi4, axi4-lite, axi5, axi5-lite, ace, ace-lite, ace5, ace5-lite, ace5-lite-dvm, or ace5-lite-acp."
-    )]
     profile: &'a str,
-    #[schemars(
-        description = "Profile-specific AXI channel name. AXI5 and ACE5-LiteDVM can add ac and cr; ACE and ACE5 can add ac, cr, and cd to the base aw, w, b, ar, and r channels."
-    )]
     channel: &'a str,
-    #[schemars(description = "Payload values keyed by lowercase AXI standard signal name.")]
     payload: BTreeMap<&'a str, SampledValue<'a>>,
 }
 
@@ -810,21 +640,12 @@ impl<'a> From<&'a crate::engine::axi::AxiTransfer> for ExtractAxiTransfer<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiData<'a> {
-    #[schemars(description = "AXI port name supplied by CLI or source JSON.")]
     name: &'a str,
-    #[schemars(description = "AXI profile name used for standard signal mapping.")]
     profile: &'a str,
-    #[schemars(description = "Arm IHI 0022 issue used for this profile definition.")]
     issue: &'a str,
-    #[schemars(
-        description = "Resolved waveform mappings keyed by lowercase AXI standard signal name."
-    )]
     mappings: BTreeMap<&'a str, ExtractAxiMapping<'a>>,
-    #[schemars(description = "Extracted AXI ready/valid transfers in event order.")]
     transfers: Vec<ExtractAxiTransfer<'a>>,
 }
 
@@ -848,13 +669,8 @@ impl<'a> From<&'a crate::engine::axi::AxiData> for ExtractAxiData<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiStreamMapping")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiStreamMapping<'a> {
-    #[schemars(
-        description = "Canonical waveform signal path mapped to this AXI-Stream standard signal."
-    )]
     path: CanonicalPath<'a>,
 }
 
@@ -868,19 +684,11 @@ impl<'a> From<&'a crate::engine::axistream::AxiStreamSignalMapping>
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiStreamTransfer")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiStreamTransfer<'a> {
-    #[schemars(description = "Selected AXI-Stream transfer event timestamp.")]
     time: NormalizedTime<'a>,
-    #[schemars(
-        description = "Pre-edge timestamp used to evaluate the handshake and sample payload values."
-    )]
     sample_time: NormalizedTime<'a>,
-    #[schemars(description = "AXI-Stream profile name for this transfer row.")]
     profile: &'a str,
-    #[schemars(description = "Payload values keyed by lowercase AXI-Stream standard signal name.")]
     payload: BTreeMap<&'a str, SampledValue<'a>>,
 }
 
@@ -904,23 +712,13 @@ impl<'a> From<&'a crate::engine::axistream::AxiStreamTransfer> for ExtractAxiStr
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "extractAxiStreamData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct ExtractAxiStreamData<'a> {
-    #[schemars(description = "AXI-Stream port name supplied by CLI or source JSON.")]
     name: &'a str,
-    #[schemars(description = "AXI-Stream profile name used for standard signal mapping.")]
     profile: &'a str,
-    #[schemars(description = "Arm IHI 0051 issue used for this profile definition.")]
     issue: &'a str,
-    #[schemars(description = "Effective TREADY mapping mode.")]
     tready_mode: &'a str,
-    #[schemars(
-        description = "Resolved waveform mappings keyed by lowercase AXI-Stream standard signal name."
-    )]
     mappings: BTreeMap<&'a str, ExtractAxiStreamMapping<'a>>,
-    #[schemars(description = "Extracted AXI-Stream transfers in event order.")]
     transfers: Vec<ExtractAxiStreamTransfer<'a>>,
 }
 
@@ -950,21 +748,13 @@ impl<'a> From<&'a crate::engine::axistream::AxiStreamData> for ExtractAxiStreamD
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "topicSummary")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct TopicSummary<'a> {
-    #[schemars(description = "Stable documentation topic identifier.")]
     id: &'a str,
-    #[schemars(description = "Human-readable documentation topic title.")]
     title: &'a str,
-    #[schemars(description = "Short documentation topic description.")]
     description: &'a str,
-    #[schemars(description = "Documentation section that contains this topic.")]
     section: &'a str,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    #[schemars(default)]
-    #[schemars(description = "Related documentation topic identifiers.")]
     see_also: Vec<&'a str>,
 }
 
@@ -980,11 +770,8 @@ impl<'a> From<&'a crate::docs::TopicSummary> for TopicSummary<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "docsTopicsData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct DocsTopicsData<'a> {
-    #[schemars(description = "Available embedded documentation topics.")]
     topics: Vec<TopicSummary<'a>>,
 }
 
@@ -996,15 +783,10 @@ impl<'a> From<&'a crate::engine::DocsTopicsData> for DocsTopicsData<'a> {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "docsSearchMatch")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct DocsSearchMatch<'a> {
     topic: TopicSummary<'a>,
-    #[schemars(description = "How the topic matched the normalized search query.")]
     match_kind: DocsMatchKind,
-    #[schemars(schema_with = "positive_integer_schema")]
-    #[schemars(description = "Number of query tokens matched by this topic.")]
     matched_tokens: usize,
 }
 
@@ -1029,23 +811,6 @@ enum DocsMatchKind {
     Body,
 }
 
-impl JsonSchema for DocsMatchKind {
-    fn inline_schema() -> bool {
-        true
-    }
-
-    fn schema_name() -> Cow<'static, str> {
-        "docsMatchKind".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "enum": ["id_exact", "id_prefix", "title_exact", "title_or_description", "heading", "body"],
-        })
-    }
-}
-
 impl From<crate::docs::MatchKind> for DocsMatchKind {
     fn from(kind: crate::docs::MatchKind) -> Self {
         match kind {
@@ -1059,11 +824,8 @@ impl From<crate::docs::MatchKind> for DocsMatchKind {
     }
 }
 
-#[derive(Debug, JsonSchema, Serialize)]
-#[schemars(rename = "docsSearchData")]
-#[schemars(extend("additionalProperties" = true))]
+#[derive(Debug, Serialize)]
 pub struct DocsSearchData<'a> {
-    #[schemars(description = "Normalized search query used for the docs search.")]
     query: &'a str,
     matches: Vec<DocsSearchMatch<'a>>,
 }
@@ -1109,19 +871,6 @@ mod tests {
         .expect("contract envelope should serialize");
         assert_eq!(value["data"][0]["signals"][0]["path"], "top.sig");
         assert!(value["data"][0]["signals"][0].get("display").is_none());
-    }
-
-    #[test]
-    fn output_envelope_rejects_non_machine_command_data() {
-        let result = CommandResult {
-            command: CommandName::Schema,
-            output_mode: OutputMode::Json,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::Schema("{}".to_string()),
-            diagnostics: Vec::new(),
-        };
-
-        assert!(OutputEnvelope::from_result(&result).is_err());
     }
 
     #[test]

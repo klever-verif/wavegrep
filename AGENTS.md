@@ -42,4 +42,3 @@ Maintainer workflow lives under `docs/dev/`:
 - `docs/dev/` — maintainer workflow, quality, style, release, and architecture docs.
 - `docs/tracker/` — backlog, roadmap, and branch-local WIP artifacts.
 - `docs/public/` — embedded user documentation for `wavepeek docs`.
-- `schema/` — canonical machine-output schema artifacts.

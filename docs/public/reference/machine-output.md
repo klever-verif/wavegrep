@@ -1,153 +1,93 @@
 ---
 id: reference/machine-output
 title: Machine Output Contract
-description: Stable stdout, stderr, JSON envelope, JSONL stream, diagnostic, schema, fatal-error, and exit-code behavior.
+description: Stable stdout, stderr, JSON envelope, JSONL stream, diagnostic, fatal-error, and exit-code behavior.
 section: reference
 see_also:
   - reference/command-model
-  - commands/schema
   - commands/skill
 ---
 # Machine Output Contract
 
-This document is normative for stdout, stderr, JSON-mode behavior, JSONL stream behavior, schema linkage, diagnostics, and exit codes.
+This document is normative for stdout, stderr, JSON-mode behavior, JSONL stream behavior, diagnostics, and exit codes.
 
-## 1. Stdout and Stderr Responsibilities
+## 1. Stdout and stderr
 
 On success, a command writes its main payload to stdout.
 
-- In human-readable mode, non-fatal diagnostics are written to stderr as plain text.
-- In `--json` mode, non-fatal diagnostics are carried inside the JSON payload.
-- In `--jsonl` mode, waveform commands write one JSON object per stdout line; non-fatal diagnostics are diagnostic records in that stream.
-- In `schema` mode, stdout contains exactly one JSON Schema document.
+- Human-readable mode writes non-fatal diagnostics to stderr as plain text.
+- `--json` carries non-fatal diagnostics inside one JSON result.
+- `--jsonl` writes one JSON object per stdout line and carries diagnostics as stream records.
 
-If a downstream consumer intentionally closes stdout early, wavepeek stops writing and exits successfully without a fatal stderr diagnostic.
+If a downstream consumer intentionally closes stdout early, `wavepeek` stops writing and exits successfully. In non-streaming modes, stdout is empty on failure and stderr carries the fatal error. A JSONL failure after `begin` can leave a partial stream without `end`; treat that stream as incomplete.
 
-For non-streaming modes, stdout is empty on failure and process-level failures are reported on stderr only. In `--jsonl` mode, a fatal error after `begin` can leave partial stdout without a final `end`; consumers must treat that stream as incomplete.
+## 2. JSON envelopes
 
-## 2. JSON Envelope for Stable `--json` Commands
+A successful `--json` command emits `command`, `data`, and `diagnostics`. `data` may be an object or a list.
 
-When a stable JSON-producing command succeeds under `--json`, it emits one JSON object with this shape:
-
-```json
-{
-  "$schema": "https://kleverhq.github.io/wavepeek/schema-output-v2.2.json",
-  "command": "<command>",
-  "data": {},
-  "diagnostics": []
-}
-```
-
-The semantics of the envelope fields are:
-
-- `$schema` is serialized literally as `$schema` and points at the exact canonical schema artifact for the current output schema family version.
-- `command` identifies the executed subcommand and disambiguates the shape of `data`.
-- `data` carries the command payload. Depending on the command contract, it may be an object or an array.
-- `diagnostics` is an array of typed diagnostic objects in deterministic order.
-
-A diagnostic object has `kind`, `message`, and sometimes `code`:
+Object payload (`info`):
 
 ```json
-{
-  "kind": "warning",
-  "code": "WPK-W0002",
-  "message": "truncated output to 1 entries (use --max to increase limit)"
-}
+{"command":"info","data":{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"},"diagnostics":[]}
 ```
 
-`kind` is one of `info`, `warning`, or `error`. `warning` and `error` diagnostics always include a stable `code` matching `WPK-W####` or `WPK-E####`. `info` diagnostics omit `code`.
-
-The exact JSON shapes for every command are defined by the current schema artifact such as `schema/output.json` and by `wavepeek schema`. Current v2 outer envelopes, stream records, and structured source objects are extension-friendly. Nested command data follows its generated schema; in particular, AHB profile, context, event, mapping, initial-state, and payload objects are closed.
-
-The stable JSON-producing commands currently include the waveform-inspection commands plus `docs topics --json` and `docs search --json`. Human-only helper surfaces such as `skill` and human-only docs subcommands such as `docs show` and `docs export` do not silently change output modes; unsupported `--json` combinations fail as argument errors and leave stdout empty.
-
-`extract generic` data is an array of rows. Each row has `time`, `sample_time`, `source`, and ordered `payload` entries:
+List payload (`value`):
 
 ```json
-{
-  "time": "25ns",
-  "sample_time": "24999ps",
-  "source": "transfer",
-  "payload": [
-    {"path": "top.dut.data", "value": "32'hdeadbeef"}
-  ]
-}
+{"command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}],"diagnostics":[]}
 ```
 
-Payload paths are canonical in JSON and JSONL output.
+Event payload (`extract apb`):
 
-`extract ahb` data is an object with AHB context and ordered pipeline events. It has `name`, canonical `profile`, `issue: "C"`, `include_stall`, `include_idle`, `include_busy`, `initial_data_phase`, `mappings`, and `events`. Supported profiles are AHB-Lite (`ahb-lite`) and AHB5 (`ahb5`). `initial_data_phase` is a closed state object: `empty`, `desynchronized`, or `pending` with the pre-window accepted address snapshot. Each event has `time`, `sample_time`, `profile`, an `event` discriminator, and event-specific optional `transfer`, `direction`, and `payload` fields. Payload is an object keyed by lowercase AHB standard signal name. Closed profile/event shapes reject unsupported fields, but payload values remain observations: read ERROR completion preserves mapped `hrdata`, and unknown direction can preserve both read and write data sides without claiming protocol validity.
-`extract apb` data is an object with `name`, `profile`, `issue`, `pready_mode`, `include_wait`, canonical `mappings`, and `events`. Each event has `time`, `sample_time`, `profile`, `event`, `direction`, and a `payload` object keyed by lowercase APB standard signal name. Profiles are APB3, APB4, and APB5 from Arm IHI 0024E Issue E. Profile, mode, wait setting, event, direction, mapping keys, and payload keys are schema-constrained; mappings depend on profile and PREADY mode, event kinds depend on the effective wait setting, and payload keys depend on profile, event kind, and direction. Response fields are completion-only. Direction-specific payload keys are optional because only mapped observations are emitted; `pwrite` is required in every event payload.
+```json
+{"command":"extract apb","data":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}},"events":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}]},"diagnostics":[]}
+```
 
-`extract atb` data is an object with `name`, `profile`, `issue`, canonical `mappings`, and `events`. Profiles are `atb-a`, `atb-b`, and `atb-c` from Arm IHI 0032C Issue C. Each event has `time`, `sample_time`, `profile`, `event`, and a `payload` object. Event kinds are `transfer`, `flush`, and `sync-request`. Transfer payload keys are the mapped subset of `atbytes`, `atdata`, and `atid`; flush and synchronization-request payloads are empty. The schema constrains profile signal sets and requires complete handshake pairs.
+Transfer payload (`extract axi`):
 
-`extract axi` data is an object with AXI context and transfer rows. It has `name`, `profile`, `issue`, `mappings`, and `transfers`. Each transfer has `time`, `sample_time`, `profile`, `channel`, and a `payload` object keyed by lowercase AXI standard signal name. Supported profiles are AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP. AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 use Issue H.c metadata; AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP use Issue L metadata. AXI5 and ACE5-LiteDVM can include `ac` and `cr` DVM channels but not `cd`. ACE and ACE5 include `ac`, `cr`, and `cd` coherency channels in addition to the five base AXI channels. The schema enumerates supported profiles, channels, and payload keys per profile/channel; payload keys are optional because rows include only mapped payload signals. Mapping paths are canonical.
+```json
+{"command":"extract axi","data":{"name":"axi","profile":"axi4-lite","issue":"H.c","mappings":{"aclk":{"path":"top.clk"},"awready":{"path":"top.axi_aw_ready_i"},"awvalid":{"path":"top.axi_aw_valid_o"}},"transfers":[{"time":"5ns","sample_time":"4ns","profile":"axi4-lite","channel":"aw","payload":{}}]},"diagnostics":[]}
+```
 
-`extract axistream` data has `name`, `profile`, `issue`, `tready_mode`, `mappings`, and `transfers`. Profiles are AXI4-Stream (`axi4-stream`) and AXI5-Stream (`axi5-stream`); both use Issue B. Each transfer has `time`, `sample_time`, `profile`, and a payload object keyed by mapped AXI-Stream payload standard names. There is no channel field because one invocation maps one stream interface. `tready_mode` is `mapped` or `implicit-high`, and an implicit-high context cannot contain a `tready` mapping. Mapping and payload key sets exclude AXI5-Stream wake-up and check/parity signals.
+Machine-readable paths are canonical. Protocol extraction payloads retain the context fields documented in `commands/extract`; rows contain only mapped observations. The waveform commands plus `docs topics --json` and `docs search --json` support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
 
-## 3. JSONL Stream for Waveform Commands
+A diagnostic has `kind`, `message`, and, for warnings and errors, a stable `code`:
 
-Waveform commands also support `--jsonl` for newline-delimited JSON output. JSONL means each stdout line is an independent JSON object, and the full stdout stream is not wrapped in an array.
+```json
+{"kind":"warning","code":"WPK-W0002","message":"truncated output to 1 entries (use --max to increase limit)"}
+```
 
-A successful stream has these record types:
+`kind` is `info`, `warning`, or `error`. Warning and error codes match `WPK-W####` or `WPK-E####`; information diagnostics omit `code`.
+
+## 3. JSONL streams
+
+Waveform commands support `--jsonl` for incremental consumption. Each stdout line is an independent JSON object:
 
 ```jsonl
-{"type":"begin","seq":0,"command":"change","$schema":"https://kleverhq.github.io/wavepeek/schema-stream-v2.2.json"}
+{"type":"begin","seq":0,"command":"change"}
 {"type":"item","seq":1,"command":"change","item":{"time":"5ns","sample_time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}}
 {"type":"diagnostic","seq":2,"command":"change","diagnostic":{"kind":"warning","code":"WPK-W0002","message":"truncated output to 1 entries (use --max to increase limit)"}}
 {"type":"end","seq":3,"command":"change","summary":{"status":"ok","items":1,"diagnostics":1,"truncated":true}}
 ```
 
-Rules for successful JSONL streams:
+A successful stream obeys these rules:
 
-- `begin` is first and has `seq: 0`.
-- `seq` increases by one for every record.
-- `command` is stable across the stream.
-- Protocol extractor `begin` records require the matching AHB, APB, ATB, AXI, or AXI-Stream context; other commands do not carry protocol context.
-- `item` records carry the same row payload shape used inside `--json` data arrays for array-producing commands, the event row shape for `extract ahb`, `extract apb`, or `extract atb`, the transfer row shape for `extract axi` or `extract axistream`, or the `info` data object for `info`.
-- `change`, `property`, and `extract` rows include both `time` and `sample_time`. `time` is the selected event timestamp; `sample_time` is where values were printed, evaluated, or extracted.
-- `extract ahb` streams include Issue C profile, inclusion flags, initial pipeline state, and mappings on the `begin` record. Each event item repeats `profile` so it can be validated independently. Every item profile must equal the begin-context profile. `data-stall`, `idle`, and `busy` items are valid only when the corresponding begin-context inclusion flag is true. These are stream-level invariants because the schema validates one record at a time.
-- `extract apb` streams include APB profile, Issue E, PREADY mode, wait setting, and mappings on the `begin` record; each event item repeats `profile` for independent row validation.
-- `extract atb` streams include ATB profile, Issue C, and mappings on the `begin` record; each event item repeats `profile` for independent row validation.
-- `extract axi` and `extract axistream` streams include protocol context on the `begin` record and repeat `profile` on each transfer item so each JSONL row can be validated independently. AXI-Stream begin context also includes `tready_mode`.
-- `diagnostic` records carry the same diagnostic object shape used by `--json`.
-- `end` is last on successful completion and reports `summary.status: "ok"`, item count, diagnostic count, and whether output was truncated.
+- `begin` is first with `seq: 0`.
+- `seq` increases by one for every record and `command` stays constant.
+- Protocol extractor `begin` records include the matching protocol context.
+- `item` carries the corresponding JSON row, event, transfer, or `info` object.
+- `diagnostic` carries the same diagnostic shape used by `--json`.
+- `end` is last and reports status, item count, diagnostic count, and truncation.
 
-The checked-in stream schema, such as `schema/stream.json`, validates one JSONL record at a time. Consumers must validate stream-level invariants themselves: first record is `begin`, last successful record is `end`, sequence numbers are contiguous, commands match, and summary counts match the records seen.
+`change`, `property`, and extraction rows use `time` for the selected event and `sample_time` for the sampled values. Protocol rows repeat `profile`; it must match the begin context. If the process exits non-zero or no final `end` appears, treat the stream as incomplete.
 
-If the process exits non-zero or a stream lacks a final `end` record, treat the stream as incomplete. A consumer that intentionally closes stdout early, for example by piping to `head`, may stop the producer without a fatal error.
+`--json` and `--jsonl` are mutually exclusive. JSONL is available on waveform commands only.
 
-`--json` and `--jsonl` are mutually exclusive. `--jsonl` is available only on waveform-inspection commands: `info`, `scope`, `signal`, `value`, `change`, `property`, `extract ahb`, `extract apb`, `extract atb`, `extract axi`, `extract axistream`, and `extract generic`.
+## 4. Diagnostics
 
-## 4. `schema` Command Behavior
+Diagnostics do not change the exit code. Common cases are truncation, explicitly disabled limits, and valid queries with no matching rows.
 
-`wavepeek schema` is the authority for the machine-readable output contract.
-
-Its behavior is special and fixed:
-
-- it accepts no waveform input,
-- it accepts no command-specific flags or positional arguments,
-- it writes exactly one JSON Schema document to stdout,
-- it does not wrap that document in the normal command envelope, and
-- without selectors, its output bytes match the canonical JSON envelope snapshot, `schema/output.json`.
-
-`wavepeek schema --stream` prints the canonical JSONL record schema snapshot, `schema/stream.json`. That schema describes one stream record, not a whole JSONL stream.
-
-`wavepeek schema --input` prints the canonical JSON input document schema snapshot, `schema/input.json`. Current input document kinds are `extract.generic.sources`, used by `wavepeek extract generic --source`; `extract.ahb.source`, used by `wavepeek extract ahb --source`; `extract.apb.source`, used by `wavepeek extract apb --source`; `extract.atb.source`, used by `wavepeek extract atb --source`; `extract.axi.source`, used by `wavepeek extract axi --source`; and `extract.axistream.source`, used by `wavepeek extract axistream --source`.
-
-## 5. Diagnostic Behavior
-
-Diagnostics do not change the exit code. A command can therefore succeed with diagnostics.
-
-Common diagnostic cases include truncated output, explicitly disabled limits, and semantically empty-but-valid queries such as a selected range with no matching signal changes.
-
-Diagnostic transport depends on the output mode:
-
-- human-readable mode sends diagnostics to stderr,
-- `--json` mode stores diagnostics in the envelope's `diagnostics` array,
-- `--jsonl` mode stores diagnostics as `diagnostic` records before the final `end` record.
-
-Human-readable diagnostics use these formats:
+Human-readable diagnostics use:
 
 ```text
 info: <message>
@@ -155,11 +95,11 @@ warning[WPK-W0002]: <message>
 error[WPK-E0001]: <message>
 ```
 
-When `DEBUG=1` is set, commands may also write debug event lines to stderr. These lines are independent of command diagnostics and fatal errors. Each debug line is a JSON object with `kind: "debug"`, `message`, `timestamp_ns`, and an object-valued `details` field. The `details` content is intentionally free-form.
+With `DEBUG=1`, commands may also write JSON debug events to stderr. Debug events are separate from command diagnostics and fatal errors.
 
-## 6. Fatal Error Format and Exit Codes
+## 5. Fatal errors and exit codes
 
-Process-level failures are fail-fast and machine-parseable. The stderr format is:
+Process-level failures are fail-fast and use:
 
 ```text
 fatal: <category>: <message>
@@ -167,16 +107,14 @@ fatal: <category>: <message>
 
 Representative categories include `args`, `file`, `scope`, `signal`, and `expr`.
 
-Exit codes are stable at the process level:
-
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
 | `1` | User-facing failure such as bad arguments, missing scopes/signals, or invalid expressions |
 | `2` | File-level failure such as open, parse, or unsupported-format failures |
 
-Fatal errors are never wrapped in the JSON success envelope. Even in `--json` mode, stdout stays empty on failure and stderr carries the formatted fatal line.
+Fatal errors are never wrapped in a JSON success envelope.
 
-## 7. Human Output Flexibility
+## 6. Human output flexibility
 
-Human-readable output is part of the user experience, but it is intentionally less rigid than the machine contract. Commands may improve human formatting over time as long as they preserve the semantic guarantees documented in `command-model` and the stricter cases called out by command-specific help or tests.
+Human-readable output is intentionally less rigid than machine output. Formatting may improve while preserving the semantic guarantees in `reference/command-model` and command-specific help or tests.

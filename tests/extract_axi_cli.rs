@@ -6,36 +6,10 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
-
-fn output_schema_validator() -> jsonschema::Validator {
-    let schema_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join("output.json");
-    let schema: Value =
-        serde_json::from_str(&fs::read_to_string(schema_path).expect("output schema should read"))
-            .expect("output schema should parse");
-    jsonschema::validator_for(&schema).expect("output schema should compile")
-}
-
-fn stream_schema_validator() -> jsonschema::Validator {
-    let schema_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join("stream.json");
-    let schema: Value =
-        serde_json::from_str(&fs::read_to_string(schema_path).expect("stream schema should read"))
-            .expect("stream schema should parse");
-    jsonschema::validator_for(&schema).expect("stream schema should compile")
-}
+use common::{fixture_path, wavepeek_cmd};
 
 fn parse_json(stdout: &[u8]) -> Value {
     let value: Value = serde_json::from_slice(stdout).expect("stdout should be valid json");
-    output_schema_validator()
-        .validate(&value)
-        .unwrap_or_else(|error| panic!("output should validate: {error}\n{value}"));
     value
 }
 
@@ -66,14 +40,10 @@ fn human_transfer_channels(output: &str) -> Vec<&str> {
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let output = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(output.ends_with('\n'));
-    let validator = stream_schema_validator();
     output
         .lines()
         .map(|line| {
             let record: Value = serde_json::from_str(line).expect("JSONL line should parse");
-            validator
-                .validate(&record)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{record}"));
             record
         })
         .collect()
@@ -341,13 +311,11 @@ fn extract_ace5_lite_family_accepts_only_explicit_aliases() {
 
             let source = write_source(&format!(
                 r#"{{
-  "$schema": "{}",
   "kind": "extract.axi.source",
   "profile": "{profile}",
   "includes": ["{include}"],
   "maps": {{"aclk": "clk"}}
-}}"#,
-                expected_input_schema_url()
+}}"#
             ));
             let source = source.path().to_string_lossy().into_owned();
             wavepeek_cmd()
@@ -396,7 +364,6 @@ fn extract_ace5_lite_family_accepts_only_explicit_aliases() {
 
         let source = write_source(&format!(
             r#"{{
-  "$schema": "{}",
   "kind": "extract.axi.source",
   "profile": "{unsupported}",
   "maps": {{
@@ -404,8 +371,7 @@ fn extract_ace5_lite_family_accepts_only_explicit_aliases() {
     "awvalid": "top.ace5_lite_dvm_aw_valid_o",
     "awready": "top.ace5_lite_dvm_aw_ready_i"
   }}
-}}"#,
-            expected_input_schema_url()
+}}"#
         ));
         wavepeek_cmd()
             .args([
@@ -882,13 +848,11 @@ fn extract_axi5_lite_source_accepts_hyphen_and_underscore_aliases() {
     for profile in ["axi5-lite", "AXI5_LITE", "axi5_lite"] {
         let source = write_source(&format!(
             r#"{{
-  "$schema": "{}",
   "kind": "extract.axi.source",
   "profile": "{profile}",
   "includes": ["^axi5_lite_(aw|w|b|ar|r)_"],
   "maps": {{"aclk": "clk"}}
-}}"#,
-            expected_input_schema_url()
+}}"#
         ));
         let source = source.path().to_string_lossy().into_owned();
         let output = wavepeek_cmd()
@@ -1098,13 +1062,11 @@ fn extract_ace_lite_source_accepts_hyphen_and_underscore_aliases() {
     for profile in ["ace-lite", "ACE_LITE", "ace_lite"] {
         let source = write_source(&format!(
             r#"{{
-  "$schema": "{}",
   "kind": "extract.axi.source",
   "profile": "{profile}",
   "includes": ["^ace_lite_.*"],
   "maps": {{"aclk": "clk"}}
-}}"#,
-            expected_input_schema_url()
+}}"#
         ));
         let source = source.path().to_string_lossy().into_owned();
         let output = wavepeek_cmd()
@@ -1464,7 +1426,6 @@ fn extract_axi_json_automaps_axi4_lite_and_gates_reset() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "extract axi");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(value["data"]["name"], "axi");
@@ -1558,17 +1519,15 @@ fn extract_axi3_profile_extracts_wid() {
 #[test]
 fn extract_axi_source_jsonl_includes_begin_context() {
     let fixture_path = waveform_fixture("extract_axi_lite.vcd");
-    let source = write_source(&format!(
-        r#"{{
-  "$schema": "{}",
+    let source = write_source(
+        r#"{
   "kind": "extract.axi.source",
   "profile": "axi4-lite",
   "name": "cfg",
   "includes": ["^axi_(aw|w|b|ar|r)_"],
-  "maps": {{"aclk": "clk", "aresetn": "aresetn"}}
-}}"#,
-        expected_input_schema_url()
-    ));
+  "maps": {"aclk": "clk", "aresetn": "aresetn"}
+}"#,
+    );
     let source_path = source.path().to_string_lossy().into_owned();
 
     let output = wavepeek_cmd()
@@ -1591,10 +1550,6 @@ fn extract_axi_source_jsonl_includes_begin_context() {
 
     let records = parse_stream(&output);
     assert_eq!(records.first().unwrap()["type"], "begin");
-    assert_eq!(
-        records.first().unwrap()["$schema"],
-        expected_stream_schema_url()
-    );
     assert_eq!(records.first().unwrap()["context"]["name"], "cfg");
     assert_eq!(records.first().unwrap()["context"]["profile"], "axi4-lite");
     assert_eq!(records[1]["type"], "item");
@@ -1675,13 +1630,11 @@ fn extract_axi_source_rejects_explicit_null_strings() {
 
     for contents in [
         r#"{
-  "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
   "kind": "extract.axi.source",
   "profile": null
 }
 "#,
         r#"{
-  "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
   "kind": "extract.axi.source",
   "name": null
 }
@@ -1708,42 +1661,9 @@ fn extract_axi_source_rejects_explicit_null_strings() {
 }
 
 #[test]
-fn extract_axi_source_rejects_legacy_generic_schema_url() {
-    let fixture = waveform_fixture("extract_axi_lite.vcd");
-    let source = write_source(
-        r#"{
-  "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.1.json",
-  "kind": "extract.axi.source",
-  "profile": "axi4-lite",
-  "maps": {"aclk": "clk"}
-}
-"#,
-    );
-    let source = source.path().to_string_lossy().into_owned();
-
-    wavepeek_cmd()
-        .args([
-            "extract",
-            "axi",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--source",
-            source.as_str(),
-        ])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("uses unsupported $schema"));
-}
-
-#[test]
 fn extract_axi_source_conflicts_with_explicit_profile() {
     let fixture_path = waveform_fixture("extract_axi_lite.vcd");
-    let source = write_source(&format!(
-        r#"{{"$schema":"{}","kind":"extract.axi.source","maps":{{"aclk":"clk"}}}}"#,
-        expected_input_schema_url()
-    ));
+    let source = write_source(r#"{"kind":"extract.axi.source","maps":{"aclk":"clk"}}"#);
     let source_path = source.path().to_string_lossy().into_owned();
 
     wavepeek_cmd()

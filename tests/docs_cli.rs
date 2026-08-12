@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
 mod common;
-use common::{expected_schema_url, wavepeek_cmd};
+use common::wavepeek_cmd;
 
-const TOPIC_IDS: [&str; 24] = [
+const TOPIC_IDS: [&str; 23] = [
     "intro",
     "commands/change",
     "commands/docs",
@@ -16,7 +16,6 @@ const TOPIC_IDS: [&str; 24] = [
     "commands/info",
     "commands/overview",
     "commands/property",
-    "commands/schema",
     "commands/scope",
     "commands/signal",
     "commands/skill",
@@ -115,7 +114,6 @@ fn docs_command_without_subcommand_prints_help() {
 fn docs_topics_json_uses_standard_envelope() {
     let value = successful_json(&["docs", "topics", "--json"]);
 
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "docs topics");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
 
@@ -318,7 +316,6 @@ fn public_extract_docs_cover_ahb_pipeline_semantics() {
         "commands/extract",
         "commands/overview",
         "workflows/extract-handshake",
-        "reference/machine-output",
     ] {
         let output = successful_stdout_text(&["docs", "show", topic_id]);
         assert!(
@@ -351,7 +348,6 @@ fn public_extract_docs_cover_axi5_and_ace_family_profiles() {
         "commands/extract",
         "commands/overview",
         "workflows/extract-handshake",
-        "reference/machine-output",
     ] {
         let output = successful_stdout_text(&["docs", "show", topic_id]);
         assert!(
@@ -380,11 +376,7 @@ fn public_extract_docs_cover_axi5_and_ace_family_profiles() {
     assert!(extract.contains(
         "ACE5-LiteACP additionally accepts `ace5-liteacp`, `ace5_liteacp`, and `ace5_lite_acp`"
     ));
-    assert!(extract.contains("Generated schemas accept canonical hyphenated profile names only."));
-
-    let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
-    assert!(machine_output.contains("Issue H.c"));
-    assert!(machine_output.contains("Issue L"));
+    assert!(extract.contains("Source files also accept the documented aliases."));
 }
 
 #[test]
@@ -393,7 +385,6 @@ fn public_extract_docs_cover_axistream_profiles_and_tready_modes() {
         "commands/extract",
         "commands/overview",
         "workflows/extract-handshake",
-        "reference/machine-output",
     ] {
         let output = successful_stdout_text(&["docs", "show", topic_id]);
         assert!(
@@ -415,8 +406,8 @@ fn public_extract_docs_cover_axistream_profiles_and_tready_modes() {
     }
 
     let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
-    assert!(machine_output.contains("`extract axistream` data has"));
-    assert!(machine_output.contains("`extract.axistream.source`"));
+    assert!(machine_output.contains("Transfer payload (`extract axi`)"));
+    assert!(machine_output.contains("Protocol extraction payloads retain the context fields"));
 }
 
 #[test]
@@ -425,7 +416,6 @@ fn public_extract_docs_cover_apb_profiles_modes_and_stateless_scope() {
         "commands/extract",
         "commands/overview",
         "workflows/extract-handshake",
-        "reference/machine-output",
     ] {
         let output = successful_stdout_text(&["docs", "show", topic_id]);
         assert!(
@@ -448,7 +438,7 @@ fn public_extract_docs_cover_apb_profiles_modes_and_stateless_scope() {
         "`paddrchk`, `psel0`, and `pselx` do not",
         "Read data, error response, and response-user fields appear only on completion",
         "does not assemble transactions",
-        "generated schemas accept canonical lowercase values only",
+        "source files accept canonical lowercase values and the documented aliases",
     ] {
         assert!(
             extract.contains(fragment),
@@ -469,10 +459,6 @@ fn public_extract_docs_cover_apb_profiles_modes_and_stateless_scope() {
             );
         }
     }
-
-    let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
-    assert!(machine_output.contains("`extract.apb.source`"));
-    assert!(machine_output.contains("Profile, mode, wait setting, event, direction"));
 }
 
 #[test]
@@ -498,10 +484,6 @@ fn public_extract_docs_cover_atb_profiles_and_stateless_boundaries() {
             "extract docs should contain `{fragment}`"
         );
     }
-
-    let machine_output = successful_stdout_text(&["docs", "show", "reference/machine-output"]);
-    assert!(machine_output.contains("`extract atb` data is an object"));
-    assert!(machine_output.contains("`extract.atb.source`"));
 }
 
 #[test]

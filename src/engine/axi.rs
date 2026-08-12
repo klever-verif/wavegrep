@@ -6,7 +6,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AxiArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
@@ -169,8 +168,6 @@ impl<S: AxiTransferSink + ?Sized> ExtractRowSink for GenericToAxiSink<'_, S> {
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -1223,45 +1220,6 @@ const ACE5_LITE_ACP_PROFILE: AxiProfileSpec = AxiProfileSpec {
     channels: ACE5_LITE_ACP_CHANNELS,
 };
 
-pub(crate) fn profile_specs() -> &'static [AxiProfileSpec] {
-    &[
-        AXI3_PROFILE,
-        AXI4_PROFILE,
-        AXI4_LITE_PROFILE,
-        AXI5_PROFILE,
-        AXI5_LITE_PROFILE,
-        ACE_PROFILE,
-        ACE_LITE_PROFILE,
-        ACE5_PROFILE,
-        ACE5_LITE_PROFILE,
-        ACE5_LITE_DVM_PROFILE,
-        ACE5_LITE_ACP_PROFILE,
-    ]
-}
-
-pub(crate) fn standard_signals(profile: &AxiProfileSpec) -> Vec<&'static str> {
-    COMMON_SIGNALS
-        .iter()
-        .copied()
-        .chain(
-            profile
-                .channels
-                .iter()
-                .flat_map(|channel| channel.signals.iter().copied()),
-        )
-        .collect()
-}
-
-pub(crate) fn channel_payload_signals(
-    channel: &AxiChannelSpec,
-) -> impl Iterator<Item = &'static str> + '_ {
-    channel
-        .signals
-        .iter()
-        .copied()
-        .filter(|standard| *standard != channel.valid && *standard != channel.ready)
-}
-
 pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
@@ -1442,14 +1400,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AxiConfig, WavepeekError
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AXI extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AXI extract source file '{}' has kind {}; expected {}",
@@ -1868,7 +1818,7 @@ impl AxiProfile {
 
 #[cfg(test)]
 mod tests {
-    use super::{candidate_matches_standard, parse_cli_maps, parse_profile, profile_specs};
+    use super::{candidate_matches_standard, parse_cli_maps, parse_profile};
 
     fn assert_profile(name: &str, expected: &[(&str, &[&str])]) {
         let profile = parse_profile(name).unwrap();
@@ -1929,26 +1879,6 @@ mod tests {
 
     #[test]
     fn ace_family_profile_specs_match_contract() {
-        assert_eq!(
-            profile_specs()
-                .iter()
-                .map(|profile| profile.name)
-                .collect::<Vec<_>>(),
-            [
-                "axi3",
-                "axi4",
-                "axi4-lite",
-                "axi5",
-                "axi5-lite",
-                "ace",
-                "ace-lite",
-                "ace5",
-                "ace5-lite",
-                "ace5-lite-dvm",
-                "ace5-lite-acp"
-            ]
-        );
-
         assert_profile(
             "ace",
             &[

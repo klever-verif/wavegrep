@@ -6,9 +6,8 @@ use predicates::prelude::*;
 mod common;
 use common::wavepeek_cmd;
 
-const VISIBLE_TOP_LEVEL_COMMANDS: [&str; 11] = [
-    "info", "scope", "signal", "value", "change", "property", "extract", "schema", "docs", "skill",
-    "help",
+const VISIBLE_TOP_LEVEL_COMMANDS: [&str; 10] = [
+    "info", "scope", "signal", "value", "change", "property", "extract", "docs", "skill", "help",
 ];
 
 #[cfg(feature = "fsdb")]
@@ -121,11 +120,10 @@ fn assert_human_flag_rejected(args: &[&str], command_name: &str) {
 #[test]
 fn closed_stdout_is_silent_success() {
     for args in [
-        &["schema"][..],
-        &["docs", "topics", "--json"],
-        &["--help"],
-        &["-V"],
-        &["--version"],
+        &["docs", "topics", "--json"][..],
+        &["--help"][..],
+        &["-V"][..],
+        &["--version"][..],
     ] {
         let (reader, writer) = io::pipe().expect("pipe should open");
         drop(reader);
@@ -175,7 +173,6 @@ fn help_lists_expected_subcommands() {
         .stdout(predicate::str::contains(
             "wavepeek is a machine-friendly command-line tool for RTL waveform inspection.",
         ))
-        .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("info"))
         .stdout(predicate::str::contains("scope"))
         .stdout(predicate::str::contains("\n  modules\n").not())
@@ -187,7 +184,6 @@ fn help_lists_expected_subcommands() {
         .stdout(predicate::str::contains("\n  changes\n").not())
         .stdout(predicate::str::contains("property"))
         .stdout(predicate::str::contains("extract"))
-        .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("docs"))
         .stdout(predicate::str::contains("skill"))
         .stdout(predicate::str::contains("\n  help"));
@@ -220,7 +216,7 @@ fn top_level_help_documents_general_conventions() {
             .not(),
         )
         .stdout(
-            predicate::str::contains("`schema`, `docs`, and `help` are the non-waveform surfaces")
+            predicate::str::contains("`docs` and `help` are the non-waveform surfaces")
                 .not(),
         )
         .stdout(predicate::str::contains("Output is bounded by default"))
@@ -266,26 +262,6 @@ fn top_level_help_describes_shipped_subcommands_without_unimplemented_markers() 
             predicate::str::contains("Evaluate properties over a time range (not implemented yet)")
                 .not(),
         );
-}
-
-#[test]
-fn help_lists_schema_after_waveform_commands() {
-    let mut command = wavepeek_cmd();
-
-    let assert = command.arg("--help").assert().success();
-    let output = String::from_utf8_lossy(&assert.get_output().stdout);
-
-    let schema_index = output
-        .find("\n  schema")
-        .expect("help output should list schema subcommand");
-    let extract_index = output
-        .find("\n  extract")
-        .expect("help output should list extract subcommand");
-
-    assert!(
-        schema_index > extract_index,
-        "schema should appear after waveform commands in top-level help"
-    );
 }
 
 #[test]
@@ -390,18 +366,10 @@ fn command_name_parser_ignores_wrapped_description_lines() {
 }
 
 #[test]
-fn waveform_help_uses_schema_reference_without_inline_envelope_or_parse_hints() {
+fn waveform_help_avoids_inline_envelope_or_parse_hints() {
     for command_name in ["info", "scope", "signal", "value", "change", "property"] {
         let long_help = successful_stdout_text(&[command_name, "--help"]);
 
-        assert!(
-            long_help.contains("wavepeek schema"),
-            "help for {command_name} should refer readers to wavepeek schema for JSON contract details"
-        );
-        assert!(
-            !long_help.contains("$schema"),
-            "help for {command_name} should not inline JSON envelope fields"
-        );
         assert!(
             !long_help.contains("`data`"),
             "help for {command_name} should not inline JSON envelope field names"
@@ -506,7 +474,6 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(!help.contains("(`--waves <FILE>` is required)"));
         assert!(!help.contains("(default: 50,"));
         assert!(!help.contains("human output"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -561,7 +528,6 @@ fn property_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(!help.contains("(`--eval` is required)"));
         assert!(!help.contains("Capture mode (`match`, `switch`, `assert`, `deassert`)"));
         assert!(!help.contains("Capture mode: match, switch, assert, or deassert"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -622,31 +588,6 @@ fn docs_command_help_is_direct_and_omits_examples() {
 }
 
 #[test]
-fn schema_help_uses_aligned_summary_and_trimmed_behavior() {
-    let short_help = successful_stdout_text(&["schema", "-h"]);
-    let long_help = successful_stdout_text(&["schema", "--help"]);
-    let alias_help = successful_stdout_text(&["help", "schema"]);
-
-    for help in [&short_help, &long_help, &alias_help] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Print canonical JSON schema contract.")
-        );
-    }
-
-    assert!(long_help.contains("Behavior:"));
-    assert!(long_help.contains("Prints exactly one deterministic schema document to stdout."));
-    assert!(
-        long_help
-            .contains("Default output is the JSON envelope schema for `--json` command outputs.")
-    );
-    assert!(long_help.contains("`--stream` prints the JSONL record schema for `--jsonl` output."));
-    assert!(long_help.contains("`--input` prints the JSON input document schema"));
-    assert!(!long_help.contains("Accepts no command-specific"));
-    assert!(!long_help.contains("Output bytes match"));
-}
-
-#[test]
 fn info_help_uses_aligned_summary_and_simple_option_docs() {
     let short_help = successful_stdout_text(&["info", "-h"]);
     let long_help = successful_stdout_text(&["info", "--help"]);
@@ -659,7 +600,7 @@ fn info_help_uses_aligned_summary_and_simple_option_docs() {
         );
     }
 
-    assert!(long_help.contains("Behavior:\n- Prints available metadata (e.g. time unit, start/end times, etc.) in free form\n- `--json` uses the machine contract defined by `wavepeek schema`."));
+    assert!(long_help.contains("Behavior:\n- Prints available metadata (e.g. time unit, start/end times, etc.) in free form\n- `--json` emits the standard machine-readable envelope."));
     assert!(!short_help.contains("See also:"));
     for help in [&long_help, &alias_help] {
         assert!(help.contains("See also:\n  wavepeek docs show commands/info"));
@@ -675,7 +616,6 @@ fn info_help_uses_aligned_summary_and_simple_option_docs() {
         assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
         assert!(help.contains("Machine-readable JSON output"));
         assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -725,7 +665,6 @@ fn scope_help_uses_aligned_summary_behavior_and_simple_option_docs() {
         assert!(!help.contains("(`--waves <FILE>` is required)"));
         assert!(!help.contains("(default:"));
         assert!(!help.contains("invalid regex is rejected as an argument error"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -774,7 +713,6 @@ fn signal_help_uses_aligned_summary_behavior_and_simple_option_docs() {
         assert!(!help.contains("`--scope` is required"));
         assert!(!help.contains("(default:"));
         assert!(!help.contains("invalid regex is rejected as an argument error"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -823,7 +761,6 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(!help.contains("for example"));
         assert!(!help.contains("bare numbers are rejected as argument errors"));
         assert!(!help.contains("human output"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -868,7 +805,6 @@ fn nested_docs_help_surfaces_are_aligned_and_trimmed() {
     assert_eq!(search_long, search_alias);
     assert!(search_long.contains("not a regular expression"));
     assert!(search_long.contains("Markdown bodies"));
-    assert!(search_long.contains("contract: see `wavepeek schema`"));
 
     let export_short = successful_stdout_text(&["docs", "export", "-h"]);
     let export_long = successful_stdout_text(&["docs", "export", "--help"]);
@@ -926,14 +862,13 @@ fn nested_parse_errors_point_to_full_help_path() {
 
 #[test]
 fn shipped_commands_help_is_self_descriptive() {
-    let command_contracts: [(&str, &[&str]); 8] = [
+    let command_contracts: [(&str, &[&str]); 7] = [
         (
             "info",
             &[
                 "Reports metadata for the selected waveform dump.",
                 "Prints available metadata",
                 "time unit, start/end times",
-                "wavepeek schema",
             ],
         ),
         (
@@ -943,7 +878,6 @@ fn shipped_commands_help_is_self_descriptive() {
                 "pre-order depth-first",
                 "lexicographic child ordering",
                 "Truncation and disabled-limit conditions emit coded diagnostics",
-                "wavepeek schema",
             ],
         ),
         (
@@ -953,7 +887,6 @@ fn shipped_commands_help_is_self_descriptive() {
                 "Finds all signals matching `--filter`",
                 "depth-first in stable lexicographic order",
                 "Includes stable signal kind aliases",
-                "wavepeek schema",
             ],
         ),
         (
@@ -964,7 +897,6 @@ fn shipped_commands_help_is_self_descriptive() {
                 "display=value",
                 "align to dump precision",
                 "Verilog literals",
-                "wavepeek schema",
             ],
         ),
         (
@@ -974,7 +906,6 @@ fn shipped_commands_help_is_self_descriptive() {
                 "Prints requested signal values for each `--on` trigger firing",
                 "Similar to a modified SystemVerilog `$monitor`",
                 "Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics",
-                "wavepeek schema",
             ],
         ),
         (
@@ -984,15 +915,6 @@ fn shipped_commands_help_is_self_descriptive() {
                 "Evaluates `--eval` at timestamps selected by `--on`",
                 "Level capture (`--capture match`) reports a match",
                 "Edge capture (`--capture switch`, `assert`, or `deassert`) reports transitions",
-                "wavepeek schema",
-            ],
-        ),
-        (
-            "schema",
-            &[
-                "Print canonical JSON schema contract.",
-                "Prints exactly one deterministic schema document",
-                "Default output is the JSON envelope schema for `--json` command outputs",
             ],
         ),
         (
@@ -1024,7 +946,7 @@ fn extract_ahb_help_is_self_descriptive() {
         "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
         "[default: ahb-lite]",
         "[possible values: ahb-lite, ahb5]",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.",
         "Does not reconstruct bursts, aggregate transactions, or join address and data phases.",
         "wavepeek docs show commands/extract",
@@ -1046,13 +968,13 @@ fn extract_apb_help_is_self_descriptive() {
         "Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.",
         "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
         "Maps one concrete Completer PSELx as canonical psel.",
-        "Generated schemas accept canonical lowercase profile and PREADY-mode values only.",
+        "Source files accept canonical lowercase profile and PREADY-mode values only.",
         "[default: apb4]",
         "[possible values: apb3, apb4, apb5]",
         "[default: mapped]",
         "[possible values: mapped, implicit-high]",
         "In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON output includes APB metadata, mappings, and event rows.",
         "Reports independent sampled events only; it does not correlate or validate transactions.",
         "wavepeek docs show commands/extract",
@@ -1070,14 +992,14 @@ fn extract_atb_help_is_self_descriptive() {
     for fragment in [
         "Extract ATB transfer, flush, and synchronization-request events.",
         "Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.",
-        "Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; generated schemas accept canonical hyphenated profile names only.",
+        "Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; source files accept canonical hyphenated profile names only.",
         "Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.",
         "Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.",
         "Emits same-edge events in transfer, flush, then sync-request order.",
         "Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.",
         "[default: atb-c]",
         "[possible values: atb-a, atb-b, atb-c]",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.",
         "wavepeek docs show commands/extract",
     ] {
@@ -1097,14 +1019,14 @@ fn extract_axi_help_is_self_descriptive() {
         "AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles use Arm IHI 0022L ready/valid transport.",
         "Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles.",
         "ACE5-Lite aliases are ace5_lite; ACE5-LiteDVM aliases are ace5-litedvm, ace5_litedvm, and ace5_lite_dvm; ACE5-LiteACP aliases are ace5-liteacp, ace5_liteacp, and ace5_lite_acp.",
-        "Generated schemas accept canonical hyphenated profile names only.",
+        "Source files accept canonical hyphenated profile names only.",
         "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
         "[default: axi4]",
         "[possible values: axi3, axi4, axi4-lite, axi5, axi5-lite, ace, ace-lite, ace5, ace5-lite, ace5-lite-dvm, ace5-lite-acp]",
         "Builds one extraction source per complete ready/valid channel.",
         "AXI5 and ACE5-LiteDVM can add DVM ac and cr channels but do not add cd.",
         "In source-file mode, --source provides profile, name, includes, and maps",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON output includes AXI metadata, mappings, and transfer rows.",
         "Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.",
         "wavepeek docs show commands/extract",
@@ -1132,7 +1054,7 @@ fn extract_axistream_help_is_self_descriptive() {
         "[possible values: axi4-stream, axi5-stream]",
         "[default: mapped]",
         "[possible values: mapped, implicit-high]",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "wavepeek docs show commands/extract",
     ] {
         assert!(
@@ -1150,7 +1072,7 @@ fn extract_generic_help_is_self_descriptive() {
         "Selects edge-only event timestamps with --on.",
         "Always samples --when and --payload at the pre-edge sample point.",
         "In source-file mode, --source provides one or more sources",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
+        "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON and JSONL rows include time, sample_time, source, and ordered payload values.",
         "wavepeek docs show commands/extract",
     ] {
@@ -1375,48 +1297,6 @@ fn waveform_commands_require_waves_flag() {
 }
 
 #[test]
-fn schema_does_not_accept_waves_flag() {
-    let mut command = wavepeek_cmd();
-
-    command
-        .args(["schema", "--waves", "dump.vcd"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument '--waves'"))
-        .stderr(predicate::str::contains("See 'wavepeek schema --help'."));
-}
-
-#[test]
-fn schema_does_not_accept_json_flag() {
-    let mut command = wavepeek_cmd();
-
-    command
-        .args(["schema", "--json"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument '--json'"))
-        .stderr(predicate::str::contains("See 'wavepeek schema --help'."));
-}
-
-#[test]
-fn schema_rejects_positional_arguments() {
-    let mut command = wavepeek_cmd();
-
-    command
-        .args(["schema", "extra"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument 'extra'"))
-        .stderr(predicate::str::contains("See 'wavepeek schema --help'."));
-}
-
-#[test]
 fn legacy_subcommands_are_rejected_without_alias() {
     for legacy_name in ["tree", "modules", "signals", "changes", "when", "at"] {
         assert_legacy_subcommand_rejected(legacy_name);
@@ -1476,7 +1356,6 @@ fn unknown_flags_are_normalized_to_args_category() {
 #[test]
 fn all_commands_reject_human_flag() {
     let cases: &[(&[&str], &str)] = &[
-        (&["schema", "--human"], "schema"),
         (&["info", "--waves", "dump.vcd", "--human"], "info"),
         (&["scope", "--waves", "dump.vcd", "--human"], "scope"),
         (

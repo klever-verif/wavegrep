@@ -36,7 +36,7 @@ Behavior:
 Behavior:
 - Query is plain text, not a regular expression; it is normalized case-insensitively and split into whitespace tokens.
 - Scope searches topic IDs, titles, descriptions, Markdown headings, and Markdown bodies.
-- `--json` emits the standard machine-readable envelope for ranked search results (contract: see `wavepeek schema`)."#
+- `--json` emits the standard machine-readable envelope for ranked search results."#
     )]
     Search(DocsSearchArgs),
     #[command(

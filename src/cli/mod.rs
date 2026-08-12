@@ -5,7 +5,6 @@ pub mod info;
 pub mod limits;
 pub mod property;
 pub mod sampling;
-pub mod schema;
 pub mod scope;
 pub mod signal;
 pub mod skill;
@@ -33,12 +32,12 @@ General conventions:
 - VCD/FST input is available in every build.
 - FSDB support is currently Linux x86_64 only and requires a build compiled with Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK.
 - Output is bounded by default (e.g. with `--max` or similar) and recursive traversals are depth-bounded.
-- Default output is human-readable for waveform commands; `--json` enables machine-readable output and its contract is defined by `wavepeek schema`.
+- Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in `reference/machine-output`.
 - Time values require explicit units (`zs`, `as`, `fs`, `ps`, `ns`, `us`, `ms`, `s`) and integer magnitudes.
 - Parsed times are normalized to dump `time_unit`; time-window flags (`--from`, `--to`) use inclusive boundaries.
 - Process-level failures follow `fatal: <category>: <message>`."#,
     after_help = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek docs\n  wavepeek skill",
-    help_template = "{about-with-newline}\nUsage: {usage}\n\nWaveform commands:\n  info      Show waveform metadata\n  scope     Explore hierarchy scopes\n  signal    Explore signals within scope\n  value     Get signal values at explicit time point(s)\n  change    List signal changes over a time range\n  property  Evaluate properties over a time range\n  extract   Extract event rows from waveform signals\n\nHelper commands:\n  schema    Print canonical JSON schema contract\n  docs      Browse embedded documentation\n  skill     Print packaged agent skill Markdown\n  help      Show help for the given subcommand(s)\n\nOptions:\n{options}{after-help}"
+    help_template = "{about-with-newline}\nUsage: {usage}\n\nWaveform commands:\n  info      Show waveform metadata\n  scope     Explore hierarchy scopes\n  signal    Explore signals within scope\n  value     Get signal values at explicit time point(s)\n  change    List signal changes over a time range\n  property  Evaluate properties over a time range\n  extract   Extract event rows from waveform signals\n\nHelper commands:\n  docs      Browse embedded documentation\n  skill     Print packaged agent skill Markdown\n  help      Show help for the given subcommand(s)\n\nOptions:\n{options}{after-help}"
 )]
 pub struct Cli {
     /// Print semver version
@@ -67,7 +66,7 @@ enum WaveformCommand {
 
 Behavior:
 - Prints available metadata (e.g. time unit, start/end times, etc.) in free form
-- `--json` uses the machine contract defined by `wavepeek schema`."#,
+- `--json` emits the standard machine-readable envelope."#,
         after_long_help = "See also:\n  wavepeek docs show commands/info"
     )]
     Info(info::InfoArgs),
@@ -81,7 +80,7 @@ Behavior:
 - Includes stable scope kind aliases from hierarchy data (not only modules); excluded backend-specific spellings are normalized to the stable contract surface.
 - `--tree` switches from flat list to visual hierarchy rendering.
 - Truncation and disabled-limit conditions emit coded diagnostics.
-- `--json` uses the machine contract defined by `wavepeek schema`.
+- `--json` emits the standard machine-readable envelope.
 
 Use this command to explore hierarchy shape before narrowing to signal-level queries."#,
         after_long_help = "See also:\n  wavepeek docs show commands/scope"
@@ -98,7 +97,7 @@ Behavior:
 - Includes stable signal kind aliases (not only wires); excluded backend-specific VHDL spellings are normalized to the stable contract surface.
 - Ambiguous FSDB signal paths are omitted with a coded diagnostic; no backing record is selected.
 - Truncation and disabled-limit conditions emit coded diagnostics.
-- `--json` uses the machine contract defined by `wavepeek schema`.
+- `--json` emits the standard machine-readable envelope.
 
 Use this command after `scope` to inspect available signals in a target scope."#
     )]
@@ -119,7 +118,7 @@ Behavior:
 - Time tokens must include explicit units and align to dump precision.
 - Values are emitted as Verilog literals (`<width>'h<digits>` with `x`/`z` support).
 - Fails fast if any requested signal cannot be resolved or if any selected time point is more precise than dump resolution.
-- `--json` uses the machine contract defined by `wavepeek schema`.
+- `--json` emits the standard machine-readable envelope.
 
 Use this command for deterministic spot checks at specific timestamps."#
     )]
@@ -138,7 +137,7 @@ Behavior:
 - JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where values were sampled); text output shows `sample@<time>` only when it differs from `time`.
 - Rows are emitted only when sampled signal values changed from prior sampled state.
 - Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.
-- `--json` uses the machine contract defined by `wavepeek schema`.
+- `--json` emits the standard machine-readable envelope.
 
 Use this command to inspect value transitions over bounded time windows."#
     )]
@@ -157,7 +156,7 @@ Behavior:
 - JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where `--eval` was sampled); text output shows `sample@<time>` only when it differs from `time`.
 - Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.
 - Remotely similar to a SystemVerilog assert, but without temporal expressions.
-- `--json` uses the machine contract defined by `wavepeek schema`.
+- `--json` emits the standard machine-readable envelope.
 
 Use this command to check event-driven property matches and transitions over bounded time windows."#
     )]
@@ -174,19 +173,6 @@ Use nested extractors for protocol-neutral or protocol-specific event rows. The 
 
 #[derive(Debug, Subcommand)]
 enum HelperCommand {
-    #[command(
-        about = "Print canonical JSON schema contract.",
-        long_about = r#"Print canonical JSON schema contract.
-
-Behavior:
-- Prints exactly one deterministic schema document to stdout.
-- Default output is the JSON envelope schema for `--json` command outputs.
-- `--stream` prints the JSONL record schema for `--jsonl` output.
-- `--input` prints the JSON input document schema for commands that accept structured input.
-
-Use this command to fetch machine-readable contracts consumed by JSON-mode clients."#
-    )]
-    Schema(schema::SchemaArgs),
     Docs(docs::DocsArgs),
     #[command(
         about = "Print the packaged agent skill Markdown for wavepeek.",
@@ -477,7 +463,6 @@ fn into_engine_command(command: Command) -> EngineCommand {
             },
         },
         Command::Helper(command) => match command {
-            HelperCommand::Schema(args) => EngineCommand::Schema(args),
             HelperCommand::Docs(args) => EngineCommand::Docs(args),
             HelperCommand::Skill(args) => EngineCommand::Skill(args),
         },
@@ -824,12 +809,12 @@ mod tests {
 
     #[test]
     fn clap_errors_are_normalized_to_single_line_message() {
-        let error = Cli::try_parse_from(["wavepeek", "schema", "--waves", "dump.vcd"])
-            .expect_err("schema --waves should fail");
+        let error = Cli::try_parse_from(["wavepeek", "info", "--unknown"])
+            .expect_err("unknown argument should fail");
 
         let normalized = normalize_clap_error(&error);
-        assert!(normalized.contains("unexpected argument '--waves'"));
-        assert!(normalized.contains("See 'wavepeek schema --help'."));
+        assert!(normalized.contains("unexpected argument '--unknown'"));
+        assert!(normalized.contains("See 'wavepeek info --help'."));
         assert!(!normalized.contains("Usage:"));
     }
 
