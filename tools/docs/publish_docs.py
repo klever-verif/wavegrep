@@ -46,7 +46,7 @@ class PublishError(Exception):
 @dataclass(frozen=True)
 class Paths:
     work_dir: pathlib.Path
-    export_dir: pathlib.Path
+    skill_dir: pathlib.Path
     mkdocs_src: pathlib.Path
     mkdocs_config: pathlib.Path
     source_worktree: pathlib.Path
@@ -129,7 +129,7 @@ def paths(work_dir: pathlib.Path) -> Paths:
     work_dir = work_dir.resolve()
     return Paths(
         work_dir=work_dir,
-        export_dir=work_dir / "export",
+        skill_dir=work_dir / "skill",
         mkdocs_src=work_dir / "mkdocs-src",
         mkdocs_config=work_dir / "mkdocs.yml",
         source_worktree=work_dir / "source",
@@ -220,9 +220,9 @@ def child_env_without_push_tokens() -> dict[str, str]:
     return env
 
 
-def export_docs(source_root: pathlib.Path, run_paths: Paths, runner: CommandRunner) -> None:
-    clean_owned_path(run_paths.export_dir)
-    run_paths.export_dir.parent.mkdir(parents=True, exist_ok=True)
+def materialize_skill(source_root: pathlib.Path, run_paths: Paths, runner: CommandRunner) -> None:
+    clean_owned_path(run_paths.skill_dir)
+    run_paths.skill_dir.parent.mkdir(parents=True, exist_ok=True)
     runner.run(
         [
             "cargo",
@@ -231,18 +231,16 @@ def export_docs(source_root: pathlib.Path, run_paths: Paths, runner: CommandRunn
             "--manifest-path",
             source_root / "Cargo.toml",
             "--",
-            "docs",
-            "export",
-            run_paths.export_dir,
-            "--force",
+            "skill",
+            run_paths.skill_dir,
         ],
         env=child_env_without_push_tokens(),
     )
 
 
 def build_mkdocs(run_paths: Paths, version: str, runner: CommandRunner) -> str:
-    prepare_mkdocs.prepare_tree(
-        run_paths.export_dir,
+    wavepeek_version, _ = prepare_mkdocs.prepare_tree(
+        run_paths.skill_dir,
         run_paths.mkdocs_src,
         run_paths.mkdocs_config,
         version,
@@ -252,11 +250,7 @@ def build_mkdocs(run_paths: Paths, version: str, runner: CommandRunner) -> str:
         ["mkdocs", "build", "--strict", "--config-file", run_paths.mkdocs_config],
         env=child_env_without_push_tokens(),
     )
-    manifest = json.loads((run_paths.export_dir / "manifest.json").read_text(encoding="utf-8"))
-    cli_version = manifest.get("cli_version")
-    if not isinstance(cli_version, str):
-        fail("export manifest cli_version is missing after prepare")
-    return cli_version
+    return wavepeek_version
 
 
 def resolve_source_root(
@@ -300,7 +294,7 @@ def perform_check(
 
     worktree_source = source_ref is not None
     try:
-        export_docs(actual_source_root, run_paths, runner)
+        materialize_skill(actual_source_root, run_paths, runner)
         cli_version = build_mkdocs(run_paths, version, runner)
     finally:
         if worktree_source:

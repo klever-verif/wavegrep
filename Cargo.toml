@@ -29,7 +29,6 @@ regex = "~1"
 thiserror = "~2"
 wellen = "~0.25.0"
 include_dir = "~0.7"
-serde_yaml = "~0.9"
 
 [dev-dependencies]
 assert_cmd = "~2"

@@ -1,6 +1,6 @@
 # Architecture
 
-This file holds the internal engineering view of wavepeek: non-functional requirements, module boundaries, dependencies, execution strategy, and testing strategy. It does not restate the exact CLI flag surface. For command semantics and machine-output guarantees, use `docs/public/reference/command-model.md` and `docs/public/reference/machine-output.md`.
+This file holds the internal engineering view of wavepeek: non-functional requirements, module boundaries, dependencies, execution strategy, and testing strategy. It does not restate the exact CLI flag surface. For command semantics and machine-output guarantees, use `skills/wavepeek/references/reference/command-model.md` and `skills/wavepeek/references/reference/machine-output.md`.
 
 ## Non-Functional Requirements
 
@@ -38,19 +38,19 @@ The repository ships agent-facing workflow assets plus deterministic `--json` an
 
 ### High-Level Execution Layers
 
-wavepeek is organized as three execution layers plus two shared support modules. Data flows top-down: the CLI parses arguments, the engine executes command logic, waveform commands query the waveform layer, docs/skill helpers query embedded Markdown assets, and the output module renders results.
+wavepeek is organized as three execution layers plus two shared support modules. Data flows top-down: the CLI parses arguments, the engine executes command logic, waveform commands query the waveform layer, the skill helper extracts embedded package assets, and the output module renders results.
 
 1. **CLI layer** (`src/cli/`) parses arguments, owns help text, normalizes clap errors, and dispatches typed command structs.
 2. **Engine layer** (`src/engine/`) implements command behavior, shared time handling, shared value formatting, expression-runtime helpers, and command dispatch.
 3. **Waveform layer** (`src/waveform/`) is the backend-neutral facade for file opening, format detection, hierarchy traversal, sampled-value access, and candidate-time queries. Default builds dispatch VCD/FST work to the Wellen backend; feature-enabled FSDB builds can dispatch `.fsdb` inputs to the FSDB backend and native shim. FSDB-specific build and SDK details live in `fsdb.md`.
-4. **Embedded docs runtime** (`src/docs/`) loads packaged public topics and the packaged agent skill from repository Markdown assets.
+4. **Embedded skill runtime** (`src/skill.rs`) extracts the packaged agent skill from repository assets.
 5. **Output module** (`src/output.rs`) owns stdout rendering for human mode, strict JSON envelope mode, and JSONL stream records.
 
 Key architectural consequences:
 
 - Execution is stateless. Every command opens the dump, runs once, and exits.
 - The engine is format-agnostic for waveform commands. VCD/FST Wellen handling and optional FSDB Reader handling stay behind the waveform facade.
-- Docs and skill helper surfaces keep their source of truth in packaged Markdown instead of duplicated Rust string tables.
+- The skill helper keeps its source of truth in packaged files instead of duplicated Rust string tables.
 - JSON and JSONL contracts are covered by direct serialization and command-runtime tests.
 
 ### Module Structure
@@ -69,7 +69,6 @@ src/
 │   ├── change.rs        # `change` command args + clap help
 │   ├── property.rs      # `property` command args + clap help
 │   ├── extract.rs       # `extract` command namespace and subcommand args + clap help
-│   ├── docs.rs          # `docs` helper command family args + clap help
 │   └── skill.rs         # `skill` helper command args + clap help
 ├── engine/              # Business logic per command
 │   ├── mod.rs           # Command dispatch + shared result types
@@ -89,10 +88,8 @@ src/
 │   ├── axi.rs           # Stateless AXI-family profile mapping and transfer adaptation
 │   ├── axistream.rs     # AXI-Stream profile adapter over generic extraction
 │   ├── signal_mapping.rs # Protocol-neutral standard-name matching for adapters
-│   ├── docs.rs          # Embedded docs topics/search/show/export runtime
-│   └── skill.rs         # Packaged agent skill print runtime
-├── docs/                # Embedded docs asset runtime and export helpers
-│   └── mod.rs           # Topic catalog loading, search, export, and packaged skill source
+│   └── skill.rs         # Packaged agent skill extraction runtime
+├── skill.rs             # Embedded package asset traversal and materialization
 ├── contract/            # Runtime JSON and JSONL data transfer objects
 │   ├── common.rs        # Shared diagnostics, paths, times, values, and kind aliases
 │   ├── output.rs        # JSON envelope and command payload structures
@@ -147,7 +144,7 @@ Development dependencies include `assert_cmd`, `predicates`, `tempfile`, and `in
 
 ## Expression Engine Architecture
 
-The `change`, `property`, and `extract` commands share a typed expression stack in `src/expr/`. The language contract itself lives in `docs/public/reference/expression-language.md`; this section describes how the implementation is arranged.
+The `change`, `property`, and `extract` commands share a typed expression stack in `src/expr/`. The language contract itself lives in `skills/wavepeek/references/reference/expression-language.md`; this section describes how the implementation is arranged.
 
 The pipeline is:
 
@@ -240,6 +237,6 @@ Runtime test execution does not fetch those larger fixtures dynamically; they ar
 The architectural split matters for docs maintenance:
 
 - `src/cli/`, `wavepeek --help`, and `wavepeek <command> --help` are the exact CLI surface authority.
-- `docs/public/reference/machine-output.md` and direct runtime tests define machine-output behavior.
-- `docs/public/reference/` documents user-visible semantics that code alone does not explain well enough.
+- `skills/wavepeek/references/reference/machine-output.md` and direct runtime tests define machine-output behavior.
+- `skills/wavepeek/references/` documents user-visible semantics that code alone does not explain well enough.
 - this file documents internals that help contributors change implementation safely without regrowing a monolithic design doc.

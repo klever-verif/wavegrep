@@ -6,8 +6,8 @@ use predicates::prelude::*;
 mod common;
 use common::wavepeek_cmd;
 
-const VISIBLE_TOP_LEVEL_COMMANDS: [&str; 10] = [
-    "info", "scope", "signal", "value", "change", "property", "extract", "docs", "skill", "help",
+const VISIBLE_TOP_LEVEL_COMMANDS: [&str; 9] = [
+    "info", "scope", "signal", "value", "change", "property", "extract", "skill", "help",
 ];
 
 #[cfg(feature = "fsdb")]
@@ -120,7 +120,7 @@ fn assert_human_flag_rejected(args: &[&str], command_name: &str) {
 #[test]
 fn closed_stdout_is_silent_success() {
     for args in [
-        &["docs", "topics", "--json"][..],
+        &["skill", "--help"][..],
         &["--help"][..],
         &["-V"][..],
         &["--version"][..],
@@ -184,7 +184,6 @@ fn help_lists_expected_subcommands() {
         .stdout(predicate::str::contains("\n  changes\n").not())
         .stdout(predicate::str::contains("property"))
         .stdout(predicate::str::contains("extract"))
-        .stdout(predicate::str::contains("docs"))
         .stdout(predicate::str::contains("skill"))
         .stdout(predicate::str::contains("\n  help"));
 }
@@ -214,10 +213,6 @@ fn top_level_help_documents_general_conventions() {
                 "Waveform-inspection commands keep their primary inputs as named flags",
             )
             .not(),
-        )
-        .stdout(
-            predicate::str::contains("`docs` and `help` are the non-waveform surfaces")
-                .not(),
         )
         .stdout(predicate::str::contains("Output is bounded by default"))
         .stdout(predicate::str::contains("Default output is human-readable"))
@@ -272,7 +267,6 @@ fn top_level_short_help_is_compact_and_points_to_next_layers() {
     assert!(short_help.contains("Usage: wavepeek"));
     assert!(short_help.contains("wavepeek --help"));
     assert!(short_help.contains("wavepeek help <command-path...>"));
-    assert!(short_help.contains("wavepeek docs"));
     assert!(short_help.contains("wavepeek skill"));
     assert!(
         !short_help.contains("General conventions:"),
@@ -300,17 +294,13 @@ fn no_args_help_matches_short_help_output() {
 }
 
 #[test]
-fn top_level_long_help_describes_help_and_docs_entrypoints() {
+fn top_level_long_help_describes_help_and_skill_entrypoints() {
     let long_help = successful_stdout_text(&["--help"]);
 
     assert!(long_help.contains("General conventions:"));
     assert!(long_help.contains("wavepeek help <command-path...>"));
-    assert!(long_help.contains("wavepeek docs"));
     assert!(long_help.contains("wavepeek skill"));
     assert!(long_help.contains("Next steps:"));
-    assert!(!long_help.contains("wavepeek docs topics"));
-    assert!(!long_help.contains("wavepeek docs show <topic>"));
-    assert!(!long_help.contains("wavepeek docs skill"));
 }
 
 #[test]
@@ -328,11 +318,6 @@ fn help_subcommand_aliases_nested_long_help() {
         &["help", "change"],
         &["change", "--help"],
         "wavepeek help change must match wavepeek change --help byte-for-byte",
-    );
-    assert_same_stdout(
-        &["help", "docs", "show"],
-        &["docs", "show", "--help"],
-        "wavepeek help docs show must match wavepeek docs show --help byte-for-byte",
     );
     assert_same_stdout(
         &["help", "skill"],
@@ -562,32 +547,6 @@ fn extract_command_without_subcommand_prints_help() {
 }
 
 #[test]
-fn docs_command_help_is_direct_and_omits_examples() {
-    let no_args = successful_stdout_text(&["docs"]);
-    let short_help = successful_stdout_text(&["docs", "-h"]);
-    let long_help = successful_stdout_text(&["docs", "--help"]);
-    let alias_help = successful_stdout_text(&["help", "docs"]);
-
-    for help in [&no_args, &short_help, &long_help, &alias_help] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Browse the embedded documentation packaged with this build.")
-        );
-        assert!(help.contains("Usage: wavepeek docs"));
-        assert!(!help.contains("Behavior:"));
-        assert!(!help.contains("Examples:"));
-        assert!(!help.contains("wavepeek docs export <OUT_DIR>"));
-        assert!(!help.contains("concepts"));
-    }
-
-    assert_eq!(no_args, short_help, "wavepeek docs should show short help");
-    assert!(
-        short_help.len() < long_help.len(),
-        "docs -h should be materially shorter than docs --help"
-    );
-}
-
-#[test]
 fn info_help_uses_aligned_summary_and_simple_option_docs() {
     let short_help = successful_stdout_text(&["info", "-h"]);
     let long_help = successful_stdout_text(&["info", "--help"]);
@@ -603,11 +562,7 @@ fn info_help_uses_aligned_summary_and_simple_option_docs() {
     assert!(long_help.contains("Behavior:\n- Prints available metadata (e.g. time unit, start/end times, etc.) in free form\n- `--json` emits the standard machine-readable envelope."));
     assert!(!short_help.contains("See also:"));
     for help in [&long_help, &alias_help] {
-        assert!(help.contains("See also:\n  wavepeek docs show commands/info"));
-        assert!(
-            help.find("Other options:").unwrap() < help.find("See also:").unwrap(),
-            "See also block should follow the options block"
-        );
+        assert!(!help.contains("See also:"));
     }
     for help in [&short_help, &long_help, &alias_help] {
         assert!(help.contains("Input options:"));
@@ -641,11 +596,7 @@ fn scope_help_uses_aligned_summary_behavior_and_simple_option_docs() {
     assert!(!long_help.contains("Includes parser-native scope kinds"));
     assert!(!short_help.contains("See also:"));
     for help in [&long_help, &alias_help] {
-        assert!(help.contains("See also:\n  wavepeek docs show commands/scope"));
-        assert!(
-            help.find("Other options:").unwrap() < help.find("See also:").unwrap(),
-            "See also block should follow the options block"
-        );
+        assert!(!help.contains("See also:"));
     }
     assert!(!long_help.contains("human output"));
 
@@ -765,61 +716,6 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
 }
 
 #[test]
-fn docs_show_help_is_layered() {
-    let short_help = successful_stdout_text(&["docs", "show", "-h"]);
-    let long_help = successful_stdout_text(&["docs", "show", "--help"]);
-
-    assert!(short_help.contains("Usage: wavepeek docs show [OPTIONS] <TOPIC>"));
-    assert!(short_help.contains("Slash-separated topic ID (see 'wavepeek docs topics')"));
-    assert!(short_help.contains("Print only the description text"));
-    assert!(
-        !short_help.contains("excluding YAML front matter"),
-        "docs show -h should stay compact"
-    );
-    assert!(long_help.contains("--description"));
-    assert!(!long_help.contains("Behavior:"));
-    assert!(!long_help.contains("raw Markdown"));
-    assert!(!long_help.contains("excluding YAML front matter"));
-    assert!(!long_help.contains("`--description` prints only the description text."));
-    assert!(!long_help.contains("Unknown topic IDs fail"));
-    assert!(!long_help.contains("Examples:"));
-    assert!(
-        short_help.len() < long_help.len(),
-        "docs show -h should be materially shorter than docs show --help"
-    );
-}
-
-#[test]
-fn nested_docs_help_surfaces_are_aligned_and_trimmed() {
-    let search_short = successful_stdout_text(&["docs", "search", "-h"]);
-    let search_long = successful_stdout_text(&["docs", "search", "--help"]);
-    let search_alias = successful_stdout_text(&["help", "docs", "search"]);
-    for help in [&search_short, &search_long, &search_alias] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Search embedded documentation topics.")
-        );
-        assert!(help.contains("Plain-text query split into whitespace tokens"));
-        assert!(!help.contains("--full-text"));
-    }
-    assert_eq!(search_long, search_alias);
-    assert!(search_long.contains("not a regular expression"));
-    assert!(search_long.contains("Markdown bodies"));
-
-    let export_short = successful_stdout_text(&["docs", "export", "-h"]);
-    let export_long = successful_stdout_text(&["docs", "export", "--help"]);
-    let export_alias = successful_stdout_text(&["help", "docs", "export"]);
-    for help in [&export_short, &export_long, &export_alias] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Export all embedded Markdown documentation to disk.")
-        );
-        assert!(!help.contains("skill Markdown"));
-    }
-    assert_eq!(export_long, export_alias);
-}
-
-#[test]
 fn skill_help_surfaces_are_aligned_and_trimmed() {
     let short_help = successful_stdout_text(&["skill", "-h"]);
     let long_help = successful_stdout_text(&["skill", "--help"]);
@@ -828,36 +724,12 @@ fn skill_help_surfaces_are_aligned_and_trimmed() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Print the packaged agent skill Markdown for wavepeek.")
+            Some("Extract the packaged agent skill into a directory.")
         );
         assert!(!help.contains("Behavior:"));
         assert!(!help.contains("--json"));
     }
     assert_eq!(long_help, alias_help);
-}
-
-#[test]
-fn docs_skill_subcommand_is_rejected_and_points_to_docs_help() {
-    wavepeek_cmd()
-        .args(["docs", "skill"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unrecognized subcommand 'skill'"))
-        .stderr(predicate::str::contains("See 'wavepeek docs --help'."));
-}
-
-#[test]
-fn nested_parse_errors_point_to_full_help_path() {
-    wavepeek_cmd()
-        .args(["docs", "show", "intro", "--wat"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument '--wat'"))
-        .stderr(predicate::str::contains("See 'wavepeek docs show --help'."));
 }
 
 #[test]
@@ -919,7 +791,7 @@ fn shipped_commands_help_is_self_descriptive() {
         ),
         (
             "skill",
-            &["Print the packaged agent skill Markdown for wavepeek."],
+            &["Extract the packaged agent skill into a directory."],
         ),
     ];
 
@@ -949,7 +821,6 @@ fn extract_ahb_help_is_self_descriptive() {
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.",
         "Does not reconstruct bursts, aggregate transactions, or join address and data phases.",
-        "wavepeek docs show commands/extract",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -977,7 +848,6 @@ fn extract_apb_help_is_self_descriptive() {
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON output includes APB metadata, mappings, and event rows.",
         "Reports independent sampled events only; it does not correlate or validate transactions.",
-        "wavepeek docs show commands/extract",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1001,7 +871,6 @@ fn extract_atb_help_is_self_descriptive() {
         "[possible values: atb-a, atb-b, atb-c]",
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.",
-        "wavepeek docs show commands/extract",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1029,7 +898,6 @@ fn extract_axi_help_is_self_descriptive() {
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON output includes AXI metadata, mappings, and transfer rows.",
         "Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.",
-        "wavepeek docs show commands/extract",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1055,7 +923,6 @@ fn extract_axistream_help_is_self_descriptive() {
         "[default: mapped]",
         "[possible values: mapped, implicit-high]",
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
-        "wavepeek docs show commands/extract",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1074,7 +941,6 @@ fn extract_generic_help_is_self_descriptive() {
         "In source-file mode, --source provides one or more sources",
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON and JSONL rows include time, sample_time, source, and ordered payload values.",
-        "wavepeek docs show commands/extract",
     ] {
         assert!(
             long_help.contains(fragment),

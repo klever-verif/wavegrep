@@ -50,8 +50,6 @@ pub enum OutputData<'a> {
     ExtractAxi(ExtractAxiData<'a>),
     ExtractAxiStream(ExtractAxiStreamData<'a>),
     ExtractGeneric(Vec<ExtractGenericRow<'a>>),
-    DocsTopics(DocsTopicsData<'a>),
-    DocsSearch(DocsSearchData<'a>),
 }
 
 impl<'a> OutputData<'a> {
@@ -98,12 +96,6 @@ impl<'a> OutputData<'a> {
             (CommandName::ExtractGeneric, CommandData::ExtractGeneric(data)) => Ok(
                 Self::ExtractGeneric(data.rows.iter().map(ExtractGenericRow::from).collect()),
             ),
-            (CommandName::DocsTopics, CommandData::DocsTopics(data)) => {
-                Ok(Self::DocsTopics(DocsTopicsData::from(data)))
-            }
-            (CommandName::DocsSearch, CommandData::DocsSearch(data)) => {
-                Ok(Self::DocsSearch(DocsSearchData::from(data)))
-            }
             _ => Err(WavepeekError::Internal(format!(
                 "command {} cannot be serialized as a JSON contract envelope",
                 command.as_str()
@@ -748,101 +740,8 @@ impl<'a> From<&'a crate::engine::axistream::AxiStreamData> for ExtractAxiStreamD
     }
 }
 
-#[derive(Debug, Serialize)]
-pub struct TopicSummary<'a> {
-    id: &'a str,
-    title: &'a str,
-    description: &'a str,
-    section: &'a str,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    see_also: Vec<&'a str>,
-}
-
-impl<'a> From<&'a crate::docs::TopicSummary> for TopicSummary<'a> {
-    fn from(topic: &'a crate::docs::TopicSummary) -> Self {
-        Self {
-            id: topic.id.as_str(),
-            title: topic.title.as_str(),
-            description: topic.description.as_str(),
-            section: topic.section.as_str(),
-            see_also: topic.see_also.iter().map(String::as_str).collect(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-pub struct DocsTopicsData<'a> {
-    topics: Vec<TopicSummary<'a>>,
-}
-
-impl<'a> From<&'a crate::engine::DocsTopicsData> for DocsTopicsData<'a> {
-    fn from(data: &'a crate::engine::DocsTopicsData) -> Self {
-        Self {
-            topics: data.topics.iter().map(TopicSummary::from).collect(),
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-pub struct DocsSearchMatch<'a> {
-    topic: TopicSummary<'a>,
-    match_kind: DocsMatchKind,
-    matched_tokens: usize,
-}
-
-impl<'a> From<&'a crate::engine::DocsSearchMatchData> for DocsSearchMatch<'a> {
-    fn from(entry: &'a crate::engine::DocsSearchMatchData) -> Self {
-        Self {
-            topic: TopicSummary::from(&entry.topic),
-            match_kind: entry.match_kind.into(),
-            matched_tokens: entry.matched_tokens,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum DocsMatchKind {
-    IdExact,
-    IdPrefix,
-    TitleExact,
-    TitleOrDescription,
-    Heading,
-    Body,
-}
-
-impl From<crate::docs::MatchKind> for DocsMatchKind {
-    fn from(kind: crate::docs::MatchKind) -> Self {
-        match kind {
-            crate::docs::MatchKind::IdExact => Self::IdExact,
-            crate::docs::MatchKind::IdPrefix => Self::IdPrefix,
-            crate::docs::MatchKind::TitleExact => Self::TitleExact,
-            crate::docs::MatchKind::TitleOrDescription => Self::TitleOrDescription,
-            crate::docs::MatchKind::Heading => Self::Heading,
-            crate::docs::MatchKind::Body => Self::Body,
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
-pub struct DocsSearchData<'a> {
-    query: &'a str,
-    matches: Vec<DocsSearchMatch<'a>>,
-}
-
-impl<'a> From<&'a crate::engine::DocsSearchData> for DocsSearchData<'a> {
-    fn from(data: &'a crate::engine::DocsSearchData) -> Self {
-        Self {
-            query: data.query.as_str(),
-            matches: data.matches.iter().map(DocsSearchMatch::from).collect(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-
     use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
     use crate::output_mode::OutputMode;
 
@@ -871,30 +770,5 @@ mod tests {
         .expect("contract envelope should serialize");
         assert_eq!(value["data"][0]["signals"][0]["path"], "top.sig");
         assert!(value["data"][0]["signals"][0].get("display").is_none());
-    }
-
-    #[test]
-    fn docs_topics_omits_empty_see_also() {
-        let result = CommandResult {
-            command: CommandName::DocsTopics,
-            output_mode: OutputMode::Json,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::DocsTopics(crate::engine::DocsTopicsData {
-                topics: vec![crate::docs::TopicSummary {
-                    id: "intro".to_string(),
-                    title: "Introduction".to_string(),
-                    description: "Start here".to_string(),
-                    section: "intro".to_string(),
-                    see_also: Vec::new(),
-                }],
-            }),
-            diagnostics: Vec::new(),
-        };
-
-        let value: Value = serde_json::to_value(
-            OutputEnvelope::from_result(&result).expect("docs topics should convert"),
-        )
-        .expect("docs topics should serialize");
-        assert!(value["data"]["topics"][0].get("see_also").is_none());
     }
 }

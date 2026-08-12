@@ -1,0 +1,215 @@
+# Change command
+
+Use `change` when explicit point snapshots are not enough and you need the moments when a small set of signals actually transitions.
+
+`change` scans an inclusive time window, samples the signals from `--signals` at timestamps selected by the required `--on` event expression, and prints a row only when at least one sampled value changed. Use `--on '*' --sample-mode native` when you want to consider any change in the tracked signal set.
+
+In practice, `change` is the command between `value` and `property`: it is more selective than sampling every cycle, but still shows raw signal snapshots instead of a derived pass/fail result.
+
+`--on` is intentionally a SystemVerilog-style event-expression surface. Treat it as a practical CLI spelling of the same concepts you would use in `@(...)`: named events, `posedge`/`negedge`/`edge`, `*` for any tracked change, unions with `or` or `,`, and `iff` for gating. For the full shipped syntax and semantics, see [Expression language](../reference/expression-language.md).
+
+A rough mental model is this SystemVerilog-like pseudocode:
+
+```systemverilog
+logic initialized = 1'b0;
+sample_t prev;
+
+always @(<event from --on>) begin
+  sample_t cur = sample(<signals from --signals>);
+  if (initialized && (cur != prev))
+    $display("@%0t ...", $time, cur);
+  prev = cur;
+  initialized = 1'b1;
+end
+```
+
+That is only an intuition aid, not a normative definition: `wavepeek` runs over recorded dump timestamps, applies the selected inclusive `--from`/`--to` window, and initializes its baseline at `--from`.
+
+For exact syntax and flags, run `wavepeek help change`.
+
+## Start with a short window and a focused signal list
+
+This is the fastest way to answer "what changed here?":
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1010000ps --to 1040000ps \
+    --on '*' --sample-mode native --max 10
+@1020000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
+@1030000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h1 trap=1'h0
+@1040000ps cpu_state=8'h40 mem_valid=1'h0 mem_ready=1'h0 trap=1'h0
+```
+
+Use this as a basic pattern when you already know the scope and just need raw transition points.
+
+## Trigger on one signal, but print several
+
+`--on` decides when to sample. `--signals` decides what to print.
+
+If you already know SystemVerilog event controls, read `--on` the same way: `mem_valid` means any change, `posedge mem_valid` means rising edges only, `*` means any change in the tracked set, and `iff` gates an event term without changing what gets printed.
+
+If you care about every change of `mem_valid`, use the signal itself as the event:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1000000ps --to 1040000ps \
+    --on mem_valid --sample-mode native --max 10
+@1020000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
+@1040000ps cpu_state=8'h40 mem_valid=1'h0 mem_ready=1'h0 trap=1'h0
+```
+
+Named event `mem_valid` means any change of that signal, not only the rising edge. Plain signal and wildcard triggers use dump-native sampling, so pass `--sample-mode native` with them.
+
+## Keep only the edge you care about
+
+If the deassert edge is noise, switch to an edge trigger:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1000000ps --to 1040000ps \
+    --on "posedge mem_valid" --sample-mode native --max 10
+@1020000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
+```
+
+This is usually the cleanest way to inspect request starts, handshake assertions, enables, and state-entry pulses when you want the dump value at the trigger timestamp. For clocked RTL/SVA-style inspection, use the owning clock edge and the default pre-edge sampling instead.
+
+## Sample on clock edges only while a condition is true
+
+When combinational chatter is irrelevant, gate sampling with `iff`:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1010000ps --to 1040000ps \
+    --on "posedge clk iff mem_valid" --max 10
+@1030000ps sample@1029999ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
+```
+
+This means: sample on `posedge clk`, but only on cycles where `mem_valid` is true. `change` still suppresses triggered cycles when the sampled `--signals` values match the previous sampled state.
+
+## Choose native or pre-edge sampling on clock edges
+
+By default, `change` uses pre-edge value sampling. A row selected by an edge-only trigger such as `--on 'posedge clk'` keeps the row timestamp at the edge, but prints the selected `--signals` values from immediately before that edge. Human output shows `sample@<time>` when the sampled-value timestamp differs from the trigger timestamp:
+
+```text
+$ wavepeek change --waves path/to/dump.vcd --scope top \
+    --signals state,valid \
+    --on 'posedge clk'
+@25ns sample@24999ps state=3'h2 valid=1'h1
+```
+
+Pre-edge sampling is accepted only with an explicit edge-only `--on`: `posedge`, `negedge`, or `edge`, optionally with `iff`. The trigger edge detection and any `iff` guard still use dump-native values at the edge timestamp; only the displayed signal values move to the pre-edge sample point. JSON and JSONL rows always include both `time` and `sample_time`; use `sample_time` for follow-up `value --at` checks.
+
+Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or when you intentionally want values from the same dump timestamp as the selected event. Use the default pre-edge mode when a value updated by nonblocking assignment at a clock edge appears one clock early compared with an RTL assertion or simulator log. See [Clock-edge sampling](../troubleshooting/clock-edge-sampling.md) for diagrams and trade-offs.
+
+## Use scope-relative names or full canonical paths
+
+With `--scope`, short names stay readable. Without it, pass canonical paths directly:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --signals testbench.uut.cpu_state,testbench.uut.mem_valid,testbench.uut.mem_ready,testbench.uut.trap \
+    --from 0ps --to 20000ps \
+    --on '*' --sample-mode native --max 20
+@10000ps testbench.uut.cpu_state=8'h40 testbench.uut.mem_valid=1'h0 testbench.uut.mem_ready=1'h0 testbench.uut.trap=1'h0
+```
+
+If you like scoped input but still want canonical names in human output, add `--abs`:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 0ps --to 20000ps \
+    --on '*' --sample-mode native --abs
+@10000ps testbench.uut.cpu_state=8'h40 testbench.uut.mem_valid=1'h0 testbench.uut.mem_ready=1'h0 testbench.uut.trap=1'h0
+```
+
+## Use JSON for scripts and agents
+
+`--json` keeps canonical paths and includes diagnostics in the payload:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1010000ps --to 1040000ps \
+    --on '*' --sample-mode native --json
+{"command":"change","data":[{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1030000ps","sample_time":"1030000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h1"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]}],"diagnostics":[]}
+```
+
+## Use JSONL for large ranges and incremental consumers
+
+`--jsonl` streams one JSON object per line. The first line is `begin`, each change snapshot is an `item`, diagnostics are `diagnostic` records, and a successful stream ends with `end`:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid \
+    --from 1010000ps --to 1040000ps \
+    --on '*' --sample-mode native --jsonl
+{"type":"begin","seq":0,"command":"change"}
+{"type":"item","seq":1,"command":"change","item":{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"}]}}
+{"type":"item","seq":2,"command":"change","item":{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"}]}}
+{"type":"end","seq":3,"command":"change","summary":{"status":"ok","items":2,"diagnostics":0,"truncated":false}}
+```
+
+Use this mode for automation that wants to consume rows while the scan is still running. Require a final `end` record before treating the stream as complete.
+
+## Watch for bounded-output diagnostics
+
+If `--max` truncates the result, the command still succeeds and emits a diagnostic:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1000000ps --to 11000000ps \
+    --on "posedge clk" --sample-mode native --max 3
+@1020000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
+@1030000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h1 trap=1'h0
+@1040000ps cpu_state=8'h40 mem_valid=1'h0 mem_ready=1'h0 trap=1'h0
+warning[WPK-W0002]: truncated output to 3 entries (use --max to increase limit)
+```
+
+If you disable the limit intentionally, that is also reported as a diagnostic:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 1010000ps --to 1040000ps \
+    --on "posedge clk" --sample-mode native --max unlimited
+@1020000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
+@1030000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h1 trap=1'h0
+@1040000ps cpu_state=8'h40 mem_valid=1'h0 mem_ready=1'h0 trap=1'h0
+warning[WPK-W0001]: limit disabled: --max=unlimited
+```
+
+## Non-obvious behavior
+
+- VCD and FST work in default builds. FSDB works only in binaries built with the `fsdb` Cargo feature and a local Verdi FSDB Reader SDK. FSDB `change` supports digital bit-vector/integral signals, including raw event triggers when the FSDB contains event occurrences; unsupported real or string values fail with a `signal` error.
+- `--from` is inclusive for selection, but it also initializes the baseline state. `change` does not emit a row exactly at `--from`; if you need the boundary value itself, use `value`.
+- `--on` does not guarantee a row by itself. A trigger can fire, but `change` still suppresses the row if none of the requested `--signals` changed.
+- `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
+- JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were printed.
+- In scoped mode, use scope-relative names in `--signals` and `--on`. Without `--scope`, use canonical full paths.
+- Empty output is valid. If the query is well-formed but nothing matched, the command succeeds and emits a diagnostic:
+
+```text
+$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
+    --scope testbench.uut \
+    --signals cpu_state,mem_valid,mem_ready,trap \
+    --from 0ps --to 20000ps \
+    --on "posedge mem_valid" --max 20
+warning[WPK-W0003]: no signal changes found in selected time range
+```
+
+When a query keeps coming back empty, widen one dimension at a time: start with the time window, then the trigger, then the signal list.

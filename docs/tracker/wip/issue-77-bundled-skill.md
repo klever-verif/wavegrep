@@ -16,11 +16,11 @@ This work does not change the crate version. It does not install the skill into 
 
 - [x] (2026-08-12 18:58Z) Read issue #77, repository guidance, current docs/skill runtime, tests, and website tooling; resolve requirements with the maintainer.
 - [x] (2026-08-12 18:58Z) Write this executable plan and start the worktree devcontainer with host Git hooks installed.
-- [ ] Move the canonical package to `skills/wavepeek/`, remove YAML topic front matter, and make all internal links relative.
-- [ ] Replace the docs and single-file skill runtimes with safe full-tree extraction and provenance metadata.
-- [ ] Remove every product-facing and source-code trace of the old `docs` command and update help/contracts/tests.
-- [ ] Generate the website from extracted `references/` and update README and maintainer guidance.
-- [ ] Run focused tests and repository quality gates, then commit the implementation milestones.
+- [x] (2026-08-12 19:18Z) Move the canonical package to `skills/wavepeek/`, remove YAML topic front matter, and make all internal links relative.
+- [x] (2026-08-12 19:18Z) Replace the docs and single-file skill runtimes with safe full-tree extraction and provenance metadata.
+- [x] (2026-08-12 19:18Z) Remove every product-facing and source-code trace of the old `docs` command and update help/contracts/tests.
+- [x] (2026-08-12 19:18Z) Generate the website from extracted `references/` and update README and maintainer guidance.
+- [ ] Run focused tests and repository quality gates, then commit the implementation milestones (completed: Rust unit tests, skill/CLI integration tests, helper tests, MkDocs strict build; remaining: full `just ci`, implementation commit).
 - [ ] Run Luna Max focused review lanes, fix findings, and commit.
 - [ ] Run Terra High focused review lanes over the same areas, fix findings, and commit.
 - [ ] Run a Sol High control review, fix findings, and commit.
@@ -31,7 +31,11 @@ This work does not change the crate version. It does not install the skill into 
 - Observation: `include_dir`, already used for `docs/public`, recursively embeds a directory and can remain the sole embedding dependency.
   Evidence: `src/docs/mod.rs` declares `include_dir!("$CARGO_MANIFEST_DIR/docs/public")`.
 - Observation: the existing docs exporter has replacement behavior that is deliberately broader than issue #77 permits; reusing it wholesale would preserve unwanted complexity.
-  Evidence: `src/docs/mod.rs::export_catalog` accepts managed replacement with `--force`, while the new command must reject every non-empty destination.
+  Evidence: the removed `src/docs/mod.rs::export_catalog` accepted managed replacement with `--force`, while the new command rejects every non-empty destination.
+- Observation: website navigation previously depended on deleted YAML fields, but stable directory groups plus each page's H1 are sufficient.
+  Evidence: `just docs-site-build` prepared 22 references and completed strict MkDocs validation after front matter removal.
+- Observation: removing the topic catalog made the production `serde_yaml` dependency unused.
+  Evidence: `cargo check` succeeds after removing `serde_yaml`; Cargo.lock also drops its transitive YAML-only packages.
 
 ## Decision Log
 

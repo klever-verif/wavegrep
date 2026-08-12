@@ -1,6 +1,6 @@
 # Style and Contract Conventions
 
-This document covers maintainer conventions for Rust code, CLI behavior, deterministic output, and packaged docs. Public user-visible semantics live under `docs/public/reference/`; do not duplicate that reference surface here.
+This document covers maintainer conventions for Rust code, CLI behavior, deterministic output, and the packaged skill. Public user-visible semantics live under `skills/wavepeek/references/`; do not duplicate that reference surface here.
 
 ## Rust Style
 
@@ -30,14 +30,12 @@ Identical inputs must produce identical outputs. Sort user-facing collections de
 
 ## CLI Design Constraints
 
-Waveform-inspection commands use named flags for primary inputs. The waveform file flag is always `--waves`. Default output is human-readable; `--json` enables the strict JSON envelope documented in `docs/public/reference/machine-output.md`. Time values require explicit units; reject bare numbers.
+Waveform-inspection commands use named flags for primary inputs. The waveform file flag is always `--waves`. Default output is human-readable; `--json` enables the strict JSON envelope documented in `skills/wavepeek/references/reference/machine-output.md`. Time values require explicit units; reject bare numbers.
 
-Help must remain layered and standalone: `wavepeek` with no args aliases compact help, `-h` stays compact, `--help` stays detailed, `wavepeek help <command-path...>` aliases long nested help, `wavepeek docs` serves packaged narrative docs, and `wavepeek skill` prints the packaged agent skill.
+Help must remain layered and standalone: `wavepeek` with no args aliases compact help, `-h` stays compact, `--help` stays detailed, and `wavepeek help <command-path...>` aliases long nested help. `wavepeek skill <DIRECTORY>` extracts the complete packaged skill into a new or empty directory.
 
-## Public Docs Maintenance
+## Packaged Skill Maintenance
 
-The packaged `wavepeek docs` corpus lives under `docs/public/`. Topic files use YAML front matter with `id`, `title`, `description`, and `section`. `see_also` is optional but must reference existing topic IDs. Each topic body starts with an H1 that exactly matches `title`.
+The canonical package source lives under `skills/wavepeek/`. Keep `SKILL.md` concise, put narrative guidance under `references/`, and keep internal Markdown links relative so they resolve in an extracted package. Exact syntax, flags, defaults, and required arguments belong in generated CLI help.
 
-Topic IDs are stable slash-separated user-facing names, and file paths under `docs/public/` match the ID plus `.md`. Keep `docs/public/commands/help.md` and `docs/public/commands/docs.md` as the user-facing homes for layered help and docs command behavior.
-
-The packaged skill source lives at `docs/skills/wavepeek.md` and is emitted verbatim by `wavepeek skill`. `wavepeek docs export` exports public topics only and intentionally excludes packaged skills.
+The extracted package is rooted at `SKILL.md` and includes `references/`, `examples/`, and `manifest.json`. Keep `examples/` empty until a concrete example is required.

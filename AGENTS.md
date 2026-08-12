@@ -33,7 +33,7 @@ Maintainer workflow lives under `docs/dev/`:
 
 ## Map
 
-- `src/` — Rust source code and embedded docs runtime.
+- `src/` — Rust source code and embedded skill runtime.
 - `tests/` — integration tests, fixtures, and test helpers.
 - `tools/` — helper automation used by `just` recipes and workflows.
 - `bench/` — end-to-end benchmark harnesses.
@@ -41,4 +41,4 @@ Maintainer workflow lives under `docs/dev/`:
 - `.devcontainer/` — shared development and automation container setup.
 - `docs/dev/` — maintainer workflow, quality, style, release, and architecture docs.
 - `docs/tracker/` — backlog, roadmap, and branch-local WIP artifacts.
-- `docs/public/` — embedded user documentation for `wavepeek docs`.
+- `skills/wavepeek/` — canonical source for the packaged Wavepeek skill.

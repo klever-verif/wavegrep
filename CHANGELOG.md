@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Replaced the overlapping embedded documentation surfaces with `wavepeek skill <DIRECTORY>`, which extracts a complete version-matched package containing `SKILL.md`, offline references, an examples directory, and a provenance manifest ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
+
 ### Removed
 - Removed the Codex Web environment bootstrap; the devcontainer is now the supported development environment ([issue #93](https://github.com/kleverhq/wavepeek/issues/93)).
 - Removed JSON Schema generation, validation, publication, and the `schema` command while retaining JSON, JSONL, and structured-input behavior ([issue #89](https://github.com/kleverhq/wavepeek/issues/89)).
+- Removed the embedded topic browsing, search, display, and export helper command family ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
 
 ## [2.2.3] - 2026-08-12
 
@@ -100,12 +104,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-05-15
 
 ### Added
-- Added layered help plus embedded local docs: `wavepeek -h` is now compact, `wavepeek --help` and `wavepeek help <command-path...>` provide the detailed reference layer, and `wavepeek docs` exposes packaged topics, search, and export.
+- Added layered help plus embedded local topics with browsing, search, and export.
 - Expanded the packaged docs corpus with practical command guides for `info`, `scope`, `signal`, `value`, `change`, `property`, and `schema`, plus troubleshooting topics for empty results, scoped versus canonical names, time alignment, and unsupported signal encodings.
 
 ### Changed
-- Promoted the packaged agent skill from `wavepeek docs skill` to the top-level `wavepeek skill` helper command.
-- Refined top-level and per-command help text, and improved `wavepeek docs` topic listing/search behavior for clearer offline discovery and navigation.
+- Promoted the packaged agent skill from a nested helper to the top-level `wavepeek skill` command.
+- Refined top-level and per-command help text, and improved packaged topic listing and search for clearer offline discovery and navigation.
 
 ## [0.4.0] - 2026-04-05
 

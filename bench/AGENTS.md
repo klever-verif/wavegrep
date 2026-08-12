@@ -3,7 +3,7 @@
 ## Source of Truth
 
 - Manual benchmark gate: `../docs/dev/benchmarking.md`
-- Runtime behavior contracts: `../docs/public/reference/command-model.md`, `../docs/public/reference/machine-output.md`
+- Runtime behavior contracts: `../skills/wavepeek/references/reference/command-model.md`, `../skills/wavepeek/references/reference/machine-output.md`
 
 ## Local Guidance
 
