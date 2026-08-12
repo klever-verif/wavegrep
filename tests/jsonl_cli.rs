@@ -8,17 +8,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{expected_stream_schema_url, fixture_path, wavepeek_cmd};
-
-fn stream_schema_validator() -> jsonschema::Validator {
-    let schema_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join("stream.json");
-    let schema: Value =
-        serde_json::from_str(&fs::read_to_string(schema_path).expect("stream schema should read"))
-            .expect("stream schema should parse");
-    jsonschema::validator_for(&schema).expect("stream schema should compile")
-}
+use common::{fixture_path, wavepeek_cmd};
 
 fn parse_stream(stdout: &[u8], expected_command: &str) -> Vec<Value> {
     let output = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
@@ -30,17 +20,9 @@ fn parse_stream(stdout: &[u8], expected_command: &str) -> Vec<Value> {
         output.ends_with('\n'),
         "JSONL stream should end each record with a newline"
     );
-
-    let validator = stream_schema_validator();
     let records = output
         .lines()
-        .map(|line| {
-            let record: Value = serde_json::from_str(line).expect("line should parse as JSON");
-            validator.validate(&record).unwrap_or_else(|error| {
-                panic!("JSONL record should match schema: {error}\n{record}")
-            });
-            record
-        })
+        .map(|line| serde_json::from_str::<Value>(line).expect("line should parse as JSON"))
         .collect::<Vec<_>>();
 
     assert!(
@@ -61,7 +43,7 @@ fn parse_stream(stdout: &[u8], expected_command: &str) -> Vec<Value> {
         {
             "begin" => {
                 assert_eq!(seq, 0, "begin must be the first record");
-                assert_eq!(record["$schema"], expected_stream_schema_url());
+                assert!(record.get("$schema").is_none());
             }
             "item" => {
                 assert!(!seen_diagnostic, "items should precede diagnostics");
@@ -113,7 +95,7 @@ const PROPERTY_VCD: &str = concat!(
 );
 
 #[test]
-fn change_jsonl_streams_items_and_validates_against_schema() {
+fn change_jsonl_streams_items_with_stable_record_order() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -237,7 +219,7 @@ fn change_jsonl_reports_empty_result_before_end() {
 }
 
 #[test]
-fn extract_generic_jsonl_streams_rows_and_validates_against_schema() {
+fn extract_generic_jsonl_streams_rows_with_stable_record_order() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 

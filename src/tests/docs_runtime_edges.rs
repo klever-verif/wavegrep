@@ -8,7 +8,7 @@ fn summary(id: &str, title: &str, description: &str) -> TopicSummary {
         title: title.to_string(),
         description: description.to_string(),
         section: "commands".to_string(),
-        see_also: vec!["reference/schema".to_string()],
+        see_also: vec!["reference/machine-output".to_string()],
     }
 }
 

@@ -1220,6 +1220,7 @@ const ACE5_LITE_ACP_PROFILE: AxiProfileSpec = AxiProfileSpec {
     channels: ACE5_LITE_ACP_CHANNELS,
 };
 
+#[cfg(test)]
 pub(crate) fn profile_specs() -> &'static [AxiProfileSpec] {
     &[
         AXI3_PROFILE,
@@ -1234,29 +1235,6 @@ pub(crate) fn profile_specs() -> &'static [AxiProfileSpec] {
         ACE5_LITE_DVM_PROFILE,
         ACE5_LITE_ACP_PROFILE,
     ]
-}
-
-pub(crate) fn standard_signals(profile: &AxiProfileSpec) -> Vec<&'static str> {
-    COMMON_SIGNALS
-        .iter()
-        .copied()
-        .chain(
-            profile
-                .channels
-                .iter()
-                .flat_map(|channel| channel.signals.iter().copied()),
-        )
-        .collect()
-}
-
-pub(crate) fn channel_payload_signals(
-    channel: &AxiChannelSpec,
-) -> impl Iterator<Item = &'static str> + '_ {
-    channel
-        .signals
-        .iter()
-        .copied()
-        .filter(|standard| *standard != channel.valid && *standard != channel.ready)
 }
 
 pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {

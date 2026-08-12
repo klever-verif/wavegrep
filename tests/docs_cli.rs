@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
 mod common;
-use common::{expected_schema_url, wavepeek_cmd};
+use common::wavepeek_cmd;
 
 const TOPIC_IDS: [&str; 24] = [
     "intro",
@@ -115,7 +115,7 @@ fn docs_command_without_subcommand_prints_help() {
 fn docs_topics_json_uses_standard_envelope() {
     let value = successful_json(&["docs", "topics", "--json"]);
 
-    assert_eq!(value["$schema"], expected_schema_url());
+    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "docs topics");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
 

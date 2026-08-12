@@ -20,7 +20,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 - [x] (2026-08-12 16:42Z) Installed worktree-local hooks, started the worktree container, prepared waveform fixtures, and established passing baselines for `schema_cli` (40 tests) and `jsonl_cli` (10 tests).
 - [x] (2026-08-12 16:42Z) Mapped schema production, runtime, input, test, automation, documentation, and Pages-publication paths; verified that historical schemas survive because publication stages and exports the existing complete `gh-pages` tree.
 - [x] (2026-08-12 16:48Z) Made all six structured extraction families independent of `$schema`, preserved unknown legacy-field compatibility through Serde, updated benchmark inputs, and passed 95 focused extraction tests, 93 benchmark helper tests, and Clippy.
-- [ ] Remove the schema CLI/engine/builders/artifacts/dependencies and schema-only validation while preserving direct representative JSON/JSONL tests; run focused runtime tests and commit the slice.
+- [x] (2026-08-12 16:58Z) Removed the schema CLI, engine, builders, artifacts, dependencies, and validator-only tests while retaining direct JSON/JSONL shape and sequencing checks; `cargo check --all-targets` and 14 focused integration suites passed.
 - [ ] Remove schema generation, freshness, pre-commit, CI-label, publication, deployment-check, release-versioning, and helper-test paths while preserving historical Pages files; run auxiliary/workflow checks and commit the slice.
 - [ ] Replace public schema discovery with concise machine-output forms and examples; update maintainer docs, README, breadcrumbs, and changelog; run docs checks and commit the slice.
 - [ ] Run `just ci`, conduct parallel correctness, docs, and mandatory KISS/YAGNI/ponytail challenge reviews, fix findings, rerun affected checks, and obtain a clean independent control review.
@@ -61,7 +61,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 
 ## Outcomes & Retrospective
 
-Milestone 1 is complete. Structured input now executes without schema metadata across generic, AHB, APB, ATB, AXI, and AXI-Stream engines, benchmark input examples omit it, and compatibility needs no replacement code. The schema CLI, builders, output fields, automation, publication, and documentation remain for subsequent milestones.
+Milestones 1 and 2 are complete. Structured input executes without schema metadata across generic, AHB, APB, ATB, AXI, and AXI-Stream engines. The schema command, builders, snapshots, generators, schema derives, dependencies, validator-only tests, and output `$schema` fields are gone. Direct JSON shapes and JSONL sequencing remain covered. Automation, publication, and documentation remain for subsequent milestones.
 
 ## Context and Orientation
 

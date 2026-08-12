@@ -3,7 +3,7 @@ use predicates::prelude::*;
 use serde_json::{Value, json};
 
 mod common;
-use common::{expected_schema_url, fixture_path, rtl_fixture_path, wavepeek_cmd};
+use common::{fixture_path, rtl_fixture_path, wavepeek_cmd};
 
 #[test]
 fn signal_human_mode_uses_short_names_by_default() {
@@ -75,7 +75,7 @@ fn signal_json_shape_for_vcd_keeps_full_paths() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("signal output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
+    assert!(value.get("$schema").is_none());
     assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "signal");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));

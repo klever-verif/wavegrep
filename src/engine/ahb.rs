@@ -200,6 +200,7 @@ const AHB5_PROFILE: AhbProfileSpec = AhbProfileSpec {
     signals: AHB5_SIGNALS,
 };
 
+#[cfg(test)]
 pub(crate) fn profile_specs() -> &'static [AhbProfileSpec] {
     &[AHB_LITE_PROFILE, AHB5_PROFILE]
 }

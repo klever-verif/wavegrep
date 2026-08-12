@@ -6,10 +6,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
+use common::{fixture_path, wavepeek_cmd};
 
 fn parse_json(stdout: &[u8]) -> Value {
     serde_json::from_slice(stdout).expect("stdout should be valid json")
@@ -27,27 +24,13 @@ fn write_source(contents: &str) -> NamedTempFile {
     source
 }
 
-fn stream_schema_validator() -> jsonschema::Validator {
-    let schema_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join("stream.json");
-    let schema: Value =
-        serde_json::from_str(&fs::read_to_string(schema_path).expect("stream schema should read"))
-            .expect("stream schema should parse");
-    jsonschema::validator_for(&schema).expect("stream schema should compile")
-}
-
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let output = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(output.ends_with('\n'));
-    let validator = stream_schema_validator();
     output
         .lines()
         .map(|line| {
             let record: Value = serde_json::from_str(line).expect("JSONL line should parse");
-            validator
-                .validate(&record)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{record}"));
             record
         })
         .collect()
@@ -186,7 +169,7 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
-    assert_eq!(value["$schema"], expected_schema_url());
+    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "extract generic");
     assert_eq!(
         value["data"],
@@ -465,7 +448,7 @@ fn extract_generic_source_file_preserves_declaration_order_in_jsonl() {
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
-    assert_eq!(records[0]["$schema"], expected_stream_schema_url());
+    assert!(records[0].get("$schema").is_none());
     assert_eq!(records[1]["item"]["source"], "beat.a");
     assert_eq!(records[2]["item"]["source"], "beat.b");
     assert_eq!(records.last().unwrap()["summary"]["items"], 2);
@@ -475,18 +458,16 @@ fn extract_generic_source_file_preserves_declaration_order_in_jsonl() {
 fn extract_generic_source_file_collects_independent_clock_sources() {
     let fixture = write_fixture(MULTI_CLOCK_VCD, "extract-generic-multi-clock.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
-    let source = write_source(&format!(
-        r#"{{
-  "$schema": "{}",
+    let source = write_source(
+        r#"{
   "kind": "extract.generic.sources",
   "sources": [
-    {{"name": "write", "on": "posedge wclk", "when": "wvalid && wready", "payload": ["wdata"]}},
-    {{"name": "read", "on": "posedge rclk", "when": "rvalid && rready", "payload": ["rdata"]}}
+    {"name": "write", "on": "posedge wclk", "when": "wvalid && wready", "payload": ["wdata"]},
+    {"name": "read", "on": "posedge rclk", "when": "rvalid && rready", "payload": ["rdata"]}
   ]
-}}
+}
 "#,
-        expected_input_schema_url()
-    ));
+    );
     let source = source.path().to_string_lossy().into_owned();
 
     let output = wavepeek_cmd()
@@ -686,18 +667,13 @@ fn extract_generic_rejects_bad_sources_and_scoped_payload_paths() {
     let fixture = fixture.path().to_string_lossy().into_owned();
     let ambiguous_fixture = fixture_path("change_scope_ambiguous.vcd");
     let ambiguous_fixture = ambiguous_fixture.to_string_lossy().into_owned();
-    let duplicate_names = write_source(&format!(
-        r#"{{"$schema":"{}","kind":"extract.generic.sources","sources":[{{"name":"dup","on":"posedge clk","when":"valid","payload":["data"]}},{{"name":"dup","on":"posedge clk","when":"valid","payload":["last"]}}]}}"#,
-        expected_input_schema_url()
-    ));
-    let duplicate_payload = write_source(&format!(
-        r#"{{"$schema":"{}","kind":"extract.generic.sources","sources":[{{"name":"a","on":"posedge clk","when":"valid","payload":["data","data"]}}]}}"#,
-        expected_input_schema_url()
-    ));
-    let empty_sources = write_source(&format!(
-        r#"{{"$schema":"{}","kind":"extract.generic.sources","sources":[]}}"#,
-        expected_input_schema_url()
-    ));
+    let duplicate_names = write_source(
+        r#"{"kind":"extract.generic.sources","sources":[{"name":"dup","on":"posedge clk","when":"valid","payload":["data"]},{"name":"dup","on":"posedge clk","when":"valid","payload":["last"]}]}"#,
+    );
+    let duplicate_payload = write_source(
+        r#"{"kind":"extract.generic.sources","sources":[{"name":"a","on":"posedge clk","when":"valid","payload":["data","data"]}]}"#,
+    );
+    let empty_sources = write_source(r#"{"kind":"extract.generic.sources","sources":[]}"#);
 
     wavepeek_cmd()
         .args([

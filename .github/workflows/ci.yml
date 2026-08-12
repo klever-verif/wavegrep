@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   checks:
-    name: Format, lint, schema, coverage, tests
+    name: Format, lint, coverage, tests
     runs-on: ubuntu-24.04
     env:
       DEVCONTAINER_CACHE_REF: ghcr.io/${{ github.repository_owner }}/wavepeek-devcontainer:buildcache

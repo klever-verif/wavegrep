@@ -7,7 +7,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PRE_COMMIT_SKIPS = (
-    "rust-format,rust-lint,rust-check,justfile-format-check,schema-contract,"
+    "rust-format,rust-lint,rust-check,justfile-format-check,"
     "github-actions-lint,rust-test,aux-test,bench-e2e-smoke-commit"
 )
 

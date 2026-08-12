@@ -235,16 +235,9 @@ const AXI5_STREAM_PROFILE: AxiStreamProfileSpec = AxiStreamProfileSpec {
     issue: "B",
 };
 
+#[cfg(test)]
 pub(crate) fn profile_specs() -> &'static [AxiStreamProfileSpec] {
     &[AXI4_STREAM_PROFILE, AXI5_STREAM_PROFILE]
-}
-
-pub(crate) const fn standard_signals() -> &'static [&'static str] {
-    STANDARD_SIGNALS
-}
-
-pub(crate) const fn payload_signals() -> &'static [&'static str] {
-    PAYLOAD_SIGNALS
 }
 
 pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {

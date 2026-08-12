@@ -375,10 +375,12 @@ const APB5_PROFILE: ApbProfileSpec = ApbProfileSpec {
     signals: APB5_SIGNALS,
 };
 
+#[cfg(test)]
 pub(crate) fn profile_specs() -> &'static [ApbProfileSpec] {
     &[APB3_PROFILE, APB4_PROFILE, APB5_PROFILE]
 }
 
+#[cfg(test)]
 pub(crate) fn standard_signals(
     profile: &ApbProfileSpec,
 ) -> impl Iterator<Item = &'static str> + '_ {
@@ -388,6 +390,7 @@ pub(crate) fn standard_signals(
         .filter(|standard| profile.signals.contains(standard))
 }
 
+#[cfg(test)]
 pub(crate) fn event_payload_signals<'a>(
     profile: &'a ApbProfileSpec,
     event: &'a str,
@@ -1233,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    fn schema_payload_helper_applies_profile_event_and_direction() {
+    fn payload_helper_applies_profile_event_and_direction() {
         let apb5 = &profile_specs()[2];
         let setup_read = event_payload_signals(apb5, "setup", "read").collect::<Vec<_>>();
         assert!(setup_read.contains(&"pwrite"));

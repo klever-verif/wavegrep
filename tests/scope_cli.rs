@@ -3,7 +3,7 @@ use predicates::prelude::*;
 use serde_json::{Value, json};
 
 mod common;
-use common::{expected_schema_url, fixture_path, rtl_fixture_path, wavepeek_cmd};
+use common::{fixture_path, rtl_fixture_path, wavepeek_cmd};
 
 #[test]
 fn scope_human_output_is_default_for_vcd() {
@@ -42,7 +42,7 @@ fn scope_json_order_is_deterministic_for_vcd() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("scope output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
+    assert!(value.get("$schema").is_none());
     assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "scope");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));

@@ -283,6 +283,7 @@ impl AtbProfile {
     }
 }
 
+#[cfg(test)]
 pub(crate) const fn profile_specs() -> [AtbProfile; 3] {
     [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC]
 }

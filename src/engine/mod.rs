@@ -9,7 +9,6 @@ mod expr_runtime;
 pub mod extract;
 pub mod info;
 pub mod property;
-pub mod schema;
 pub mod scope;
 pub mod signal;
 mod signal_mapping;
@@ -42,7 +41,6 @@ pub(crate) fn scoped_signal_path(name: &str, scope: Option<&str>) -> Option<Stri
 
 #[derive(Debug)]
 pub enum Command {
-    Schema(cli::schema::SchemaArgs),
     Info(cli::info::InfoArgs),
     Scope(cli::scope::ScopeArgs),
     Signal(cli::signal::SignalArgs),
@@ -62,7 +60,6 @@ pub enum Command {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandName {
-    Schema,
     Info,
     Scope,
     Signal,
@@ -86,7 +83,6 @@ pub enum CommandName {
 impl Command {
     pub const fn name(&self) -> CommandName {
         match self {
-            Self::Schema(_) => CommandName::Schema,
             Self::Info(_) => CommandName::Info,
             Self::Scope(_) => CommandName::Scope,
             Self::Signal(_) => CommandName::Signal,
@@ -106,7 +102,6 @@ impl Command {
 
     pub const fn output_mode(&self) -> OutputMode {
         match self {
-            Self::Schema(_) => OutputMode::Human,
             Self::Info(args) => OutputMode::from_json_flags(args.json, args.jsonl),
             Self::Scope(args) => OutputMode::from_json_flags(args.json, args.jsonl),
             Self::Signal(args) => OutputMode::from_json_flags(args.json, args.jsonl),
@@ -127,7 +122,6 @@ impl Command {
 impl CommandName {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Schema => "schema",
             Self::Info => "info",
             Self::Scope => "scope",
             Self::Signal => "signal",
@@ -178,7 +172,6 @@ pub struct HumanRenderOptions {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum CommandData {
-    Schema(String),
     Text(String),
     Info(info::InfoData),
     Scope(Vec<scope::ScopeEntry>),
@@ -210,7 +203,6 @@ pub struct CommandResult {
 
 pub fn run(command: Command) -> Result<CommandResult, WavepeekError> {
     match command {
-        Command::Schema(args) => schema::run(args),
         Command::Info(args) => info::run(args),
         Command::Scope(args) => scope::run(args),
         Command::Signal(args) => signal::run(args),
@@ -245,7 +237,7 @@ pub fn run_jsonl<W: std::io::Write>(
             let result = run(command)?;
             output::write_jsonl_result(result, writer)
         }
-        Command::Schema(_) | Command::Docs(_) | Command::Skill(_) => Err(WavepeekError::Args(
+        Command::Docs(_) | Command::Skill(_) => Err(WavepeekError::Args(
             "--jsonl is available only for waveform commands".to_string(),
         )),
     }
@@ -270,7 +262,6 @@ mod tests {
 
     #[test]
     fn command_name_strings_exercise_all_variants() {
-        assert_eq!(CommandName::Schema.as_str(), "schema");
         assert_eq!(CommandName::Info.as_str(), "info");
         assert_eq!(CommandName::Scope.as_str(), "scope");
         assert_eq!(CommandName::Signal.as_str(), "signal");

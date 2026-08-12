@@ -38,14 +38,6 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
-      - id: schema-contract
-        name: Schema contract check
-        description: Validate canonical schema freshness and URL contract
-        entry: just check-schema
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
-
       - id: github-actions-lint
         name: GitHub Actions lint
         description: Run actionlint on GitHub Actions workflows
