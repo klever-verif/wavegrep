@@ -110,8 +110,12 @@ for signal in HUP INT QUIT TERM; do
     trap "forward_signal $signal" "$signal"
 done
 
+runner=(python3)
+if [ ! -t 0 ]; then
+    runner=(setsid --wait python3)
+fi
 devcontainer exec --container-id "$container_id" "${remote_env_args[@]}" -- \
-    setsid --wait python3 "$workspace/tools/repo/dev_exec.py" \
+    "${runner[@]}" "$workspace/tools/repo/dev_exec.py" \
     "$token" "$pidfile" "$statusfile" "$container_dir" "$@" <&0 &
 exec_pid=$!
 set +e

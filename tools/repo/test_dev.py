@@ -359,12 +359,18 @@ os.execvp(command[0], command)
         env = self._base_env()
         env["FAKE_ROOT"] = str(self.main)
         process = subprocess.Popen(
-            [str(DEV), "python3", "-c", "import sys; print(sys.stdin.isatty())"],
+            [
+                str(DEV),
+                "python3",
+                "-c",
+                "import os,sys; fd=os.open('/dev/tty',os.O_RDWR); print(sys.stdin.isatty() and os.isatty(fd)); os.close(fd)",
+            ],
             cwd=self.main,
             env=env,
             stdin=slave,
             stdout=slave,
             stderr=slave,
+            start_new_session=True,
         )
         os.close(slave)
         output = b""
