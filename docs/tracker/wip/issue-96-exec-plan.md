@@ -154,3 +154,5 @@ Plan revision note (2026-08-12 11:12Z): Recorded the control-review signal-forwa
 Plan revision note (2026-08-12 11:24Z): Recorded the targeted signal recheck and hardened process-group forwarding evidence, including no orphaned child process.
 
 Plan revision note (2026-08-12 11:33Z): The final signal control identified terminal process-group SIGINT behavior. Added a stdlib helper that owns the command process group, records status, and terminates children; nine focused tests and a real-container group-SIGINT check pass.
+
+Plan revision note (2026-08-12 11:45Z): The final signal approval challenged terminal SIGINT and PTY reads. A stdlib helper now owns a child process group while retaining the container PTY foreground; focused tests and a real process-group SIGINT test pass with no orphan. Dynamic terminal resize remains governed by Devcontainer CLI behavior and is not an issue acceptance criterion.

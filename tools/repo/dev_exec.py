@@ -32,11 +32,26 @@ def main() -> int:
     start_time = Path(f"/proc/{os.getpid()}/stat").read_text().split()[21]
     pidfile.write_text(f"{token} {os.getpid()} {start_time}\n")
 
+    tty_fd = sys.stdin.fileno() if sys.stdin.isatty() else None
+
     try:
         child = subprocess.Popen(command, cwd=cwd, process_group=0)
+        if tty_fd is not None:
+            signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+            try:
+                os.tcsetpgrp(tty_fd, child.pid)
+            except OSError:
+                pass
         if pending_signal is not None:
             forward(pending_signal, None)
         returncode = child.wait()
+
+        if tty_fd is not None:
+            signal.signal(signal.SIGTTOU, signal.SIG_IGN)
+            try:
+                os.tcsetpgrp(tty_fd, os.getpgrp())
+            except OSError:
+                pass
 
         if received_signal:
             try:
