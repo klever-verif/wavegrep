@@ -169,7 +169,6 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
-    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "extract generic");
     assert_eq!(
         value["data"],
@@ -448,7 +447,6 @@ fn extract_generic_source_file_preserves_declaration_order_in_jsonl() {
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
-    assert!(records[0].get("$schema").is_none());
     assert_eq!(records[1]["item"]["source"], "beat.a");
     assert_eq!(records[2]["item"]["source"], "beat.b");
     assert_eq!(records.last().unwrap()["summary"]["items"], 2);

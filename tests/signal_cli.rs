@@ -75,7 +75,6 @@ fn signal_json_shape_for_vcd_keeps_full_paths() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("signal output should be valid json");
 
-    assert!(value.get("$schema").is_none());
     assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "signal");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));

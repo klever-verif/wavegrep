@@ -77,7 +77,6 @@ fn extract_ahb_lite_defaults_emit_pipeline_events_without_idle_spam() {
         .clone();
     let value = parse_json(&output);
 
-    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "extract ahb");
     assert_eq!(value["data"]["name"], "ahb");
     assert_eq!(value["data"]["profile"], "ahb-lite");
@@ -277,7 +276,6 @@ fn extract_ahb_limit_can_split_a_same_edge_pair_and_counts_public_rows_only() {
         .stdout
         .clone();
     let records = parse_stream(&output);
-    assert!(records[0].get("$schema").is_none());
     assert_eq!(records[0]["command"], "extract ahb");
     assert_eq!(
         records[0]["context"]["initial_data_phase"]["state"],

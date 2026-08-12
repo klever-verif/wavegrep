@@ -42,7 +42,6 @@ fn scope_json_order_is_deterministic_for_vcd() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("scope output should be valid json");
 
-    assert!(value.get("$schema").is_none());
     assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "scope");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));

@@ -478,7 +478,6 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(!help.contains("(`--waves <FILE>` is required)"));
         assert!(!help.contains("(default: 50,"));
         assert!(!help.contains("human output"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -533,7 +532,6 @@ fn property_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(!help.contains("(`--eval` is required)"));
         assert!(!help.contains("Capture mode (`match`, `switch`, `assert`, `deassert`)"));
         assert!(!help.contains("Capture mode: match, switch, assert, or deassert"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -622,7 +620,6 @@ fn info_help_uses_aligned_summary_and_simple_option_docs() {
         assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
         assert!(help.contains("Machine-readable JSON output"));
         assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -672,7 +669,6 @@ fn scope_help_uses_aligned_summary_behavior_and_simple_option_docs() {
         assert!(!help.contains("(`--waves <FILE>` is required)"));
         assert!(!help.contains("(default:"));
         assert!(!help.contains("invalid regex is rejected as an argument error"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -721,7 +717,6 @@ fn signal_help_uses_aligned_summary_behavior_and_simple_option_docs() {
         assert!(!help.contains("`--scope` is required"));
         assert!(!help.contains("(default:"));
         assert!(!help.contains("invalid regex is rejected as an argument error"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -770,7 +765,6 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(!help.contains("for example"));
         assert!(!help.contains("bare numbers are rejected as argument errors"));
         assert!(!help.contains("human output"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 

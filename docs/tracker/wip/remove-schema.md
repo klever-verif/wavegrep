@@ -23,7 +23,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 - [x] (2026-08-12 16:58Z) Removed the schema CLI, engine, builders, artifacts, dependencies, and validator-only tests while retaining direct JSON/JSONL shape and sequencing checks; `cargo check --all-targets` and 14 focused integration suites passed.
 - [x] (2026-08-12 17:05Z) Removed generation gates and current schema publication/deployment checks; 51 docs-helper tests include a synthetic v3 staging case that preserves a historical v2.2 file and creates no v3 schema, and `just test-aux` plus `just check-actions` passed.
 - [x] (2026-08-12 17:11Z) Replaced schema discovery with concise object/list/event/transfer/JSONL examples, removed stale public and maintainer references, updated README/breadcrumbs/changelog, and passed 79 focused docs/CLI tests plus strict docs-site generation.
-- [ ] Run `just ci`, conduct parallel correctness, docs, and mandatory KISS/YAGNI/ponytail challenge reviews, fix findings, rerun affected checks, and obtain a clean independent control review.
+- [ ] Run `just ci` (completed: full source coverage, docs, auxiliary, action, build, and available FSDB gates passed at 93.54% region / 93.06% function / 94.02% line coverage); conduct parallel correctness, docs, and mandatory KISS/YAGNI/ponytail challenge reviews and fix findings (completed: correctness clean; docs found and fixed two fictitious protocol examples; simplicity cleanup removed schema-era test helpers and duplicate negative assertions); obtain a clean independent control review (remaining).
 - [ ] Remove this branch-local plan, run `just check`, commit cleanup, push the branch, and open a pull request targeting `dev3`.
 
 ## Surprises & Discoveries
@@ -33,6 +33,9 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 
 - Observation: Existing Pages publication updates and exports the complete `gh-pages` tree, so old root schema files remain available without retaining a compatibility publisher in current source.
   Evidence: The new `test_stage_publication_preserves_historical_files` stages v3 installers over a Pages branch containing `schema-output-v2.2.json`, then verifies the historical bytes remain and no v3 schema path exists; all 51 docs-helper tests pass.
+
+- Observation: The first docs review found that concise protocol examples must still be copied from real runtime output; hand-shortening mapping values produced impossible objects.
+  Evidence: The APB and AXI examples originally represented `mappings` as strings, while runtime output uses objects such as `{"path":"top.clk"}`. Both examples were replaced with output captured from integration fixtures.
 
 - Observation: Runtime structured-input types are separate from the schema-only input DTO tree and use Serde's default unknown-field behavior.
   Evidence: After deleting explicit schema fields and checks, all 95 extraction integration tests passed; `extract_generic_source_file_ignores_schema_url` and `extract_axi_source_ignores_legacy_schema_url` passed with arbitrary or old `$schema` properties.
@@ -55,8 +58,8 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
   Rationale: Historical files already live on `gh-pages`; retaining or recreating them in current source would be redundant and could accidentally overwrite immutable artifacts.
   Date/Author: 2026-08-12 / pi
 
-- Decision: Retain direct JSON and JSONL behavioral tests while deleting schema-validator assertions.
-  Rationale: Serialization, field shapes, diagnostics, stream sequencing, and deterministic ordering remain public runtime contracts even though JSON Schema does not.
+- Decision: Retain representative direct JSON and JSONL behavioral tests while deleting schema-validator and duplicate field-absence assertions.
+  Rationale: Serialization, field shapes, diagnostics, stream sequencing, and deterministic ordering remain public runtime contracts even though JSON Schema does not. Review confirmed one JSON integration check, one JSONL integration check, output unit checks, and existing payload assertions cover `$schema` removal without repeating the same negative assertion in every command suite.
   Date/Author: 2026-08-12 / pi
 
 ## Outcomes & Retrospective

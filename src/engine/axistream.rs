@@ -235,11 +235,6 @@ const AXI5_STREAM_PROFILE: AxiStreamProfileSpec = AxiStreamProfileSpec {
     issue: "B",
 };
 
-#[cfg(test)]
-pub(crate) fn profile_specs() -> &'static [AxiStreamProfileSpec] {
-    &[AXI4_STREAM_PROFILE, AXI5_STREAM_PROFILE]
-}
-
 pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
@@ -798,10 +793,7 @@ impl TreadyMode {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        STANDARD_SIGNALS, TreadyMode, parse_cli_maps, parse_profile, parse_tready_mode,
-        profile_specs,
-    };
+    use super::{STANDARD_SIGNALS, TreadyMode, parse_cli_maps, parse_profile, parse_tready_mode};
     use crate::engine::signal_mapping::candidate_matching_standards;
 
     #[test]
@@ -814,13 +806,6 @@ mod tests {
         ] {
             assert_eq!(parse_profile(input).unwrap().name(), canonical);
         }
-        assert_eq!(
-            profile_specs()
-                .iter()
-                .map(|profile| (profile.name, profile.issue))
-                .collect::<Vec<_>>(),
-            [("axi4-stream", "B"), ("axi5-stream", "B")]
-        );
     }
 
     #[test]

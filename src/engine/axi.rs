@@ -1220,23 +1220,6 @@ const ACE5_LITE_ACP_PROFILE: AxiProfileSpec = AxiProfileSpec {
     channels: ACE5_LITE_ACP_CHANNELS,
 };
 
-#[cfg(test)]
-pub(crate) fn profile_specs() -> &'static [AxiProfileSpec] {
-    &[
-        AXI3_PROFILE,
-        AXI4_PROFILE,
-        AXI4_LITE_PROFILE,
-        AXI5_PROFILE,
-        AXI5_LITE_PROFILE,
-        ACE_PROFILE,
-        ACE_LITE_PROFILE,
-        ACE5_PROFILE,
-        ACE5_LITE_PROFILE,
-        ACE5_LITE_DVM_PROFILE,
-        ACE5_LITE_ACP_PROFILE,
-    ]
-}
-
 pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
@@ -1835,7 +1818,7 @@ impl AxiProfile {
 
 #[cfg(test)]
 mod tests {
-    use super::{candidate_matches_standard, parse_cli_maps, parse_profile, profile_specs};
+    use super::{candidate_matches_standard, parse_cli_maps, parse_profile};
 
     fn assert_profile(name: &str, expected: &[(&str, &[&str])]) {
         let profile = parse_profile(name).unwrap();
@@ -1896,26 +1879,6 @@ mod tests {
 
     #[test]
     fn ace_family_profile_specs_match_contract() {
-        assert_eq!(
-            profile_specs()
-                .iter()
-                .map(|profile| profile.name)
-                .collect::<Vec<_>>(),
-            [
-                "axi3",
-                "axi4",
-                "axi4-lite",
-                "axi5",
-                "axi5-lite",
-                "ace",
-                "ace-lite",
-                "ace5",
-                "ace5-lite",
-                "ace5-lite-dvm",
-                "ace5-lite-acp"
-            ]
-        );
-
         assert_profile(
             "ace",
             &[

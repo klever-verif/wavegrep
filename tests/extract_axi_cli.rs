@@ -1426,7 +1426,6 @@ fn extract_axi_json_automaps_axi4_lite_and_gates_reset() {
         .clone();
 
     let value = parse_json(&output);
-    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "extract axi");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(value["data"]["name"], "axi");
@@ -1551,7 +1550,6 @@ fn extract_axi_source_jsonl_includes_begin_context() {
 
     let records = parse_stream(&output);
     assert_eq!(records.first().unwrap()["type"], "begin");
-    assert!(records.first().unwrap().get("$schema").is_none());
     assert_eq!(records.first().unwrap()["context"]["name"], "cfg");
     assert_eq!(records.first().unwrap()["context"]["profile"], "axi4-lite");
     assert_eq!(records[1]["type"], "item");
@@ -1660,36 +1658,6 @@ fn extract_axi_source_rejects_explicit_null_strings() {
             .failure()
             .stderr(predicate::str::contains("expected string, got null"));
     }
-}
-
-#[test]
-fn extract_axi_source_ignores_legacy_schema_url() {
-    let fixture = waveform_fixture("extract_axi_lite.vcd");
-    let source = write_source(
-        r#"{
-  "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.1.json",
-  "kind": "extract.axi.source",
-  "profile": "axi4-lite",
-  "includes": ["^axi_(aw|w|b|ar|r)_"],
-  "maps": {"aclk": "clk"}
-}
-"#,
-    );
-    let source = source.path().to_string_lossy().into_owned();
-
-    wavepeek_cmd()
-        .args([
-            "extract",
-            "axi",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--source",
-            source.as_str(),
-        ])
-        .assert()
-        .success();
 }
 
 #[test]

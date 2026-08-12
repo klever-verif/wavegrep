@@ -212,11 +212,6 @@ class PublishDocsTests(unittest.TestCase):
                     [path], publish_docs.allowed_path_patterns("3.0.0", promote_latest=True)
                 )
 
-    def test_required_pages_artifacts_are_site_roots(self) -> None:
-        self.assertEqual(
-            publish_docs.required_pages_artifact_paths(), ["index.html", "versions.json"]
-        )
-
     def test_changed_paths_reports_old_path_for_renames(self) -> None:
         repo = self.root / "repo-rename"
         repo.mkdir()
@@ -255,7 +250,7 @@ class PublishDocsTests(unittest.TestCase):
         git(repo, "commit", "-q", "-m", "pages")
 
         with chdir(repo):
-            publish_docs.export_pages_artifact("HEAD", "1.1.0", self.paths, publish_docs.CommandRunner())
+            publish_docs.export_pages_artifact("HEAD", self.paths, publish_docs.CommandRunner())
 
         self.assertEqual((self.paths.pages_artifact / "index.html").read_text(), "redirect")
         self.assertEqual((self.paths.pages_artifact / "1.1.0" / "index.html").read_text(), "docs")
@@ -278,7 +273,7 @@ class PublishDocsTests(unittest.TestCase):
 
         with chdir(repo):
             with self.assertRaisesRegex(publish_docs.PublishError, "index.html"):
-                publish_docs.export_pages_artifact("HEAD", "0.5.0", self.paths, publish_docs.CommandRunner())
+                publish_docs.export_pages_artifact("HEAD", self.paths, publish_docs.CommandRunner())
 
     def test_versions_json_rejects_duplicate_versions_and_bad_aliases(self) -> None:
         with self.assertRaisesRegex(publish_docs.PublishError, "duplicate version"):

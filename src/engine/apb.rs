@@ -375,37 +375,6 @@ const APB5_PROFILE: ApbProfileSpec = ApbProfileSpec {
     signals: APB5_SIGNALS,
 };
 
-#[cfg(test)]
-pub(crate) fn profile_specs() -> &'static [ApbProfileSpec] {
-    &[APB3_PROFILE, APB4_PROFILE, APB5_PROFILE]
-}
-
-#[cfg(test)]
-pub(crate) fn standard_signals(
-    profile: &ApbProfileSpec,
-) -> impl Iterator<Item = &'static str> + '_ {
-    ORDERED_SIGNALS
-        .iter()
-        .copied()
-        .filter(|standard| profile.signals.contains(standard))
-}
-
-#[cfg(test)]
-pub(crate) fn event_payload_signals<'a>(
-    profile: &'a ApbProfileSpec,
-    event: &'a str,
-    direction: &'a str,
-) -> impl Iterator<Item = &'static str> + 'a {
-    standard_signals(profile).filter(move |standard| {
-        !matches!(
-            *standard,
-            "pclk" | "presetn" | "psel" | "penable" | "pready"
-        ) && (event == "access-complete" || !COMPLETION_ONLY_SIGNALS.contains(standard))
-            && (direction != "read" || !WRITE_ONLY_SIGNALS.contains(standard))
-            && (direction != "write" || !READ_ONLY_SIGNALS.contains(standard))
-    })
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PreadyMode {
     Mapped,
@@ -1172,20 +1141,20 @@ impl ApbProfile {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApbDirection, candidate_matching_standards, direction_from_pwrite, event_payload_signals,
-        parse_pready_mode, parse_profile, payload_allowed, profile_specs,
+        APB3_PROFILE, APB4_PROFILE, APB5_PROFILE, ApbDirection, candidate_matching_standards,
+        direction_from_pwrite, parse_pready_mode, parse_profile, payload_allowed,
     };
 
     #[test]
     fn profiles_expose_issue_e_and_expected_signal_boundaries() {
-        assert_eq!(profile_specs().len(), 3);
-        for profile in profile_specs() {
+        let profiles = [APB3_PROFILE, APB4_PROFILE, APB5_PROFILE];
+        for profile in &profiles {
             assert_eq!(profile.issue, "E");
             assert!(profile.signals.contains(&"pwrite"));
         }
-        assert!(!profile_specs()[0].signals.contains(&"pprot"));
-        assert!(profile_specs()[1].signals.contains(&"pprot"));
-        assert!(profile_specs()[2].signals.contains(&"pnse"));
+        assert!(!APB3_PROFILE.signals.contains(&"pprot"));
+        assert!(APB4_PROFILE.signals.contains(&"pprot"));
+        assert!(APB5_PROFILE.signals.contains(&"pnse"));
     }
 
     #[test]
@@ -1233,19 +1202,5 @@ mod tests {
             ApbDirection::Unknown,
             "prdata"
         ));
-    }
-
-    #[test]
-    fn payload_helper_applies_profile_event_and_direction() {
-        let apb5 = &profile_specs()[2];
-        let setup_read = event_payload_signals(apb5, "setup", "read").collect::<Vec<_>>();
-        assert!(setup_read.contains(&"pwrite"));
-        assert!(!setup_read.contains(&"pwdata"));
-        assert!(!setup_read.contains(&"pslverr"));
-        let complete_unknown =
-            event_payload_signals(apb5, "access-complete", "unknown").collect::<Vec<_>>();
-        assert!(complete_unknown.contains(&"pwdata"));
-        assert!(complete_unknown.contains(&"prdata"));
-        assert!(complete_unknown.contains(&"pslverr"));
     }
 }

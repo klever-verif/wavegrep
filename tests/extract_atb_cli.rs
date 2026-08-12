@@ -335,7 +335,6 @@ fn extract_atb_json_abs_and_source_modes_preserve_contracts() {
         String::from_utf8_lossy(&output.stderr)
     );
     let value = parse_json(&output.stdout);
-    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "extract atb");
     assert_eq!(value["data"]["name"], "etm_trace");
     assert_eq!(value["data"]["profile"], "atb-b");
@@ -386,7 +385,6 @@ fn extract_atb_jsonl_orders_rows_and_counts_max_split() {
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
     assert_eq!(records[0]["command"], "extract atb");
-    assert!(records[0].get("$schema").is_none());
     assert_eq!(records[0]["context"]["profile"], "atb-c");
     assert_eq!(records[1]["item"]["event"], "transfer");
     assert_eq!(records[2]["item"]["event"], "flush");

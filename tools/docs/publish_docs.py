@@ -97,12 +97,6 @@ class CommandRunner:
         )
 
 
-@dataclass(frozen=True)
-class CheckResult:
-    source_root: pathlib.Path
-    cli_version: str
-
-
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build and stage wavepeek GitHub Pages docs.")
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -291,7 +285,7 @@ def perform_check(
     source_root: pathlib.Path | None = None,
     source_ref: str | None = None,
     for_stage: bool = False,
-) -> CheckResult:
+) -> str:
     actual_source_root = resolve_source_root(
         source_root=source_root,
         source_ref=source_ref,
@@ -311,7 +305,7 @@ def perform_check(
     finally:
         if worktree_source:
             remove_git_worktree(run_paths.source_worktree, runner)
-    return CheckResult(actual_source_root, cli_version)
+    return cli_version
 
 
 def git_capture(args: Sequence[str | pathlib.Path], runner: CommandRunner) -> str:
@@ -732,13 +726,8 @@ def comparable_entry(entry: dict[str, Any]) -> dict[str, Any]:
     return clone
 
 
-def required_pages_artifact_paths() -> list[str]:
-    return ["index.html", "versions.json"]
-
-
 def export_pages_artifact(
     staged_branch: str,
-    version: str,
     run_paths: Paths,
     runner: CommandRunner,
 ) -> None:
@@ -759,7 +748,7 @@ def export_pages_artifact(
 
     missing = [
         path
-        for path in required_pages_artifact_paths()
+        for path in ["index.html", "versions.json"]
         if not (run_paths.pages_artifact / path).is_file()
     ]
     if missing:
@@ -899,7 +888,7 @@ def push_staged(
         promote_latest=promote_latest,
         runner=runner,
     )
-    export_pages_artifact(STAGED_BRANCH, version, run_paths, runner)
+    export_pages_artifact(STAGED_BRANCH, run_paths, runner)
     runner.run(["git", "push", "origin", f"{STAGED_BRANCH}:{GH_PAGES_BRANCH}"])
 
 
@@ -907,7 +896,7 @@ def run_check_command(args: argparse.Namespace, runner: CommandRunner) -> None:
     run_paths = paths(args.work_dir)
     if args.source_root is not None and args.source_ref is not None:
         fail("check accepts either --source-root or --source-ref, not both")
-    result = perform_check(
+    cli_version = perform_check(
         version=validate_version(args.version),
         run_paths=run_paths,
         runner=runner,
@@ -915,7 +904,7 @@ def run_check_command(args: argparse.Namespace, runner: CommandRunner) -> None:
         source_ref=args.source_ref,
         for_stage=False,
     )
-    print(f"checked docs for wavepeek {result.cli_version}")
+    print(f"checked docs for wavepeek {cli_version}")
 
 
 def main(argv: list[str] | None = None, runner: CommandRunner | None = None) -> int:

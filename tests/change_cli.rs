@@ -293,7 +293,6 @@ fn change_default_when_matches_expected_json_payload() {
     assert!(output.stderr.is_empty());
 
     let value = parse_json(&output.stdout);
-    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "change");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(

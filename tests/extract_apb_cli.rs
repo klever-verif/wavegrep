@@ -160,7 +160,6 @@ fn extract_apb_json_emits_waits_and_filters_payload_by_event_and_direction() {
     );
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
-    assert!(value.get("$schema").is_none());
     assert_eq!(value["command"], "extract apb");
     assert_eq!(value["data"]["profile"], "apb4");
     assert_eq!(value["data"]["issue"], "E");
@@ -227,7 +226,6 @@ fn extract_apb_jsonl_streams_context_items_and_row_limit_summary() {
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
-    assert!(records[0].get("$schema").is_none());
     assert_eq!(records[0]["command"], "extract apb");
     assert_eq!(records[0]["context"]["profile"], "apb4");
     assert_eq!(records[0]["context"]["pready_mode"], "mapped");

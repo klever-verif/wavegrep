@@ -40,13 +40,13 @@ List payload (`value`):
 Event payload (`extract apb`):
 
 ```json
-{"command":"extract apb","data":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":"top.pclk"},"events":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}]},"diagnostics":[]}
+{"command":"extract apb","data":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}},"events":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}]},"diagnostics":[]}
 ```
 
 Transfer payload (`extract axi`):
 
 ```json
-{"command":"extract axi","data":{"name":"axi","profile":"axi4-lite","issue":"H.c","mappings":{"aclk":"top.aclk"},"transfers":[{"time":"5ns","sample_time":"4ns","profile":"axi4-lite","channel":"aw","payload":{"awaddr":"32'h00000010"}}]},"diagnostics":[]}
+{"command":"extract axi","data":{"name":"axi","profile":"axi4-lite","issue":"H.c","mappings":{"aclk":{"path":"top.clk"},"awready":{"path":"top.axi_aw_ready_i"},"awvalid":{"path":"top.axi_aw_valid_o"}},"transfers":[{"time":"5ns","sample_time":"4ns","profile":"axi4-lite","channel":"aw","payload":{}}]},"diagnostics":[]}
 ```
 
 Machine-readable paths are canonical. Protocol extraction payloads retain the context fields documented in `commands/extract`; rows contain only mapped observations. The waveform commands plus `docs topics --json` and `docs search --json` support JSON envelopes. Unsupported `--json` combinations fail as argument errors.

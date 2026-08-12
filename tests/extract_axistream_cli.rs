@@ -493,7 +493,6 @@ fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
     assert_eq!(default_value["data"]["tready_mode"], "mapped");
 
     let source = write_source(&json!({
-        "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
         "kind": "extract.axistream.source",
         "profile": "AXI5_STREAM",
         "tready_mode": "IMPLICIT_HIGH",

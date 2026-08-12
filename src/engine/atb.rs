@@ -283,11 +283,6 @@ impl AtbProfile {
     }
 }
 
-#[cfg(test)]
-pub(crate) const fn profile_specs() -> [AtbProfile; 3] {
-    [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC]
-}
-
 pub fn run(args: AtbArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
@@ -922,7 +917,6 @@ fn standard_suffix_start(tokens: &[String], standard: &str) -> Option<usize> {
 mod tests {
     use super::{
         AtbProfile, candidate_matches_standard, event_kind, parse_cli_maps, parse_profile,
-        profile_specs,
     };
 
     #[test]
@@ -941,7 +935,7 @@ mod tests {
 
     #[test]
     fn profile_signal_sets_match_issue_c_contract() {
-        let profiles = profile_specs();
+        let profiles = [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC];
         assert_eq!(profiles.map(AtbProfile::name), ["atb-a", "atb-b", "atb-c"]);
         assert_eq!(
             AtbProfile::AtbA.signals(),
