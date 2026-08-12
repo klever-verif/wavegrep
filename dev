@@ -13,15 +13,27 @@ if [ "${1-}" = "--install-hooks" ]; then
     common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
     common_dir="$(cd "$common_dir" && pwd -P)"
     data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-    case "$data_home" in
-        /*) ;;
-        *)
-            printf '%s\n' "error: dev: XDG_DATA_HOME must be an absolute path" >&2
+    [[ "$data_home" = /* ]] || {
+        printf '%s\n' "error: dev: XDG_DATA_HOME must be an absolute path" >&2
+        exit 1
+    }
+    repo_id="$(printf '%s' "$common_dir" | sha256sum | cut -d ' ' -f 1)"
+    hooks_dir="$(realpath -m -- "$data_home/wavepeek/git-hooks/$repo_id")"
+    while read -r worktree; do
+        worktree="$(cd "$worktree" && pwd -P)"
+        case "$hooks_dir/" in
+            "$worktree/"*)
+                printf '%s\n' "error: dev: host Git hooks must be outside registered worktrees" >&2
+                exit 1
+                ;;
+        esac
+    done < <(git worktree list --porcelain | sed -n 's/^worktree //p')
+    case "$hooks_dir/" in
+        "$common_dir/"*)
+            printf '%s\n' "error: dev: host Git hooks must be outside the Git common directory" >&2
             exit 1
             ;;
     esac
-    repo_id="$(printf '%s' "$common_dir" | sha256sum | cut -d ' ' -f 1)"
-    hooks_dir="$data_home/wavepeek/git-hooks/$repo_id"
     configured="$(git config --get core.hooksPath || true)"
     if [ -n "$configured" ] && [ "$configured" != "$hooks_dir" ]; then
         printf '%s\n' "error: dev: refusing to replace existing core.hooksPath: $configured" >&2

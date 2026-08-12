@@ -98,11 +98,11 @@ raise SystemExit(int(os.environ.get("FAKE_STATUS", "0")))
         )
         script.chmod(0o755)
 
-    def _install(self) -> subprocess.CompletedProcess[str]:
+    def _install(self, **env_updates: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [str(self.main / "dev"), "--install-hooks"],
             cwd=self.main,
-            env=self._env(),
+            env=self._env(**env_updates),
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -194,6 +194,15 @@ os.execvpe(args[0], args, env)
             self._git("config", "--local", "--get", "core.hooksPath").stdout.strip(),
             "custom-hooks",
         )
+
+    def test_install_rejects_data_storage_inside_any_worktree_or_common_dir(self) -> None:
+        cases = (self.main, self.linked, self.main / ".git", self.tmp / "worktree-link")
+        for data_home in cases:
+            if data_home.name == "worktree-link":
+                data_home.symlink_to(self.linked, target_is_directory=True)
+            result = self._install(XDG_DATA_HOME=str(data_home))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must be outside", result.stderr)
 
     def test_install_respects_effective_global_custom_path(self) -> None:
         self._git("config", "--global", "core.hooksPath", "/custom/hooks")
