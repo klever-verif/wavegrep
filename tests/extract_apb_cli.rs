@@ -480,7 +480,6 @@ fn extract_apb_vcd_and_fst_are_equivalent_for_every_profile() {
 fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
     let source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "profile": "APB4",
             "pready_mode": "MAPPED",
@@ -565,11 +564,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
     assert_eq!(defaults["data"]["include_wait"], false);
 
     for (field, field_value, error_fragment) in [
-        (
-            "$schema",
-            json!("https://kleverhq.github.io/wavepeek/schema-input-v2.1.json"),
-            "unsupported $schema",
-        ),
         (
             "kind",
             json!("extract.axi.source"),

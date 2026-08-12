@@ -337,7 +337,6 @@ fn extract_atb_supports_independent_channels_optional_reset_and_payload() {
 fn extract_atb_json_abs_and_source_modes_preserve_contracts() {
     let waves = fixture("vcd");
     let source = write_source(&json!({
-        "$schema": expected_input_schema_url(),
         "kind": "extract.atb.source",
         "profile": "atb_b",
         "name": "etm_trace",
@@ -616,11 +615,6 @@ fn extract_atb_rejects_invalid_map_include_scope_and_source_inputs() {
     .stderr(predicate::str::contains("missing"));
 
     for source in [
-        json!({
-            "$schema": "https://example.invalid/input.json",
-            "kind": "extract.atb.source",
-            "maps": {}
-        }),
         json!({
             "$schema": expected_input_schema_url(),
             "kind": "extract.axi.source",

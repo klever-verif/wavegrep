@@ -6,7 +6,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AxiStreamArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
@@ -166,8 +165,6 @@ impl<S: AxiStreamTransferSink + ?Sized> ExtractRowSink for GenericToAxiStreamSin
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -422,14 +419,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AxiStreamConfig, Wavepee
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AXI-Stream extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AXI-Stream extract source file '{}' has kind {}; expected {}",

@@ -19,7 +19,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 - [x] (2026-08-12 16:42Z) Read issue #89, repository guidance, quality and release documentation, and the execution-plan policy.
 - [x] (2026-08-12 16:42Z) Installed worktree-local hooks, started the worktree container, prepared waveform fixtures, and established passing baselines for `schema_cli` (40 tests) and `jsonl_cli` (10 tests).
 - [x] (2026-08-12 16:42Z) Mapped schema production, runtime, input, test, automation, documentation, and Pages-publication paths; verified that historical schemas survive because publication stages and exports the existing complete `gh-pages` tree.
-- [ ] Make structured extraction inputs independent of `$schema`, preserve compatibility with unknown legacy `$schema` properties, update benchmark inputs, run all extraction suites, and commit the slice.
+- [x] (2026-08-12 16:48Z) Made all six structured extraction families independent of `$schema`, preserved unknown legacy-field compatibility through Serde, updated benchmark inputs, and passed 95 focused extraction tests, 93 benchmark helper tests, and Clippy.
 - [ ] Remove the schema CLI/engine/builders/artifacts/dependencies and schema-only validation while preserving direct representative JSON/JSONL tests; run focused runtime tests and commit the slice.
 - [ ] Remove schema generation, freshness, pre-commit, CI-label, publication, deployment-check, release-versioning, and helper-test paths while preserving historical Pages files; run auxiliary/workflow checks and commit the slice.
 - [ ] Replace public schema discovery with concise machine-output forms and examples; update maintainer docs, README, breadcrumbs, and changelog; run docs checks and commit the slice.
@@ -35,7 +35,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
   Evidence: `tools/docs/publish_docs.py` stages into an existing Pages worktree and later copies the whole staged tree into the Pages artifact. Published v1, v2.0, v2.1, and v2.2 files are present on `origin/gh-pages`.
 
 - Observation: Runtime structured-input types are separate from the schema-only input DTO tree and use Serde's default unknown-field behavior.
-  Evidence: `SourceFile` types in the six extraction engines do not use `deny_unknown_fields`; deleting their explicit schema field and validation makes `$schema` optional and causes an old property to be ignored without new compatibility code.
+  Evidence: After deleting explicit schema fields and checks, all 95 extraction integration tests passed; `extract_generic_source_file_ignores_schema_url` and `extract_axi_source_ignores_legacy_schema_url` passed with arbitrary or old `$schema` properties.
 
 ## Decision Log
 
@@ -61,7 +61,7 @@ The bundled skill redesign, recipe-first rewrite, and tested standard-library Py
 
 ## Outcomes & Retrospective
 
-Implementation has not started. The baseline and dependency map are complete. At completion this section will compare the delivered CLI, runtime, automation, publication, and documentation behavior with the purpose above and record any deferred work.
+Milestone 1 is complete. Structured input now executes without schema metadata across generic, AHB, APB, ATB, AXI, and AXI-Stream engines, benchmark input examples omit it, and compatibility needs no replacement code. The schema CLI, builders, output fields, automation, publication, and documentation remain for subsequent milestones.
 
 ## Context and Orientation
 

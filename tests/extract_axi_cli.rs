@@ -1558,17 +1558,15 @@ fn extract_axi3_profile_extracts_wid() {
 #[test]
 fn extract_axi_source_jsonl_includes_begin_context() {
     let fixture_path = waveform_fixture("extract_axi_lite.vcd");
-    let source = write_source(&format!(
-        r#"{{
-  "$schema": "{}",
+    let source = write_source(
+        r#"{
   "kind": "extract.axi.source",
   "profile": "axi4-lite",
   "name": "cfg",
   "includes": ["^axi_(aw|w|b|ar|r)_"],
-  "maps": {{"aclk": "clk", "aresetn": "aresetn"}}
-}}"#,
-        expected_input_schema_url()
-    ));
+  "maps": {"aclk": "clk", "aresetn": "aresetn"}
+}"#,
+    );
     let source_path = source.path().to_string_lossy().into_owned();
 
     let output = wavepeek_cmd()
@@ -1708,13 +1706,14 @@ fn extract_axi_source_rejects_explicit_null_strings() {
 }
 
 #[test]
-fn extract_axi_source_rejects_legacy_generic_schema_url() {
+fn extract_axi_source_ignores_legacy_schema_url() {
     let fixture = waveform_fixture("extract_axi_lite.vcd");
     let source = write_source(
         r#"{
   "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.1.json",
   "kind": "extract.axi.source",
   "profile": "axi4-lite",
+  "includes": ["^axi_(aw|w|b|ar|r)_"],
   "maps": {"aclk": "clk"}
 }
 "#,
@@ -1733,8 +1732,7 @@ fn extract_axi_source_rejects_legacy_generic_schema_url() {
             source.as_str(),
         ])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("uses unsupported $schema"));
+        .success();
 }
 
 #[test]

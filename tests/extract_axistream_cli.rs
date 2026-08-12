@@ -479,7 +479,6 @@ fn extract_axistream_auto_mapping_is_ambiguous_and_explicit_maps_win() {
 fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
     let fixture = waveform_fixture("extract_axistream.vcd");
     let default_source = write_source(&json!({
-        "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
         "kind": "extract.axistream.source",
         "maps": {
             "aclk": "clk",
@@ -561,18 +560,12 @@ fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
 fn extract_axistream_source_mode_rejects_wrong_contract_and_null_defaults() {
     let fixture = waveform_fixture("extract_axistream.vcd");
     for (field, value, expected) in [
-        (
-            "$schema",
-            json!("https://example.invalid/input.json"),
-            "uses unsupported $schema",
-        ),
         ("kind", json!("extract.axi.source"), "has kind"),
         ("profile", Value::Null, "expected string, got null"),
         ("tready_mode", Value::Null, "expected string, got null"),
         ("name", Value::Null, "expected string, got null"),
     ] {
         let mut source_value = json!({
-            "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
             "kind": "extract.axistream.source",
             "tready_mode": "implicit-high",
             "maps": {"aclk": "clk", "tvalid": "m_axis_tvalid_o"}

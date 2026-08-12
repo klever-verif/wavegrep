@@ -384,12 +384,12 @@ fn extract_generic_iff_uses_event_time_while_when_uses_sample_time() {
 }
 
 #[test]
-fn extract_generic_source_file_accepts_v2_1_schema_url() {
+fn extract_generic_source_file_ignores_schema_url() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-source-v2-1.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
     let source = write_source(
         r#"{
-  "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.1.json",
+  "$schema": "https://example.invalid/legacy-schema.json",
   "kind": "extract.generic.sources",
   "sources": [
     {"name": "beat", "on": "posedge clk", "when": "valid && ready", "payload": ["data"]}
@@ -430,18 +430,16 @@ fn extract_generic_source_file_accepts_v2_1_schema_url() {
 fn extract_generic_source_file_preserves_declaration_order_in_jsonl() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-source.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
-    let source = write_source(&format!(
-        r#"{{
-  "$schema": "{}",
+    let source = write_source(
+        r#"{
   "kind": "extract.generic.sources",
   "sources": [
-    {{"name": "beat.a", "on": "posedge clk", "when": "valid && ready", "payload": ["data"]}},
-    {{"name": "beat.b", "on": "posedge clk", "when": "valid && ready", "payload": ["last"]}}
+    {"name": "beat.a", "on": "posedge clk", "when": "valid && ready", "payload": ["data"]},
+    {"name": "beat.b", "on": "posedge clk", "when": "valid && ready", "payload": ["last"]}
   ]
-}}
+}
 "#,
-        expected_input_schema_url()
-    ));
+    );
     let source = source.path().to_string_lossy().into_owned();
 
     let output = wavepeek_cmd()

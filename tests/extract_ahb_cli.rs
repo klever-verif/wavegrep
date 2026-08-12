@@ -6,10 +6,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
+use common::{expected_schema_url, expected_stream_schema_url, fixture_path, wavepeek_cmd};
 
 fn schema_validator(name: &str) -> jsonschema::Validator {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -485,7 +482,6 @@ fn extract_ahb_requires_manager_progress_and_pipeline_control_mappings() {
 fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
     let waveform = fixture("extract_ahb_lite.vcd");
     let base = json!({
-        "$schema": expected_input_schema_url(),
         "kind": "extract.ahb.source",
         "profile": "ahb-lite",
         "include_stall": true,
@@ -496,9 +492,6 @@ fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
         "maps": {"hclk": "clk"},
         "extension": {"owner": "test"}
     });
-    schema_validator("input.json")
-        .validate(&base)
-        .expect("extension-friendly source should validate");
     let source = write_source(&base);
     let source_path = source.path().to_string_lossy().into_owned();
     let output = wavepeek_cmd()
@@ -540,7 +533,6 @@ fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
         .stdout(predicate::str::is_empty());
 
     for (field, value) in [
-        ("$schema", json!("https://example.invalid/input.json")),
         ("kind", json!("extract.axi.source")),
         ("profile", Value::Null),
         ("include_stall", Value::Null),
