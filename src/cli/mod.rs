@@ -1,5 +1,4 @@
 pub mod change;
-pub mod docs;
 pub mod extract;
 pub mod info;
 pub mod limits;
@@ -32,12 +31,12 @@ General conventions:
 - VCD/FST input is available in every build.
 - FSDB support is currently Linux x86_64 only and requires a build compiled with Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK.
 - Output is bounded by default (e.g. with `--max` or similar) and recursive traversals are depth-bounded.
-- Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in `reference/machine-output`.
+- Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in the packaged `references/machine-output.md`.
 - Time values require explicit units (`zs`, `as`, `fs`, `ps`, `ns`, `us`, `ms`, `s`) and integer magnitudes.
 - Parsed times are normalized to dump `time_unit`; time-window flags (`--from`, `--to`) use inclusive boundaries.
 - Process-level failures follow `fatal: <category>: <message>`."#,
-    after_help = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek docs\n  wavepeek skill",
-    help_template = "{about-with-newline}\nUsage: {usage}\n\nWaveform commands:\n  info      Show waveform metadata\n  scope     Explore hierarchy scopes\n  signal    Explore signals within scope\n  value     Get signal values at explicit time point(s)\n  change    List signal changes over a time range\n  property  Evaluate properties over a time range\n  extract   Extract event rows from waveform signals\n\nHelper commands:\n  docs      Browse embedded documentation\n  skill     Print packaged agent skill Markdown\n  help      Show help for the given subcommand(s)\n\nOptions:\n{options}{after-help}"
+    after_help = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek skill <DIRECTORY>",
+    help_template = "{about-with-newline}\nUsage: {usage}\n\nWaveform commands:\n  info      Show waveform metadata\n  scope     Explore hierarchy scopes\n  signal    Explore signals within scope\n  value     Get signal values at explicit time point(s)\n  change    List signal changes over a time range\n  property  Evaluate properties over a time range\n  extract   Extract event rows from waveform signals\n\nHelper commands:\n  skill     Extract the packaged agent skill\n  help      Show help for the given subcommand(s)\n\nOptions:\n{options}{after-help}"
 )]
 pub struct Cli {
     /// Print semver version
@@ -66,8 +65,7 @@ enum WaveformCommand {
 
 Behavior:
 - Prints available metadata (e.g. time unit, start/end times, etc.) in free form
-- `--json` emits the standard machine-readable envelope."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/info"
+- `--json` emits the standard machine-readable envelope."#
     )]
     Info(info::InfoArgs),
     #[command(
@@ -82,8 +80,7 @@ Behavior:
 - Truncation and disabled-limit conditions emit coded diagnostics.
 - `--json` emits the standard machine-readable envelope.
 
-Use this command to explore hierarchy shape before narrowing to signal-level queries."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/scope"
+Use this command to explore hierarchy shape before narrowing to signal-level queries."#
     )]
     Scope(scope::ScopeArgs),
     #[command(
@@ -173,10 +170,9 @@ Use nested extractors for protocol-neutral or protocol-specific event rows. The 
 
 #[derive(Debug, Subcommand)]
 enum HelperCommand {
-    Docs(docs::DocsArgs),
     #[command(
-        about = "Print the packaged agent skill Markdown for wavepeek.",
-        long_about = "Print the packaged agent skill Markdown for wavepeek."
+        about = "Extract the packaged agent skill into a directory.",
+        long_about = "Extract the packaged agent skill into a directory."
     )]
     Skill(skill::SkillArgs),
 }
@@ -193,7 +189,7 @@ const OPTIONAL_FEATURES: &[OptionalFeatureHelp] = &[OptionalFeatureHelp {
     disabled_hint: "FSDB support is currently Linux x86_64 only; reinstall with Cargo flag `--features fsdb` and provide the Synopsys Verdi FSDB Reader SDK",
 }];
 
-const ROOT_NEXT_STEPS: &str = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek docs\n  wavepeek skill";
+const ROOT_NEXT_STEPS: &str = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek skill <DIRECTORY>";
 
 fn root_after_long_help() -> String {
     let mut help = String::from("Optional features:\n");
@@ -219,7 +215,7 @@ pub fn run() -> Result<(), WavepeekError> {
     let argv: Vec<_> = std::env::args_os().collect();
     let parse_argv = if argv.len() == 1 {
         vec![argv[0].clone(), "-h".into()]
-    } else if argv.len() == 2 && matches!(argv[1].to_str(), Some("docs" | "extract")) {
+    } else if argv.len() == 2 && matches!(argv[1].to_str(), Some("extract")) {
         vec![argv[0].clone(), argv[1].clone(), "-h".into()]
     } else {
         argv
@@ -463,7 +459,6 @@ fn into_engine_command(command: Command) -> EngineCommand {
             },
         },
         Command::Helper(command) => match command {
-            HelperCommand::Docs(args) => EngineCommand::Docs(args),
             HelperCommand::Skill(args) => EngineCommand::Skill(args),
         },
     }

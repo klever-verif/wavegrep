@@ -231,10 +231,11 @@ test-aux: require-container
     {{ python }} -m unittest discover -s tools/fsdb -p "test_*.py"
     {{ python }} -m unittest discover -s tools/repo -p "test_*.py"
 
-# Build the generated MkDocs site from current embedded docs
+# Build the generated MkDocs site from the bundled skill references
 docs-site-build: require-container
-    cargo run --quiet -- docs export "{{ docs_site_dir }}/export" --force
-    {{ python }} tools/docs/prepare_mkdocs.py "{{ docs_site_dir }}/export" \
+    @rm -rf "{{ docs_site_dir }}/skill"
+    cargo run --quiet --locked -- skill "{{ docs_site_dir }}/skill"
+    {{ python }} tools/docs/prepare_mkdocs.py "{{ docs_site_dir }}/skill" \
         --output "{{ docs_site_dir }}/mkdocs-src" \
         --config-output "{{ docs_site_dir }}/mkdocs.yml" \
         --version "{{ docs_version }}" \

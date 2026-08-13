@@ -23,8 +23,7 @@ Behavior:
 - JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.
 - Does not reconstruct bursts, aggregate transactions, or join address and data phases.
 
-Use this command to inspect accepted AHB transfers and their pipeline completion timing."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Use this command to inspect accepted AHB transfers and their pipeline completion timing."#
     )]
     Ahb(Box<AhbArgs>),
     #[command(
@@ -44,8 +43,7 @@ Behavior:
 - JSON output includes APB metadata, mappings, and event rows.
 - Reports independent sampled events only; it does not correlate or validate transactions.
 
-Use this command to inspect APB activity without writing generic Setup and Access predicates."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Use this command to inspect APB activity without writing generic Setup and Access predicates."#
     )]
     Apb(Box<ApbArgs>),
     #[command(
@@ -66,8 +64,7 @@ Behavior:
 - JSON output includes ATB metadata, mappings, and event rows.
 - Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
 
-Use this command to inspect one ATB interface without writing separate generic extraction sources."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Use this command to inspect one ATB interface without writing separate generic extraction sources."#
     )]
     Atb(Box<AtbArgs>),
     #[command(
@@ -89,8 +86,7 @@ Behavior:
 - JSON output includes AXI metadata, mappings, and transfer rows.
 - Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.
 
-Use this command to inspect AXI-family handshakes without writing one generic source per channel."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Use this command to inspect AXI-family handshakes without writing one generic source per channel."#
     )]
     Axi(Box<AxiArgs>),
     #[command(
@@ -109,8 +105,7 @@ Behavior:
 - In source-file mode, --source provides profile, TREADY mode, name, includes, and maps and conflicts with --profile, --tready-mode, --name, --map, and --include.
 - Source-file fields and behavior are documented in the corresponding protocol topic.
 
-Use this command to inspect AXI-Stream transfers without writing a generic extraction source."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Use this command to inspect AXI-Stream transfers without writing a generic extraction source."#
     )]
     AxiStream(Box<AxiStreamArgs>),
     #[command(
@@ -125,8 +120,7 @@ Behavior:
 - Source-file fields and behavior are documented in the corresponding protocol topic.
 - JSON and JSONL rows include time, sample_time, source, and ordered payload values.
 
-Use this command to extract synchronous handshakes or transfer-like rows without joining property and value output outside wavepeek."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Use this command to extract synchronous handshakes or transfer-like rows without joining property and value output outside wavepeek."#
     )]
     Generic(Box<GenericArgs>),
 }

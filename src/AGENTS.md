@@ -2,18 +2,17 @@
 
 ## Source of Truth
 
-- Rust style and CLI constraints: `../docs/dev/style.md`
-- Internal architecture: `../docs/dev/architecture.md`
-- Public command and output contracts: `../docs/public/reference/command-model.md`, `../docs/public/reference/machine-output.md`
-- Expression semantics for `change`, `property`, and `extract` family: `../docs/public/reference/expression-language.md`
+- Rust style and CLI constraints: `../docs/style.md`
+- Internal architecture: `../docs/architecture.md`
+- Public command and output contracts: `../skills/wavepeek/references/command-model.md`, `../skills/wavepeek/references/machine-output.md`
+- Expression semantics for `change`, `property`, and `extract` family: `../skills/wavepeek/references/expression-language.md`
 
-## Embedded Docs Runtime
+## Embedded Skill Runtime
 
-- Runtime loader and helpers for `wavepeek docs` live under `docs/` in this source tree.
-- Packaged Markdown topic source lives at `../docs/public/`.
-- Packaged skill source lives at `../docs/skills/wavepeek.md`.
-- Keep metadata sourced from embedded Markdown files rather than duplicated as hand-maintained Rust literals.
+- Packaged skill extraction lives in `skill.rs` and `engine/skill.rs`.
+- Canonical package source lives at `../skills/wavepeek/`.
+- Keep package metadata sourced from embedded package files rather than duplicated as hand-maintained Rust literals.
 
 ## Local Guidance
 
-Keep `../docs/dev/architecture.md` consistent when module boundaries, execution layers, or ownership responsibilities change. Public behavior changes must update the relevant public reference docs and tests in the same slice.
+Keep `../docs/architecture.md` consistent when module boundaries, execution layers, or ownership responsibilities change. Public behavior changes must update the relevant packaged references and tests in the same slice.

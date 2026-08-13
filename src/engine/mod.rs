@@ -4,7 +4,6 @@ pub mod atb;
 pub mod axi;
 pub mod axistream;
 pub mod change;
-pub mod docs;
 mod expr_runtime;
 pub mod extract;
 pub mod info;
@@ -53,7 +52,6 @@ pub enum Command {
     ExtractAxi(cli::extract::AxiArgs),
     ExtractAxiStream(cli::extract::AxiStreamArgs),
     ExtractGeneric(cli::extract::GenericArgs),
-    Docs(cli::docs::DocsArgs),
     Skill(cli::skill::SkillArgs),
 }
 
@@ -72,11 +70,6 @@ pub enum CommandName {
     ExtractAxi,
     ExtractAxiStream,
     ExtractGeneric,
-    Docs,
-    DocsTopics,
-    DocsShow,
-    DocsSearch,
-    DocsExport,
     Skill,
 }
 
@@ -95,7 +88,6 @@ impl Command {
             Self::ExtractAxi(_) => CommandName::ExtractAxi,
             Self::ExtractAxiStream(_) => CommandName::ExtractAxiStream,
             Self::ExtractGeneric(_) => CommandName::ExtractGeneric,
-            Self::Docs(_) => CommandName::Docs,
             Self::Skill(_) => CommandName::Skill,
         }
     }
@@ -114,7 +106,7 @@ impl Command {
             Self::ExtractAxi(args) => OutputMode::from_json_flags(args.json, args.jsonl),
             Self::ExtractAxiStream(args) => OutputMode::from_json_flags(args.json, args.jsonl),
             Self::ExtractGeneric(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Docs(_) | Self::Skill(_) => OutputMode::Human,
+            Self::Skill(_) => OutputMode::Human,
         }
     }
 }
@@ -134,32 +126,9 @@ impl CommandName {
             Self::ExtractAxi => "extract axi",
             Self::ExtractAxiStream => "extract axistream",
             Self::ExtractGeneric => "extract generic",
-            Self::Docs => "docs",
-            Self::DocsTopics => "docs topics",
-            Self::DocsShow => "docs show",
-            Self::DocsSearch => "docs search",
-            Self::DocsExport => "docs export",
             Self::Skill => "skill",
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DocsTopicsData {
-    pub topics: Vec<crate::docs::TopicSummary>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DocsSearchMatchData {
-    pub topic: crate::docs::TopicSummary,
-    pub match_kind: crate::docs::MatchKind,
-    pub matched_tokens: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DocsSearchData {
-    pub query: String,
-    pub matches: Vec<DocsSearchMatchData>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -185,8 +154,6 @@ pub enum CommandData {
     ExtractAxi(axi::AxiData),
     ExtractAxiStream(axistream::AxiStreamData),
     ExtractGeneric(extract::ExtractGenericData),
-    DocsTopics(DocsTopicsData),
-    DocsSearch(DocsSearchData),
 }
 
 #[derive(Debug, Serialize)]
@@ -215,7 +182,6 @@ pub fn run(command: Command) -> Result<CommandResult, WavepeekError> {
         Command::ExtractAxi(args) => axi::run(args),
         Command::ExtractAxiStream(args) => axistream::run(args),
         Command::ExtractGeneric(args) => extract::run(args),
-        Command::Docs(args) => docs::run(args),
         Command::Skill(args) => skill::run(args),
     }
 }
@@ -237,7 +203,7 @@ pub fn run_jsonl<W: std::io::Write>(
             let result = run(command)?;
             output::write_jsonl_result(result, writer)
         }
-        Command::Docs(_) | Command::Skill(_) => Err(WavepeekError::Args(
+        Command::Skill(_) => Err(WavepeekError::Args(
             "--jsonl is available only for waveform commands".to_string(),
         )),
     }
@@ -274,11 +240,6 @@ mod tests {
         assert_eq!(CommandName::ExtractAxi.as_str(), "extract axi");
         assert_eq!(CommandName::ExtractAxiStream.as_str(), "extract axistream");
         assert_eq!(CommandName::ExtractGeneric.as_str(), "extract generic");
-        assert_eq!(CommandName::Docs.as_str(), "docs");
-        assert_eq!(CommandName::DocsTopics.as_str(), "docs topics");
-        assert_eq!(CommandName::DocsShow.as_str(), "docs show");
-        assert_eq!(CommandName::DocsSearch.as_str(), "docs search");
-        assert_eq!(CommandName::DocsExport.as_str(), "docs export");
         assert_eq!(CommandName::Skill.as_str(), "skill");
     }
 }

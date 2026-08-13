@@ -426,7 +426,7 @@ fn json_and_jsonl_flags_conflict_on_waveform_commands() {
 #[test]
 fn helper_commands_do_not_accept_jsonl_output_mode() {
     wavepeek_cmd()
-        .args(["docs", "topics", "--jsonl"])
+        .args(["skill", "unused", "--jsonl"])
         .assert()
         .failure()
         .stdout(predicate::str::is_empty())

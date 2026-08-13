@@ -46,7 +46,7 @@ class PublishError(Exception):
 @dataclass(frozen=True)
 class Paths:
     work_dir: pathlib.Path
-    export_dir: pathlib.Path
+    skill_dir: pathlib.Path
     mkdocs_src: pathlib.Path
     mkdocs_config: pathlib.Path
     source_worktree: pathlib.Path
@@ -58,10 +58,7 @@ class Paths:
     release_assets: pathlib.Path
 
 
-@dataclass(frozen=True)
 class CommandRunner:
-    dry_run: bool = False
-
     def run(
         self,
         args: Sequence[str | pathlib.Path],
@@ -72,9 +69,6 @@ class CommandRunner:
         capture: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         rendered = [str(arg) for arg in args]
-        if self.dry_run:
-            print("+ " + " ".join(rendered))
-            return subprocess.CompletedProcess(rendered, 0, "", "")
         command_env = os.environ.copy() if env is None else env.copy()
         for name in (
             "GIT_ALTERNATE_OBJECT_DIRECTORIES",
@@ -129,7 +123,7 @@ def paths(work_dir: pathlib.Path) -> Paths:
     work_dir = work_dir.resolve()
     return Paths(
         work_dir=work_dir,
-        export_dir=work_dir / "export",
+        skill_dir=work_dir / "skill",
         mkdocs_src=work_dir / "mkdocs-src",
         mkdocs_config=work_dir / "mkdocs.yml",
         source_worktree=work_dir / "source",
@@ -184,10 +178,6 @@ def package_version(source_root: pathlib.Path) -> str:
     return version
 
 
-def major_version(version: str) -> int:
-    return int(validate_version(version).split(".", maxsplit=1)[0])
-
-
 def clean_owned_path(path: pathlib.Path) -> None:
     if path.is_dir() and not path.is_symlink():
         shutil.rmtree(path)
@@ -220,29 +210,28 @@ def child_env_without_push_tokens() -> dict[str, str]:
     return env
 
 
-def export_docs(source_root: pathlib.Path, run_paths: Paths, runner: CommandRunner) -> None:
-    clean_owned_path(run_paths.export_dir)
-    run_paths.export_dir.parent.mkdir(parents=True, exist_ok=True)
+def materialize_skill(source_root: pathlib.Path, run_paths: Paths, runner: CommandRunner) -> None:
+    clean_owned_path(run_paths.skill_dir)
+    run_paths.skill_dir.parent.mkdir(parents=True, exist_ok=True)
     runner.run(
         [
             "cargo",
             "run",
             "--quiet",
+            "--locked",
             "--manifest-path",
             source_root / "Cargo.toml",
             "--",
-            "docs",
-            "export",
-            run_paths.export_dir,
-            "--force",
+            "skill",
+            run_paths.skill_dir,
         ],
         env=child_env_without_push_tokens(),
     )
 
 
 def build_mkdocs(run_paths: Paths, version: str, runner: CommandRunner) -> str:
-    prepare_mkdocs.prepare_tree(
-        run_paths.export_dir,
+    wavepeek_version, _ = prepare_mkdocs.prepare_tree(
+        run_paths.skill_dir,
         run_paths.mkdocs_src,
         run_paths.mkdocs_config,
         version,
@@ -252,11 +241,7 @@ def build_mkdocs(run_paths: Paths, version: str, runner: CommandRunner) -> str:
         ["mkdocs", "build", "--strict", "--config-file", run_paths.mkdocs_config],
         env=child_env_without_push_tokens(),
     )
-    manifest = json.loads((run_paths.export_dir / "manifest.json").read_text(encoding="utf-8"))
-    cli_version = manifest.get("cli_version")
-    if not isinstance(cli_version, str):
-        fail("export manifest cli_version is missing after prepare")
-    return cli_version
+    return wavepeek_version
 
 
 def resolve_source_root(
@@ -294,13 +279,12 @@ def perform_check(
         runner=runner,
         for_stage=for_stage,
     )
-    source_version = package_version(actual_source_root)
-    if source_version != version:
-        fail(f"Cargo.toml version {source_version!r} does not match {version!r}")
-
     worktree_source = source_ref is not None
     try:
-        export_docs(actual_source_root, run_paths, runner)
+        source_version = package_version(actual_source_root)
+        if source_version != version:
+            fail(f"Cargo.toml version {source_version!r} does not match {version!r}")
+        materialize_skill(actual_source_root, run_paths, runner)
         cli_version = build_mkdocs(run_paths, version, runner)
     finally:
         if worktree_source:
@@ -380,15 +364,6 @@ def semver_key(version: str) -> tuple[int, int, int]:
 
 def latest_holders(entries: dict[str, dict[str, Any]]) -> list[str]:
     return [name for name, entry in entries.items() if "latest" in aliases(entry)]
-
-
-def latest_owner(ref: str | None, runner: CommandRunner) -> str | None:
-    if ref is None:
-        return None
-    holders = latest_holders(version_entries_by_name(git_show_json(ref, "versions.json", runner)))
-    if len(holders) > 1:
-        fail(f"{ref}:versions.json assigns latest to multiple versions")
-    return holders[0] if holders else None
 
 
 def highest_existing_version(entries: dict[str, dict[str, Any]]) -> str | None:
@@ -619,6 +594,8 @@ def read_stage_metadata(run_paths: Paths, version: str, repair_existing_version:
         metadata = json.loads(run_paths.metadata.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         fail(f"staged deploy metadata is invalid JSON: {error}")
+    if not isinstance(metadata, dict):
+        fail("staged deploy metadata root must be an object")
     if metadata.get("version") != version:
         fail("staged deploy metadata version mismatch")
     if metadata.get("branch") != GH_PAGES_BRANCH:

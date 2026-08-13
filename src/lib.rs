@@ -3,11 +3,11 @@ mod cli;
 pub mod contract;
 mod debug_trace;
 mod diagnostic;
-mod docs;
 mod engine;
 mod error;
 mod output;
 mod output_mode;
+mod skill;
 mod waveform;
 
 pub mod expr;

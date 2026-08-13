@@ -182,7 +182,7 @@ pub fn write_jsonl_result<W: Write>(
                 writer.item(row)?;
             }
         }
-        CommandData::Text(_) | CommandData::DocsTopics(_) | CommandData::DocsSearch(_) => {
+        CommandData::Text(_) => {
             return Err(WavepeekError::Args(
                 "--jsonl is available only for waveform commands".to_string(),
             ));
@@ -334,18 +334,6 @@ fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
                 }
                 parts.join(" ")
             })
-            .collect::<Vec<_>>()
-            .join("\n"),
-        CommandData::DocsTopics(data) => data
-            .topics
-            .iter()
-            .map(|topic| format!("{} — {}", topic.id, topic.description))
-            .collect::<Vec<_>>()
-            .join("\n"),
-        CommandData::DocsSearch(data) => data
-            .matches
-            .iter()
-            .map(|entry| format!("{}  {}", entry.topic.id, entry.topic.description))
             .collect::<Vec<_>>()
             .join("\n"),
     }
@@ -697,32 +685,6 @@ mod tests {
         assert_eq!(value["data"][0]["kind"], "module");
     }
 
-    #[test]
-    fn docs_topics_json_envelope_uses_nested_topics_payload() {
-        let result = CommandResult {
-            command: CommandName::DocsTopics,
-            output_mode: OutputMode::Json,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::DocsTopics(crate::engine::DocsTopicsData {
-                topics: vec![crate::docs::TopicSummary {
-                    id: "intro".to_string(),
-                    title: "Introduction".to_string(),
-                    description: "Start here.".to_string(),
-                    section: "intro".to_string(),
-                    see_also: vec!["commands/help".to_string()],
-                }],
-            }),
-            diagnostics: vec![],
-        };
-
-        let json = render_json(result).expect("json serialization should succeed");
-        let value: Value = serde_json::from_str(&json).expect("json should parse");
-
-        assert_eq!(value["command"], "docs topics");
-        assert_eq!(value["data"]["topics"][0]["id"], "intro");
-        assert_eq!(value["data"]["topics"][0]["see_also"][0], "commands/help");
-    }
-
     #[derive(Default)]
     struct FlushCountingSink {
         bytes: Vec<u8>,
@@ -951,7 +913,7 @@ mod tests {
     }
 
     #[test]
-    fn render_human_exercises_signal_and_docs_search_variants() {
+    fn render_human_exercises_signal_variants() {
         let info = render_human(
             &CommandData::Info(crate::engine::info::InfoData {
                 time_unit: "1ps".to_string(),
@@ -998,25 +960,6 @@ mod tests {
         assert_eq!(rendered, "top.clk kind=wire width=1\ntop.status kind=event");
         assert_eq!(signal_display_name(&signals[0], true), "top.clk");
         assert_eq!(signal_display_name(&signals[0], false), "clk");
-
-        let docs_search = render_human(
-            &CommandData::DocsSearch(crate::engine::DocsSearchData {
-                query: "change".to_string(),
-                matches: vec![crate::engine::DocsSearchMatchData {
-                    topic: crate::docs::TopicSummary {
-                        id: "commands/change".to_string(),
-                        title: "Change command".to_string(),
-                        description: "Find changes.".to_string(),
-                        section: "commands".to_string(),
-                        see_also: vec![],
-                    },
-                    match_kind: crate::docs::MatchKind::IdPrefix,
-                    matched_tokens: 1,
-                }],
-            }),
-            HumanRenderOptions::default(),
-        );
-        assert_eq!(docs_search, "commands/change  Find changes.");
     }
 
     #[test]
@@ -1045,22 +988,7 @@ mod tests {
     }
 
     #[test]
-    fn write_entrypoint_exercises_json_empty_human_and_diagnostic_paths() {
-        write(CommandResult {
-            command: CommandName::DocsSearch,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::DocsSearch(crate::engine::DocsSearchData {
-                query: "none".to_string(),
-                matches: vec![],
-            }),
-            diagnostics: vec![Diagnostic::warning(
-                WarningDiagnosticCode::EmptyResult,
-                "nothing matched",
-            )],
-        })
-        .expect("empty human output with diagnostics should write");
-
+    fn write_entrypoint_preserves_existing_newline() {
         write(CommandResult {
             command: CommandName::Info,
             output_mode: OutputMode::Human,

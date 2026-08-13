@@ -1,104 +1,242 @@
 use assert_cmd::prelude::*;
+use predicates::prelude::*;
+use serde_json::Value;
+use std::ffi::OsStr;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use tempfile::tempdir;
 
 mod common;
 use common::wavepeek_cmd;
 
-fn canonical_skill_path() -> PathBuf {
+fn source_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("docs")
         .join("skills")
-        .join("wavepeek.md")
+        .join("wavepeek")
 }
 
-fn successful_stdout(args: &[&str]) -> Vec<u8> {
-    let mut command = wavepeek_cmd();
-    let assert = command.args(args).assert().success();
-    let output = assert.get_output();
-    assert!(
-        output.stderr.is_empty(),
-        "expected empty stderr for args {:?}, got: {}",
-        args,
-        String::from_utf8_lossy(&output.stderr)
-    );
-    output.stdout.clone()
+fn extract(destination: &Path) {
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(destination)
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty())
+        .stdout(predicate::str::contains("Extracted wavepeek skill to"));
 }
 
-#[test]
-fn skill_prints_packaged_skill_markdown() {
-    let expected = fs::read(canonical_skill_path()).expect("canonical skill should be readable");
-    let actual = successful_stdout(&["skill"]);
+fn files_below(root: &Path) -> Vec<PathBuf> {
+    fn visit(root: &Path, directory: &Path, paths: &mut Vec<PathBuf>) {
+        for entry in fs::read_dir(directory).expect("directory should be readable") {
+            let path = entry.expect("entry should be readable").path();
+            if path.is_dir() {
+                visit(root, &path, paths);
+            } else {
+                paths.push(
+                    path.strip_prefix(root)
+                        .expect("path should be below root")
+                        .into(),
+                );
+            }
+        }
+    }
 
-    assert_eq!(actual, expected);
-}
-
-#[test]
-fn skill_json_mode_is_an_argument_error() {
-    let output = wavepeek_cmd()
-        .args(["skill", "--json"])
-        .output()
-        .expect("skill command should execute");
-
-    assert!(!output.status.success());
-    assert!(output.stdout.is_empty());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.starts_with("fatal: args:"));
-    assert!(stderr.contains("unexpected argument '--json'"));
-    assert!(stderr.contains("See 'wavepeek skill --help'."));
+    let mut paths = Vec::new();
+    visit(root, root, &mut paths);
+    paths.sort();
+    paths
 }
 
 #[test]
-fn packaged_skill_guidance_matches_current_runtime_capabilities() {
-    let packaged =
-        fs::read_to_string(canonical_skill_path()).expect("packaged skill should be readable");
+fn skill_extracts_complete_bundle_into_missing_directory() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let destination = temp.path().join("wavepeek");
 
-    assert!(packaged.contains("wavepeek help <command-path...>"));
-    assert!(packaged.contains(".fsdb"));
-    assert!(packaged.contains("wavepeek docs show commands/extract"));
-    assert!(!packaged.contains("commands/extract-generic"));
-    assert!(packaged.contains(
-        "Event/transaction rows, handshakes, beats, and counts with payload values: `extract`."
-    ));
+    extract(&destination);
+
+    let mut expected = files_below(&source_root());
+    expected.retain(|path| path != Path::new("examples/.gitkeep"));
+    expected.push(PathBuf::from("manifest.json"));
+    expected.sort();
+    assert_eq!(files_below(&destination), expected);
+
+    for relative in expected
+        .iter()
+        .filter(|path| path.as_os_str() != "manifest.json")
+    {
+        assert_eq!(
+            fs::read(destination.join(relative)).expect("extracted file should be readable"),
+            fs::read(source_root().join(relative)).expect("source file should be readable"),
+            "content mismatch for {}",
+            relative.display()
+        );
+    }
+    assert!(destination.join("examples").is_dir());
     assert!(
-        packaged
-            .contains("`extract apb` supports APB3, APB4, and APB5 from Arm IHI 0024E Issue E.")
+        fs::read_dir(destination.join("examples"))
+            .expect("examples should be readable")
+            .next()
+            .is_none()
     );
-    assert!(packaged.contains(
-        "Use implicit-HIGH mode only when PREADY is physically absent; it forbids both a `pready` mapping and wait capture."
-    ));
-    assert!(packaged.contains(
-        "APB rows are sampled events, not assembled or protocol-validated transactions."
-    ));
-    assert!(packaged.contains(
-        "`extract ahb` supports manager-facing AHB-Lite and AHB5 pipeline events from Arm IHI 0033C, Issue C."
-    ));
-    assert!(packaged.contains(
-        "Map selected manager-facing `HREADY`; do not substitute subordinate-local `HREADYOUT` or `HSELx`."
-    ));
-    assert!(packaged.contains(
-        "`extract ahb` reports pipeline events without transaction joining or burst reconstruction."
-    ));
-    assert!(packaged.contains(
-        "`extract axi` supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles."
-    ));
-    assert!(
-        packaged.contains(
-            "AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP use Issue L; the other supported profiles use Issue H.c."
-        )
+
+    let manifest: Value = serde_json::from_slice(
+        &fs::read(destination.join("manifest.json")).expect("manifest should be readable"),
+    )
+    .expect("manifest should be valid JSON");
+    assert_eq!(manifest["wavepeek_version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(
+        manifest
+            .as_object()
+            .expect("manifest should be object")
+            .len(),
+        1
     );
-    assert!(packaged.contains("ACE5-LiteDVM adds DVM `ac` and `cr` channels without `cd`."));
-    assert!(packaged.contains(
-        "`extract axi` reports channel transfers only; it does not reconstruct bursts, ordering rules, or outstanding request state."
-    ));
-    assert!(packaged.contains("Use `extract axistream` for AXI4-Stream or AXI5-Stream"));
-    assert!(packaged.contains("--tready-mode mapped"));
-    assert!(packaged.contains("The AXI-Stream profiles both use Arm IHI 0051B Issue B."));
-    assert!(packaged.contains(
-        "`extract axistream` reports one-interface transfer rows without a synthetic channel"
-    ));
-    assert!(!packaged.contains("protocol transaction enumeration"));
-    assert!(!packaged.contains("Event/transaction enumeration and counting: `property --capture match`, then `value --at <sample_time>`"));
-    assert!(!packaged.contains("parsed but not executed in `change`"));
-    assert!(!packaged.contains("parse-level only; runtime execution is not implemented"));
+}
+
+#[test]
+fn skill_accepts_existing_empty_directory() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let destination = temp.path().join("wavepeek");
+    let comparison = temp.path().join("comparison");
+    fs::create_dir(&destination).expect("empty destination should be created");
+
+    extract(&destination);
+    extract(&comparison);
+
+    assert_eq!(files_below(&destination), files_below(&comparison));
+    for relative in files_below(&destination) {
+        assert_eq!(
+            fs::read(destination.join(&relative)).expect("destination file should be readable"),
+            fs::read(comparison.join(relative)).expect("comparison file should be readable")
+        );
+    }
+}
+
+#[test]
+fn skill_rejects_parent_directory_components_without_side_effects() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let intermediate = temp.path().join("intermediate");
+    let destination = intermediate.join("..").join("wavepeek");
+
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(&destination)
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("must not contain '..'"));
+
+    assert!(!intermediate.exists());
+    assert!(!temp.path().join("wavepeek").exists());
+}
+
+#[test]
+fn skill_rejects_nonempty_directory_without_modifying_it() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let destination = temp.path().join("wavepeek");
+    fs::create_dir(&destination).expect("destination should be created");
+    fs::write(destination.join(".existing"), "keep me").expect("sentinel should be written");
+
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(&destination)
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("fatal: file:"))
+        .stderr(predicate::str::contains("is not empty"));
+
+    assert_eq!(
+        fs::read_to_string(destination.join(".existing")).expect("sentinel should remain"),
+        "keep me"
+    );
+    assert_eq!(files_below(&destination), [PathBuf::from(".existing")]);
+}
+
+#[cfg(unix)]
+#[test]
+fn skill_rejects_symlink_destination() {
+    use std::os::unix::fs::symlink;
+
+    let temp = tempdir().expect("temporary directory should be created");
+    let target = temp.path().join("target");
+    let destination = temp.path().join("wavepeek");
+    fs::create_dir(&target).expect("target should be created");
+    symlink(&target, &destination).expect("destination symlink should be created");
+
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(&destination)
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("is not a directory"));
+
+    assert!(destination.is_symlink());
+    assert!(fs::read_dir(target).unwrap().next().is_none());
+}
+
+#[test]
+fn skill_rejects_file_destination() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let destination = temp.path().join("wavepeek");
+    fs::write(&destination, "keep me").expect("destination file should be written");
+
+    wavepeek_cmd()
+        .arg("skill")
+        .arg(&destination)
+        .assert()
+        .code(2)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("is not a directory"));
+
+    assert_eq!(fs::read_to_string(destination).unwrap(), "keep me");
+}
+
+fn local_markdown_links(markdown: &str) -> impl Iterator<Item = &str> {
+    markdown
+        .match_indices("](")
+        .filter_map(|(start, _)| {
+            markdown[start + 2..]
+                .split_once(')')
+                .map(|(target, _)| target)
+        })
+        .map(|target| target.split('#').next().unwrap_or(target))
+        .filter(|target| {
+            !target.is_empty()
+                && !target.contains("://")
+                && !target.starts_with("mailto:")
+                && Path::new(target).extension() == Some(OsStr::new("md"))
+        })
+}
+
+#[test]
+fn extracted_markdown_is_self_contained_and_has_no_topic_front_matter() {
+    let temp = tempdir().expect("temporary directory should be created");
+    let destination = temp.path().join("wavepeek");
+    extract(&destination);
+
+    for relative in files_below(&destination)
+        .into_iter()
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("md"))
+    {
+        let markdown = fs::read_to_string(destination.join(&relative)).unwrap();
+        assert!(!markdown.contains("](/"), "{}", relative.display());
+        for target in local_markdown_links(&markdown) {
+            let resolved = destination
+                .join(&relative)
+                .parent()
+                .expect("Markdown should have parent")
+                .join(target);
+            assert!(
+                resolved.is_file(),
+                "{} links to missing {}",
+                relative.display(),
+                target
+            );
+        }
+        if relative.starts_with("references") {
+            assert!(!markdown.starts_with("---\n"), "{}", relative.display());
+        }
+    }
 }

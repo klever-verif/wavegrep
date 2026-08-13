@@ -2,10 +2,10 @@
 
 ## Source of Truth
 
-- Testing workflow and conventions: `../docs/dev/testing.md`
-- Quality gates: `../docs/dev/quality.md`
-- Product behavior and output contracts: `../docs/public/reference/command-model.md`, `../docs/public/reference/machine-output.md`
-- Expression behavior for trigger and eval surfaces: `../docs/public/reference/expression-language.md`
+- Testing workflow and conventions: `../docs/testing.md`
+- Quality gates: `../docs/quality.md`
+- Product behavior and output contracts: `../skills/wavepeek/references/command-model.md`, `../skills/wavepeek/references/machine-output.md`
+- Expression behavior for trigger and eval surfaces: `../skills/wavepeek/references/expression-language.md`
 
 ## Command Fixture Policy
 

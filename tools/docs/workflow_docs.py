@@ -25,7 +25,7 @@ class WorkflowError(Exception):
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="GitHub Actions wrappers for wavepeek docs publication."
+        description="GitHub Actions wrappers for wavepeek website publication."
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 

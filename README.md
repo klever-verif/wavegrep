@@ -1,7 +1,7 @@
 
 # wavepeek
 
-![wavepeek banner](docs/banner.png)
+![wavepeek](docs/wavepeek.svg)
 [![CI](https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/wavepeek.svg)](https://crates.io/crates/wavepeek)
 
@@ -92,13 +92,13 @@ Copy/paste this to your agent:
 ```text
 Check whether `wavepeek` is installed:
 
-wavepeek version
+wavepeek --version
 
 If that succeeds, run:
 
-wavepeek skill
+wavepeek skill ./wavepeek-skill
 
-`wavepeek skill` prints the full packaged skill Markdown to stdout. Use that output as the source of truth and install/adapt the skill according to your own skill format and rules.
+`wavepeek skill <DIRECTORY>` extracts the complete, version-matched skill package into a new or empty directory. Install the entire extracted package according to your agent harness's skill rules.
 ```
 
 ## Commands
@@ -112,17 +112,14 @@ wavepeek skill
 | `change` | Delta snapshots over a time range with event triggers |
 | `property` | Property checks over event triggers with capture modes |
 | `extract` | Get events, handshakes, transfers from synchronous signals |
-| `docs` | Browse embedded narrative docs, search topics, and export Markdown |
-| `skill` | Print packaged agent skill Markdown |
+| `skill` | Extract the packaged agent skill into a directory |
 | `help` | Print detailed long help for top-level or nested command paths |
 
-Use progressive disclosure via built-in help and docs:
+Use progressive disclosure via built-in help and the packaged skill:
 
 - `wavepeek -h` for compact lookup help
-- `wavepeek --help` or `wavepeek help <command-path...>` for detailed top-level reference help
-- `wavepeek docs` for embedded command guidance, workflows, troubleshooting, reference topics, and export
-- `wavepeek docs show reference/machine-output` for JSON and JSONL contracts
-- `wavepeek skill` for packaged agent skill Markdown
+- `wavepeek --help` or `wavepeek help <command-path...>` for exact CLI help
+- `wavepeek skill <DIRECTORY>` for the complete offline skill package
 
 ## Development
 
