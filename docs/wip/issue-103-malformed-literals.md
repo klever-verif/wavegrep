@@ -22,7 +22,7 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 - [x] (2026-08-13 18:22Z) Implement the shared lexer, parser, and renderer corrections without new interfaces or dependencies.
 - [x] (2026-08-13 18:22Z) Add the compact literal reminder to the bundled skill and update affected snapshots.
 - [ ] Run focused tests, `./dev just ci`, and `./dev just check`; commit logical milestones. Completed: focused tests and `./dev just ci`; remaining: commit and `./dev just check` before handoff.
-- [ ] Run two focused review waves and one independent control review, resolving substantive findings.
+- [ ] Run two focused review waves and one independent control review, resolving substantive findings. Completed: Luna Max correctness, diagnostics, and docs/simplicity lanes; fixed one low-severity stale caret example. Remaining: Terra High wave and Sol High control.
 - [ ] Remove this branch-local plan, run final checks, push the branch, and open a pull request closing issue #103.
 
 ## Surprises & Discoveries
@@ -99,10 +99,10 @@ Both commands must exit successfully. Exercise the reported case with the built 
     fatal: expr: parse:EXPR-PARSE-LOGICAL-LITERAL: malformed sized integral literal
     --> span 15..20
     source: clk == (clk >= 64h10)
-                           ^^^^^
+    <five carets under 64h10>
     note: insert an apostrophe: 64'h10
 
-The exact spacing follows the final shared renderer, while the full token span, caret count, note, exit status 1, and `fatal: expr:` prefix are mandatory.
+The exact spacing follows the shared renderer, while the full token span, five-caret range, note, exit status 1, and `fatal: expr:` prefix are mandatory.
 
 Before each commit, inspect `git diff --check` and the staged diff. Hooks must run normally. Before review, record `git diff origin/main...HEAD`, test results, and the commit range in reviewer prompts. Use three parallel lanes in each requested wave and one fresh control reviewer after both waves.
 
@@ -140,3 +140,5 @@ No public Rust interface or dependency is added. The existing `LogicalLexer::lex
 Plan revision note: 2026-08-13 — created the initial self-contained execution plan after tracing issue #103 through the shared expression and CLI paths.
 
 Plan revision note: 2026-08-13 — recorded completed implementation, regression coverage, snapshot effects, and successful focused plus CI validation.
+
+Plan revision note: 2026-08-13 — recorded the first Luna Max review wave and corrected its only finding, a stale hand-aligned caret example in this plan.
