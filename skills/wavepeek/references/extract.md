@@ -54,7 +54,7 @@ Address and BUSY rows contain mapped address/control observations. IDLE rows con
 
 A source file can provide canonical or aliased `profile`, `name`, `include_stall`, `include_idle`, `include_busy`, `includes`, and `maps` with `kind: "extract.ahb.source"`. Source-file mode conflicts with the matching CLI configuration flags; time bounds and scope remain command-line options. The fields are described here and in command help.
 
-Machine-readable AHB output is typed by profile and event. JSON uses `command: "extract ahb"` and carries Issue C context, inclusion flags, initial pipeline state, canonical mappings, and ordered `events`. JSONL begins with the same context, emits one event per `item`, then diagnostics and an `end` summary. Only emitted public events count toward `--max`, so a limit can stop between a same-edge completion/address pair.
+Machine-readable AHB output is typed by profile and event. JSON uses `command: "extract ahb"`, carries Issue C metadata, inclusion flags, initial pipeline state, and canonical mappings in `context`, and puts ordered events directly in `data`. JSONL begins with the same context and emits one event per `data` record. Only emitted public events count toward `--max`, so a limit can stop between a same-edge completion/address pair.
 
 ## `extract apb`
 
@@ -180,7 +180,7 @@ transfers:
 
 A source file can provide `profile`, `name`, `includes`, and `maps` with `kind: "extract.axi.source"`. Source-file mode conflicts with `--profile`, `--name`, `--map`, and `--include`; time bounds and scope still come from the command line.
 
-Machine-readable AXI output is typed by profile and channel. JSON transfer rows and JSONL item rows include `profile`; payload keys depend on the selected profile and channel, and unmapped keys are omitted.
+Machine-readable AXI output is typed by profile and channel. JSON `data` rows and JSONL `data.data` rows include `profile`; payload keys depend on the selected profile and channel, and unmapped keys are omitted.
 
 ## `extract axistream`
 
@@ -284,15 +284,15 @@ This matches common RTL debugging expectations: the row describes the values tha
 ## Output modes
 
 Human `extract ahb` output starts with name, profile, issue, inclusion flags, initial data-phase state, resolved mappings, and then event rows. Add `--abs` to print canonical mapping and payload paths. JSON and JSONL carry the full retained pending-address snapshot when `initial_data_phase` is `pending`.
-Human `extract apb` output starts with name, profile, Issue E, PREADY mode, effective wait setting, resolved mappings, and then event rows. `extract apb --json` uses `command: "extract apb"` and exposes the same context plus `events`; JSONL puts the context on `begin` and one event on each `item` row. Profile, mode, wait setting, event, direction, mapping keys, and payload keys follow the documented APB contract. Add `--abs` to print canonical mapping and payload paths in human output.
+Human `extract apb` output starts with name, profile, Issue E, PREADY mode, effective wait setting, resolved mappings, and then event rows. `extract apb --json` uses `command: "extract apb"`, puts metadata in `context`, and puts events directly in `data`; JSONL puts the same context on `begin` and one event on each `data` record. Profile, mode, wait setting, event, direction, mapping keys, and payload keys follow the documented APB contract. Add `--abs` to print canonical mapping and payload paths in human output.
 
-Human `extract atb` output starts with name, profile, issue, resolved mappings, and then event rows. `extract atb --json` emits `command: "extract atb"` with `name`, `profile`, `issue`, `mappings`, and `events`. JSONL puts ATB context on the `begin` record and streams one event per `item`. Add `--abs` to print canonical mapping and payload paths in human output.
+Human `extract atb` output starts with name, profile, issue, resolved mappings, and then event rows. `extract atb --json` emits `command: "extract atb"`, puts name, profile, issue, and mappings in `context`, and puts events directly in `data`. JSONL puts the same context on `begin` and streams one event per `data` record. Add `--abs` to print canonical mapping and payload paths in human output.
 
 Human `extract axi` output starts with name, profile, issue, resolved mappings, and then transfer rows. Add `--abs` to print canonical mapping and payload paths in human output.
 
-`extract axi --json` emits the standard envelope with `command: "extract axi"` and a data object containing `name`, `profile`, `issue`, `mappings`, and `transfers`. `extract axi --jsonl` streams a `begin` record with AXI context, one transfer per `item`, optional diagnostics, and an `end` summary.
+`extract axi --json` emits the standard envelope with `command: "extract axi"`, puts name, profile, issue, and mappings in `context`, and puts transfers directly in `data`. `extract axi --jsonl` streams a `begin` record with the same AXI context and one transfer per `data` record.
 
-`extract axistream` uses the same context-first layout plus `tready_mode`, but its rows have no `channel`. JSON uses `command: "extract axistream"`; JSONL puts name, profile, Issue B, TREADY mode, and mappings in the `begin` context and emits one independently profile-typed transfer per `item`.
+`extract axistream` uses the same context-first layout plus `tready_mode`, but its rows have no `channel`. JSON uses `command: "extract axistream"`; JSONL puts name, profile, Issue B, TREADY mode, and mappings in the `begin` context and emits one independently profile-typed transfer per `data` record.
 
 Human `extract generic` output is compact and row-oriented:
 
@@ -308,7 +308,7 @@ For multi-source output, the source name appears after `sample@...`:
 
 Add `--abs` to print canonical payload paths in human output.
 
-`extract generic --json` emits the standard envelope with `command: "extract generic"` and an array of rows. `extract generic --jsonl` streams `begin`, `item`, `diagnostic`, and `end` records; each item row has `time`, `sample_time`, `source`, and ordered `payload` values.
+`extract generic --json` emits the standard envelope with `command: "extract generic"` and an array of rows. `extract generic --jsonl` streams `begin`, `data`, `diagnostic`, and `end` records; each data row has `time`, `sample_time`, `source`, and ordered `payload` values.
 
 Repeated events are preserved even when payload values do not change. `extract` is not a delta command.
 

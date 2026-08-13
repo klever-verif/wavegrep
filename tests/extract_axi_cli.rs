@@ -201,13 +201,10 @@ fn extract_ace5_lite_family_json_and_jsonl_validate_profile_contracts() {
         .stdout
         .clone();
     let lite = parse_json(&lite_output);
-    assert_eq!(lite["data"]["profile"], "ace5-lite");
-    assert_eq!(lite["data"]["issue"], "L");
-    assert_eq!(
-        lite["data"]["transfers"][0]["payload"]["awmmuvalid"],
-        "1'h1"
-    );
-    assert_eq!(lite["data"]["transfers"][2]["payload"]["btagmatch"], "2'h2");
+    assert_eq!(lite["context"]["profile"], "ace5-lite");
+    assert_eq!(lite["context"]["issue"], "L");
+    assert_eq!(lite["data"][0]["payload"]["awmmuvalid"], "1'h1");
+    assert_eq!(lite["data"][2]["payload"]["btagmatch"], "2'h2");
 
     let dvm_fixture = waveform_fixture("extract_ace5_lite_dvm.vcd");
     let dvm_output = wavepeek_cmd()
@@ -239,17 +236,17 @@ fn extract_ace5_lite_family_json_and_jsonl_validate_profile_contracts() {
     assert_eq!(records.first().unwrap()["context"]["issue"], "L");
     let items = records
         .iter()
-        .filter(|record| record["type"] == "item")
+        .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(
         items
             .iter()
-            .map(|record| record["item"]["channel"].as_str().unwrap())
+            .map(|record| record["data"]["channel"].as_str().unwrap())
             .collect::<Vec<_>>(),
         ["aw", "w", "b", "ar", "r", "ac", "cr"]
     );
-    assert_eq!(items[3]["item"]["payload"]["artagop"], "2'h3");
-    assert_eq!(items[5]["item"]["payload"]["acaddr"], "32'h12345678");
+    assert_eq!(items[3]["data"]["payload"]["artagop"], "2'h3");
+    assert_eq!(items[5]["data"]["payload"]["acaddr"], "32'h12345678");
 }
 
 #[test]
@@ -769,9 +766,9 @@ fn extract_axi5_json_validates_issue_l_channels_and_payloads() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["data"]["profile"], "axi5");
-    assert_eq!(value["data"]["issue"], "L");
-    let transfers = value["data"]["transfers"].as_array().unwrap();
+    assert_eq!(value["context"]["profile"], "axi5");
+    assert_eq!(value["context"]["issue"], "L");
+    let transfers = value["data"].as_array().unwrap();
     assert_eq!(
         transfers
             .iter()
@@ -820,25 +817,25 @@ fn extract_axi5_lite_jsonl_validates_issue_l_context_and_payloads() {
     assert_eq!(records.first().unwrap()["context"]["issue"], "L");
     let items = records
         .iter()
-        .filter(|record| record["type"] == "item")
+        .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(
         items
             .iter()
-            .map(|record| record["item"]["channel"].as_str().unwrap())
+            .map(|record| record["data"]["channel"].as_str().unwrap())
             .collect::<Vec<_>>(),
         ["aw", "w", "b", "ar", "r"]
     );
     assert!(
         items
             .iter()
-            .all(|record| record["item"]["profile"] == "axi5-lite")
+            .all(|record| record["data"]["profile"] == "axi5-lite")
     );
-    assert_eq!(items[0]["item"]["payload"]["awidunq"], "1'h1");
-    assert_eq!(items[1]["item"]["payload"]["wpoison"], "1'h1");
-    assert_eq!(items[4]["item"]["payload"]["rpoison"], "1'h1");
+    assert_eq!(items[0]["data"]["payload"]["awidunq"], "1'h1");
+    assert_eq!(items[1]["data"]["payload"]["wpoison"], "1'h1");
+    assert_eq!(items[4]["data"]["payload"]["rpoison"], "1'h1");
     assert_eq!(records.last().unwrap()["type"], "end");
-    assert_eq!(records.last().unwrap()["summary"]["items"], 5);
+    assert_eq!(records.last().unwrap()["records"]["data"], 5);
 }
 
 #[test]
@@ -1218,9 +1215,9 @@ fn extract_ace_json_validates_profile_channels_and_payloads() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["data"]["profile"], "ace");
-    assert_eq!(value["data"]["issue"], "H.c");
-    let transfers = value["data"]["transfers"].as_array().unwrap();
+    assert_eq!(value["context"]["profile"], "ace");
+    assert_eq!(value["context"]["issue"], "H.c");
+    let transfers = value["data"].as_array().unwrap();
     assert_eq!(
         transfers
             .iter()
@@ -1262,8 +1259,8 @@ fn extract_ace_lite_json_validates_awunique_without_coherency_channels() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["data"]["profile"], "ace-lite");
-    let transfers = value["data"]["transfers"].as_array().unwrap();
+    assert_eq!(value["context"]["profile"], "ace-lite");
+    let transfers = value["data"].as_array().unwrap();
     assert_eq!(
         transfers
             .iter()
@@ -1305,27 +1302,27 @@ fn extract_ace5_jsonl_validates_context_and_optional_payloads() {
     assert_eq!(records.first().unwrap()["context"]["profile"], "ace5");
     let items = records
         .iter()
-        .filter(|record| record["type"] == "item")
+        .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(
         items
             .iter()
-            .map(|record| record["item"]["channel"].as_str().unwrap())
+            .map(|record| record["data"]["channel"].as_str().unwrap())
             .collect::<Vec<_>>(),
         ["aw", "w", "b", "ar", "r", "ac", "cr", "cd"]
     );
     assert!(
         items
             .iter()
-            .all(|record| record["item"]["profile"] == "ace5")
+            .all(|record| record["data"]["profile"] == "ace5")
     );
-    assert_eq!(items[0]["item"]["payload"]["awtrace"], "1'h1");
-    assert_eq!(items[0]["item"]["payload"]["awidunq"], "1'h1");
-    assert_eq!(items[2]["item"]["payload"]["bidunq"], "1'h1");
-    assert_eq!(items[3]["item"]["payload"]["aridunq"], "1'h1");
-    assert_eq!(items[4]["item"]["payload"]["ridunq"], "1'h1");
-    assert_eq!(items[5]["item"]["payload"]["acvmidext"], "4'ha");
-    assert_eq!(items[7]["item"]["payload"]["cdpoison"], "1'h1");
+    assert_eq!(items[0]["data"]["payload"]["awtrace"], "1'h1");
+    assert_eq!(items[0]["data"]["payload"]["awidunq"], "1'h1");
+    assert_eq!(items[2]["data"]["payload"]["bidunq"], "1'h1");
+    assert_eq!(items[3]["data"]["payload"]["aridunq"], "1'h1");
+    assert_eq!(items[4]["data"]["payload"]["ridunq"], "1'h1");
+    assert_eq!(items[5]["data"]["payload"]["acvmidext"], "4'ha");
+    assert_eq!(items[7]["data"]["payload"]["cdpoison"], "1'h1");
     assert_eq!(
         records
             .iter()
@@ -1334,7 +1331,7 @@ fn extract_ace5_jsonl_validates_context_and_optional_payloads() {
         3
     );
     assert_eq!(records.last().unwrap()["type"], "end");
-    assert_eq!(records.last().unwrap()["summary"]["items"], 8);
+    assert_eq!(records.last().unwrap()["records"]["data"], 8);
 }
 
 #[test]
@@ -1380,19 +1377,19 @@ fn extract_ace_and_ace_lite_jsonl_validate_profile_branches() {
         assert_eq!(records.first().unwrap()["context"]["profile"], profile);
         let items = records
             .iter()
-            .filter(|record| record["type"] == "item")
+            .filter(|record| record["type"] == "data")
             .collect::<Vec<_>>();
         assert_eq!(
             items
                 .iter()
-                .map(|record| record["item"]["channel"].as_str().unwrap())
+                .map(|record| record["data"]["channel"].as_str().unwrap())
                 .collect::<Vec<_>>(),
             expected_channels
         );
         assert!(
             items
                 .iter()
-                .all(|record| record["item"]["profile"] == profile)
+                .all(|record| record["data"]["profile"] == profile)
         );
     }
 }
@@ -1428,15 +1425,15 @@ fn extract_axi_json_automaps_axi4_lite_and_gates_reset() {
     let value = parse_json(&output);
     assert_eq!(value["command"], "extract axi");
     assert_eq!(value["diagnostics"], json!([]));
-    assert_eq!(value["data"]["name"], "axi");
-    assert_eq!(value["data"]["profile"], "axi4-lite");
-    assert_eq!(value["data"]["issue"], "H.c");
+    assert_eq!(value["context"]["name"], "axi");
+    assert_eq!(value["context"]["profile"], "axi4-lite");
+    assert_eq!(value["context"]["issue"], "H.c");
     assert_eq!(
-        value["data"]["mappings"]["awvalid"]["path"],
+        value["context"]["mappings"]["awvalid"]["path"],
         "top.axi_aw_valid_o"
     );
 
-    let transfers = value["data"]["transfers"].as_array().unwrap();
+    let transfers = value["data"].as_array().unwrap();
     assert_eq!(transfers.len(), 5);
     assert_eq!(
         transfers
@@ -1508,12 +1505,12 @@ fn extract_axi3_profile_extracts_wid() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["data"]["profile"], "axi3");
-    assert_eq!(value["data"]["transfers"].as_array().unwrap().len(), 1);
-    assert_eq!(value["data"]["transfers"][0]["profile"], "axi3");
-    assert_eq!(value["data"]["transfers"][0]["channel"], "w");
-    assert_eq!(value["data"]["transfers"][0]["payload"]["wid"], "4'ha");
-    assert_eq!(value["data"]["transfers"][0]["payload"]["wdata"], "8'hcc");
+    assert_eq!(value["context"]["profile"], "axi3");
+    assert_eq!(value["data"].as_array().unwrap().len(), 1);
+    assert_eq!(value["data"][0]["profile"], "axi3");
+    assert_eq!(value["data"][0]["channel"], "w");
+    assert_eq!(value["data"][0]["payload"]["wid"], "4'ha");
+    assert_eq!(value["data"][0]["payload"]["wdata"], "8'hcc");
 }
 
 #[test]
@@ -1552,11 +1549,11 @@ fn extract_axi_source_jsonl_includes_begin_context() {
     assert_eq!(records.first().unwrap()["type"], "begin");
     assert_eq!(records.first().unwrap()["context"]["name"], "cfg");
     assert_eq!(records.first().unwrap()["context"]["profile"], "axi4-lite");
-    assert_eq!(records[1]["type"], "item");
-    assert_eq!(records[1]["item"]["profile"], "axi4-lite");
-    assert_eq!(records[1]["item"]["channel"], "aw");
+    assert_eq!(records[1]["type"], "data");
+    assert_eq!(records[1]["data"]["profile"], "axi4-lite");
+    assert_eq!(records[1]["data"]["channel"], "aw");
     assert_eq!(records.last().unwrap()["type"], "end");
-    assert_eq!(records.last().unwrap()["summary"]["items"], 5);
+    assert_eq!(records.last().unwrap()["records"]["data"], 5);
 }
 
 #[test]
@@ -1586,7 +1583,7 @@ fn extract_axi_profile_flag_accepts_case_insensitive_alias() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["data"]["profile"], "axi4-lite");
+    assert_eq!(value["context"]["profile"], "axi4-lite");
 }
 
 #[test]
@@ -1715,8 +1712,8 @@ fn extract_axi_warns_for_unmatched_include_candidates() {
         .clone();
 
     let value = parse_json(&output);
-    assert_eq!(value["data"]["transfers"].as_array().unwrap().len(), 1);
-    assert_eq!(value["data"]["transfers"][0]["payload"], json!({}));
+    assert_eq!(value["data"].as_array().unwrap().len(), 1);
+    assert_eq!(value["data"][0]["payload"], json!({}));
     assert_eq!(value["diagnostics"][0]["code"], "WPK-W0004");
 }
 

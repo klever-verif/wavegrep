@@ -29,36 +29,32 @@ fn parse_stream(stdout: &[u8], expected_command: &str) -> Vec<Value> {
         records.len() >= 2,
         "stream should contain begin and end records"
     );
-    let mut items = 0usize;
+    let mut data = 0usize;
     let mut diagnostics = 0usize;
-    let mut seen_diagnostic = false;
-    let mut saw_truncation = false;
 
     for (seq, record) in records.iter().enumerate() {
         assert_eq!(record["seq"], seq, "sequence numbers should be contiguous");
-        assert_eq!(record["command"], expected_command);
         match record["type"]
             .as_str()
             .expect("record type should be string")
         {
-            "begin" => assert_eq!(seq, 0, "begin must be the first record"),
-            "item" => {
-                assert!(!seen_diagnostic, "items should precede diagnostics");
-                items += 1;
+            "begin" => {
+                assert_eq!(seq, 0, "begin must be the first record");
+                assert_eq!(record["command"], expected_command);
+            }
+            "data" => {
+                assert!(record.get("command").is_none());
+                data += 1;
             }
             "diagnostic" => {
-                seen_diagnostic = true;
+                assert!(record.get("command").is_none());
                 diagnostics += 1;
-                if record["diagnostic"]["code"] == "WPK-W0002" {
-                    saw_truncation = true;
-                }
             }
             "end" => {
                 assert_eq!(seq, records.len() - 1, "end must be the final record");
-                assert_eq!(record["summary"]["status"], "ok");
-                assert_eq!(record["summary"]["items"], items);
-                assert_eq!(record["summary"]["diagnostics"], diagnostics);
-                assert_eq!(record["summary"]["truncated"], saw_truncation);
+                assert!(record.get("command").is_none());
+                assert_eq!(record["records"]["data"], data);
+                assert_eq!(record["records"]["diagnostics"], diagnostics);
             }
             other => panic!("unexpected JSONL record type {other}"),
         }
@@ -92,7 +88,7 @@ const PROPERTY_VCD: &str = concat!(
 );
 
 #[test]
-fn change_jsonl_streams_items_with_stable_record_order() {
+fn change_jsonl_streams_data_with_stable_record_order() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -121,18 +117,18 @@ fn change_jsonl_streams_items_with_stable_record_order() {
     let records = parse_stream(&output.stdout, "change");
     let items = records
         .iter()
-        .filter(|record| record["type"] == "item")
+        .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(items.len(), 2);
-    assert_eq!(items[0]["item"]["time"], "5ns");
+    assert_eq!(items[0]["data"]["time"], "5ns");
     assert_eq!(
-        items[0]["item"]["signals"][0],
+        items[0]["data"]["signals"][0],
         json!({"path": "top.clk", "value": "1'h1"})
     );
 }
 
 #[test]
-fn change_jsonl_reports_truncation_in_summary() {
+fn change_jsonl_reports_truncation_as_diagnostic() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -164,14 +160,13 @@ fn change_jsonl_reports_truncation_in_summary() {
     assert_eq!(
         records
             .iter()
-            .filter(|record| record["type"] == "item")
+            .filter(|record| record["type"] == "data")
             .count(),
         1
     );
     assert!(records.iter().any(|record| {
         record["type"] == "diagnostic" && record["diagnostic"]["code"] == "WPK-W0002"
     }));
-    assert_eq!(records.last().unwrap()["summary"]["truncated"], true);
 }
 
 #[test]
@@ -205,14 +200,13 @@ fn change_jsonl_reports_empty_result_before_end() {
     assert_eq!(
         records
             .iter()
-            .filter(|record| record["type"] == "item")
+            .filter(|record| record["type"] == "data")
             .count(),
         0
     );
     assert!(records.iter().any(|record| {
         record["type"] == "diagnostic" && record["diagnostic"]["code"] == "WPK-W0003"
     }));
-    assert_eq!(records.last().unwrap()["summary"]["truncated"], false);
 }
 
 #[test]
@@ -246,10 +240,10 @@ fn extract_generic_jsonl_streams_rows_with_stable_record_order() {
     let records = parse_stream(&output.stdout, "extract generic");
     let items = records
         .iter()
-        .filter(|record| record["type"] == "item")
+        .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(items.len(), 1);
-    assert_eq!(items[0]["item"]["source"], "transfer");
+    assert_eq!(items[0]["data"]["source"], "transfer");
 }
 
 #[test]
@@ -282,14 +276,14 @@ fn property_jsonl_streams_capture_rows() {
     let records = parse_stream(&output.stdout, "property");
     let kinds = records
         .iter()
-        .filter(|record| record["type"] == "item")
-        .map(|record| record["item"]["kind"].as_str().unwrap())
+        .filter(|record| record["type"] == "data")
+        .map(|record| record["data"]["kind"].as_str().unwrap())
         .collect::<Vec<_>>();
     assert_eq!(kinds, vec!["assert", "deassert"]);
 }
 
 #[test]
-fn property_jsonl_reports_truncation_in_summary() {
+fn property_jsonl_reports_truncation_as_diagnostic() {
     let fixture = write_fixture(PROPERTY_VCD, ".property-jsonl-truncated.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
 
@@ -321,18 +315,17 @@ fn property_jsonl_reports_truncation_in_summary() {
     assert_eq!(
         records
             .iter()
-            .filter(|record| record["type"] == "item")
+            .filter(|record| record["type"] == "data")
             .count(),
         1
     );
     assert!(records.iter().any(|record| {
         record["type"] == "diagnostic" && record["diagnostic"]["code"] == "WPK-W0002"
     }));
-    assert_eq!(records.last().unwrap()["summary"]["truncated"], true);
 }
 
 #[test]
-fn info_scope_signal_and_value_jsonl_emit_representative_items() {
+fn info_scope_signal_and_value_jsonl_emit_representative_data() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -342,7 +335,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_items() {
         .expect("info --jsonl should execute");
     assert!(info.status.success());
     let info_records = parse_stream(&info.stdout, "info");
-    assert_eq!(info_records[1]["item"]["time_unit"], "1ns");
+    assert_eq!(info_records[1]["data"]["time_unit"], "1ns");
 
     let scope = wavepeek_cmd()
         .args(["scope", "--waves", fixture.as_str(), "--jsonl"])
@@ -353,7 +346,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_items() {
     assert!(
         scope_records
             .iter()
-            .any(|record| { record["type"] == "item" && record["item"]["path"] == "top" })
+            .any(|record| { record["type"] == "data" && record["data"]["path"] == "top" })
     );
 
     let signal = wavepeek_cmd()
@@ -372,7 +365,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_items() {
     assert!(
         signal_records
             .iter()
-            .any(|record| { record["type"] == "item" && record["item"]["path"] == "top.clk" })
+            .any(|record| { record["type"] == "data" && record["data"]["path"] == "top.clk" })
     );
 
     let value = wavepeek_cmd()
@@ -390,9 +383,9 @@ fn info_scope_signal_and_value_jsonl_emit_representative_items() {
         .expect("value --jsonl should execute");
     assert!(value.status.success());
     let value_records = parse_stream(&value.stdout, "value");
-    assert_eq!(value_records[1]["item"]["time"], "5ns");
+    assert_eq!(value_records[1]["data"]["time"], "5ns");
     assert_eq!(
-        value_records[1]["item"]["signals"]
+        value_records[1]["data"]["signals"]
             .as_array()
             .unwrap()
             .len(),

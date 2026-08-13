@@ -18,11 +18,11 @@ This work does not change command-specific row fields, timestamp strings, ordere
 
 - [x] (2026-08-12) Read issue #106, repository guidance, architecture, output contracts, current serializers, tests, and documentation.
 - [x] (2026-08-12) Correct issue #106 so `info.data` is also an array.
-- [ ] Implement normalized JSON DTOs and focused unit tests.
-- [ ] Implement normalized JSONL records, writer counts, and streaming call-site updates.
-- [ ] Update integration tests for every command and add JSON/JSONL payload parity coverage.
-- [ ] Update public machine-output documentation and command examples.
-- [ ] Run focused tests and `./dev just ci`; commit the implementation.
+- [x] (2026-08-13) Implement normalized JSON DTOs and focused unit tests.
+- [x] (2026-08-13) Implement normalized JSONL records, writer counts, and streaming call-site updates.
+- [x] (2026-08-13) Update integration tests for every command and add JSON/JSONL payload parity coverage.
+- [x] (2026-08-13) Update public machine-output documentation and command examples.
+- [x] (2026-08-13) Run focused tests and `./dev just ci`; commit the implementation.
 - [ ] Run Luna Max focused review wave, fix findings, and commit.
 - [ ] Run Terra High focused review wave over the same areas, fix findings, and commit.
 - [ ] Run Sol High control review, resolve findings, run final gates, and commit cleanup.
@@ -33,7 +33,9 @@ This work does not change command-specific row fields, timestamp strings, ordere
 - Observation: JSONL protocol context is already separated into `begin.context`, and JSONL row DTOs already reuse JSON row DTOs.
   Evidence: `src/contract/stream.rs` imports row types from `src/contract/output.rs`; protocol engines expose `context()` methods.
 - Observation: issues #92 and #104 are open and absent from the current `dev3` base.
-  Evidence: the current `EndRecord` has only its legacy summary, and fatal errors are still plain stderr output.
+  Evidence: the former `EndRecord` had only its legacy summary, and fatal errors are still plain stderr output.
+- Observation: the full CI gate includes native FSDB tests whose `info` assertions also depended on object-valued `data`.
+  Evidence: the first `just ci` run passed coverage and regular integration tests, then failed two assertions in `tests/fsdb_cli.rs`; after indexing `data[0]`, `just test-fsdb` passed all 20 FSDB CLI tests.
 
 ## Decision Log
 
@@ -49,7 +51,7 @@ This work does not change command-specific row fields, timestamp strings, ordere
 
 ## Outcomes & Retrospective
 
-Implementation is pending.
+The normalized contracts, command coverage, parity test, and packaged documentation are implemented. Review and PR stages remain.
 
 ## Context and Orientation
 
@@ -142,3 +144,5 @@ Use existing `serde` and `serde_json`; add no dependencies. Preserve `crate::eng
 At completion, `crate::contract::output::OutputEnvelope` must serialize `type`, `command`, optional `context`, array-valued `data`, and diagnostics. `crate::contract::stream` must expose begin, data, diagnostic, and end record DTOs. `crate::output::JsonlWriter` must expose `begin`, `begin_context`, `data`, `diagnostic`, and parameterless `end`, while retaining one-line flushing and broken-pipe behavior.
 
 Revision note (2026-08-12): Initial plan created after repository and issue inspection; it incorporates the maintainer correction that `info.data` is a one-element array and records the required staged review process.
+
+Revision note (2026-08-13): Updated progress and discoveries after implementation, parity coverage, documentation updates, and the first full CI attempt exposed FSDB-specific `info.data` assertions.

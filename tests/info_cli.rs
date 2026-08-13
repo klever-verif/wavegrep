@@ -39,10 +39,10 @@ fn info_json_contract_for_vcd_fixture() {
 
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
-    assert_eq!(value["data"]["time_unit"], "1ns");
+    assert_eq!(value["data"][0]["time_unit"], "1ns");
     assert!(value["data"].get("time_precision").is_none());
-    assert_eq!(value["data"]["time_start"], "0ns");
-    assert_eq!(value["data"]["time_end"], "10ns");
+    assert_eq!(value["data"][0]["time_start"], "0ns");
+    assert_eq!(value["data"][0]["time_end"], "10ns");
 }
 
 #[test]
@@ -61,10 +61,10 @@ fn info_json_contract_for_fst_fixture() {
 
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
-    assert_eq!(value["data"]["time_unit"], "1ns");
+    assert_eq!(value["data"][0]["time_unit"], "1ns");
     assert!(value["data"].get("time_precision").is_none());
-    assert_eq!(value["data"]["time_start"], "0ns");
-    assert_eq!(value["data"]["time_end"], "10ns");
+    assert_eq!(value["data"][0]["time_start"], "0ns");
+    assert_eq!(value["data"][0]["time_end"], "10ns");
 }
 
 #[test]
@@ -123,9 +123,9 @@ fn info_json_contract_for_external_picorv32_fixture() {
     let value: Value = serde_json::from_str(&stdout).expect("info output should be valid json");
 
     assert_eq!(value["command"], "info");
-    assert!(value["data"]["time_unit"].as_str().is_some());
-    assert!(value["data"]["time_start"].as_str().is_some());
-    assert!(value["data"]["time_end"].as_str().is_some());
+    assert!(value["data"][0]["time_unit"].as_str().is_some());
+    assert!(value["data"][0]["time_start"].as_str().is_some());
+    assert!(value["data"][0]["time_end"].as_str().is_some());
     assert!(value["data"].get("time_precision").is_none());
 }
 

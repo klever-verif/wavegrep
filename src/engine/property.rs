@@ -91,7 +91,7 @@ impl<W: std::io::Write> PropertyRowSink for JsonlPropertySink<'_, W> {
     }
 
     fn emit(&mut self, row: PropertyCaptureRow) -> Result<(), WavepeekError> {
-        self.writer.item(&row)
+        self.writer.data(&row)
     }
 }
 
@@ -123,7 +123,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end()
 }
 
 fn run_with_sink<S: PropertyRowSink + ?Sized>(

@@ -404,9 +404,9 @@ fn extract_generic_source_file_preserves_declaration_order_in_jsonl() {
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
-    assert_eq!(records[1]["item"]["source"], "beat.a");
-    assert_eq!(records[2]["item"]["source"], "beat.b");
-    assert_eq!(records.last().unwrap()["summary"]["items"], 2);
+    assert_eq!(records[1]["data"]["source"], "beat.a");
+    assert_eq!(records[2]["data"]["source"], "beat.b");
+    assert_eq!(records.last().unwrap()["records"]["data"], 2);
 }
 
 #[test]

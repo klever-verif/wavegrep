@@ -336,7 +336,6 @@ struct BuiltAhb {
 struct AhbOutcome {
     context: AhbContext,
     diagnostics: Vec<Diagnostic>,
-    truncated: bool,
 }
 
 trait AhbEventSink {
@@ -369,7 +368,7 @@ impl<W: std::io::Write> AhbEventSink for JsonlAhbSink<'_, W> {
     }
 
     fn emit(&mut self, event: AhbEvent) -> Result<(), WavepeekError> {
-        self.writer.item(&event)
+        self.writer.data(&event)
     }
 }
 
@@ -808,7 +807,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.truncated)
+    writer.end()
 }
 
 fn run_with_sink<S: AhbEventSink + ?Sized>(
@@ -953,7 +952,6 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
     Ok(AhbOutcome {
         context,
         diagnostics,
-        truncated,
     })
 }
 

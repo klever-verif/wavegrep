@@ -10,8 +10,7 @@ use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
 use crate::engine::extract::{
-    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractRunStats,
-    ExtractSource,
+    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
 use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
 use crate::error::WavepeekError;
@@ -108,7 +107,6 @@ impl AtbData {
 struct AtbOutcome {
     context: AtbContext,
     diagnostics: Vec<Diagnostic>,
-    stats: ExtractRunStats,
 }
 
 trait AtbEventSink {
@@ -141,7 +139,7 @@ impl<W: std::io::Write> AtbEventSink for JsonlAtbSink<'_, W> {
     }
 
     fn emit(&mut self, event: AtbEvent) -> Result<(), WavepeekError> {
-        self.writer.item(&event)
+        self.writer.data(&event)
     }
 }
 
@@ -319,7 +317,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end()
 }
 
 fn run_with_sink<S: AtbEventSink + ?Sized>(
@@ -360,7 +358,6 @@ fn run_with_sink<S: AtbEventSink + ?Sized>(
     Ok(AtbOutcome {
         context,
         diagnostics,
-        stats: outcome.stats,
     })
 }
 

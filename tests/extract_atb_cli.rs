@@ -84,8 +84,7 @@ fn command_with_maps(profile: &str, maps: &[&str]) -> std::process::Command {
 }
 
 fn event_kinds(data: &Value) -> Vec<&str> {
-    data["events"]
-        .as_array()
+    data.as_array()
         .expect("events should be array")
         .iter()
         .map(|event| {
@@ -207,8 +206,8 @@ fn extract_atb_profiles_aliases_and_vcd_fst_are_equivalent() {
             String::from_utf8_lossy(&output.stderr)
         );
         let value = parse_json(&output.stdout);
-        assert_eq!(value["data"]["profile"], canonical);
-        assert_eq!(value["data"]["issue"], "C");
+        assert_eq!(value["context"]["profile"], canonical);
+        assert_eq!(value["context"]["issue"], "C");
         assert_eq!(
             event_kinds(&value["data"])
                 .into_iter()
@@ -259,13 +258,13 @@ fn extract_atb_supports_independent_channels_optional_reset_and_payload() {
     assert!(transfer.status.success());
     let transfer = parse_json(&transfer.stdout);
     assert!(
-        transfer["data"]["events"]
+        transfer["data"]
             .as_array()
             .expect("events")
             .iter()
             .all(|event| event["event"] == "transfer" && event["payload"] == json!({}))
     );
-    assert_eq!(transfer["data"]["events"][0]["time"], "5ns");
+    assert_eq!(transfer["data"][0]["time"], "5ns");
 
     let flush = command_with_maps(
         "atb-a",
@@ -298,10 +297,7 @@ fn extract_atb_supports_independent_channels_optional_reset_and_payload() {
     .expect("8-bit transfer without ATBYTES should execute");
     assert!(data8.status.success());
     let data8 = parse_json(&data8.stdout);
-    assert_eq!(
-        data8["data"]["events"][0]["payload"],
-        json!({"atdata": "8'ha5"})
-    );
+    assert_eq!(data8["data"][0]["payload"], json!({"atdata": "8'ha5"}));
 }
 
 #[test]
@@ -336,15 +332,15 @@ fn extract_atb_json_abs_and_source_modes_preserve_contracts() {
     );
     let value = parse_json(&output.stdout);
     assert_eq!(value["command"], "extract atb");
-    assert_eq!(value["data"]["name"], "etm_trace");
-    assert_eq!(value["data"]["profile"], "atb-b");
+    assert_eq!(value["context"]["name"], "etm_trace");
+    assert_eq!(value["context"]["profile"], "atb-b");
     assert_eq!(
-        value["data"]["mappings"]["atdata"]["path"],
+        value["context"]["mappings"]["atdata"]["path"],
         "top.trace_at_data_o"
     );
-    assert_eq!(value["data"]["events"][0]["profile"], "atb-b");
+    assert_eq!(value["data"][0]["profile"], "atb-b");
     assert_eq!(
-        value["data"]["events"][0]["payload"],
+        value["data"][0]["payload"],
         json!({
             "atbytes": "2'h3",
             "atdata": "32'h44332211",
@@ -386,9 +382,9 @@ fn extract_atb_jsonl_orders_rows_and_counts_max_split() {
     assert_eq!(records[0]["type"], "begin");
     assert_eq!(records[0]["command"], "extract atb");
     assert_eq!(records[0]["context"]["profile"], "atb-c");
-    assert_eq!(records[1]["item"]["event"], "transfer");
-    assert_eq!(records[2]["item"]["event"], "flush");
-    assert_eq!(records[1]["item"]["time"], records[2]["item"]["time"]);
+    assert_eq!(records[1]["data"]["event"], "transfer");
+    assert_eq!(records[2]["data"]["event"], "flush");
+    assert_eq!(records[1]["data"]["time"], records[2]["data"]["time"]);
     let diagnostics = records
         .iter()
         .filter(|record| record["type"] == "diagnostic")
@@ -401,9 +397,8 @@ fn extract_atb_jsonl_orders_rows_and_counts_max_split() {
     );
     let end = records.last().expect("stream should end");
     assert_eq!(end["type"], "end");
-    assert_eq!(end["summary"]["items"], 2);
-    assert_eq!(end["summary"]["diagnostics"], 6);
-    assert_eq!(end["summary"]["truncated"], true);
+    assert_eq!(end["records"]["data"], 2);
+    assert_eq!(end["records"]["diagnostics"], 6);
 }
 
 #[test]
@@ -415,7 +410,7 @@ fn extract_atb_bounds_are_inclusive_and_use_pre_edge_samples() {
     let value = parse_json(&output.stdout);
     assert_eq!(event_kinds(&value["data"]), ["transfer", "flush"]);
     assert!(
-        value["data"]["events"]
+        value["data"]
             .as_array()
             .expect("events")
             .iter()
@@ -471,7 +466,7 @@ fn extract_atb_auto_mapping_is_exact_explicit_first_and_deterministic() {
     assert!(explicit.status.success());
     let explicit = parse_json(&explicit.stdout);
     assert_eq!(
-        explicit["data"]["mappings"]["atvalid"]["path"],
+        explicit["context"]["mappings"]["atvalid"]["path"],
         "top.trace_at_valid_o"
     );
 }
