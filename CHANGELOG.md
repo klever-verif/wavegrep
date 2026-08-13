@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Report malformed hexadecimal expression literals at their full token span instead of blaming balanced opening parentheses, and underline expression diagnostic spans ([issue #103](https://github.com/kleverhq/wavepeek/issues/103)).
+- Accepted mixed relative and in-scope canonical signal paths across scoped `value`, `change`, `property`, and generic extraction queries ([issue #81](https://github.com/kleverhq/wavepeek/issues/81)).
 
 ### Removed
 - Removed the Codex Web environment bootstrap; the devcontainer is now the supported development environment ([issue #93](https://github.com/kleverhq/wavepeek/issues/93)).
