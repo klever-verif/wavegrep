@@ -237,7 +237,7 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
             "{field} should be a non-empty string"
         );
     }
-    assert!(info["data"].get("time_precision").is_none());
+    assert!(info["data"][0].get("time_precision").is_none());
 
     let scopes = run_json_success(&[
         "scope",

@@ -63,6 +63,10 @@ impl<W: Write> JsonlWriter<W> {
         self.write_record(&record)
     }
 
+    const fn command(&self) -> CommandName {
+        self.command
+    }
+
     #[cfg(test)]
     pub const fn data_count(&self) -> usize {
         self.data
@@ -108,6 +112,13 @@ pub fn write_jsonl_result<W: Write>(
     result: CommandResult,
     writer: &mut JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    if result.command != writer.command() {
+        return Err(WavepeekError::Internal(format!(
+            "command {} cannot be written to a {} JSONL stream",
+            result.command.as_str(),
+            writer.command().as_str()
+        )));
+    }
     if !matches!(
         &result.data,
         CommandData::ExtractAhb(_)
@@ -773,6 +784,25 @@ mod tests {
         let mut writer = JsonlWriter::new(BrokenPipeSink, CommandName::Info);
         let error = writer.begin().expect_err("broken pipe should be returned");
         assert!(matches!(error, crate::error::WavepeekError::BrokenPipe));
+    }
+
+    #[test]
+    fn jsonl_result_adapter_rejects_command_mismatch() {
+        let result = CommandResult {
+            command: CommandName::Scope,
+            output_mode: OutputMode::Jsonl,
+            human_options: HumanRenderOptions::default(),
+            data: CommandData::Scope(Vec::new()),
+            diagnostics: Vec::new(),
+        };
+        let mut writer = JsonlWriter::new(Vec::new(), CommandName::Signal);
+
+        let error = write_jsonl_result(result, &mut writer).expect_err("mismatch should fail");
+        assert!(
+            error
+                .to_string()
+                .contains("command scope cannot be written to a signal JSONL stream")
+        );
     }
 
     #[test]

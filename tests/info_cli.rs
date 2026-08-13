@@ -40,7 +40,7 @@ fn info_json_contract_for_vcd_fixture() {
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(value["data"][0]["time_unit"], "1ns");
-    assert!(value["data"].get("time_precision").is_none());
+    assert!(value["data"][0].get("time_precision").is_none());
     assert_eq!(value["data"][0]["time_start"], "0ns");
     assert_eq!(value["data"][0]["time_end"], "10ns");
 }
@@ -62,7 +62,7 @@ fn info_json_contract_for_fst_fixture() {
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(value["data"][0]["time_unit"], "1ns");
-    assert!(value["data"].get("time_precision").is_none());
+    assert!(value["data"][0].get("time_precision").is_none());
     assert_eq!(value["data"][0]["time_start"], "0ns");
     assert_eq!(value["data"][0]["time_end"], "10ns");
 }
@@ -126,7 +126,7 @@ fn info_json_contract_for_external_picorv32_fixture() {
     assert!(value["data"][0]["time_unit"].as_str().is_some());
     assert!(value["data"][0]["time_start"].as_str().is_some());
     assert!(value["data"][0]["time_end"].as_str().is_some());
-    assert!(value["data"].get("time_precision").is_none());
+    assert!(value["data"][0].get("time_precision").is_none());
 }
 
 #[test]

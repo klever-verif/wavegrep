@@ -23,7 +23,7 @@ This work does not change command-specific row fields, timestamp strings, ordere
 - [x] (2026-08-13) Update integration tests for every command and add JSON/JSONL payload parity coverage.
 - [x] (2026-08-13) Update public machine-output documentation and command examples.
 - [x] (2026-08-13) Run focused tests and `./dev just ci`; commit the implementation.
-- [ ] Run Luna Max focused review wave, fix findings, and commit.
+- [x] (2026-08-13) Run Luna Max focused review wave, fix findings, and commit.
 - [ ] Run Terra High focused review wave over the same areas, fix findings, and commit.
 - [ ] Run Sol High control review, resolve findings, run final gates, and commit cleanup.
 - [ ] Push the branch and open a pull request against `dev3`.
@@ -36,6 +36,8 @@ This work does not change command-specific row fields, timestamp strings, ordere
   Evidence: the former `EndRecord` had only its legacy summary, and fatal errors are still plain stderr output.
 - Observation: the full CI gate includes native FSDB tests whose `info` assertions also depended on object-valued `data`.
   Evidence: the first `just ci` run passed coverage and regular integration tests, then failed two assertions in `tests/fsdb_cli.rs`; after indexing `data[0]`, `just test-fsdb` passed all 20 FSDB CLI tests.
+- Observation: Luna review found that negative `time_precision` assertions silently weakened when `info.data` became an array, and the collected JSONL adapter lacked an explicit writer/result command check.
+  Evidence: `.get("time_precision")` was called on the array rather than `data[0]`; an empty result could reach `begin` without row-level mismatch validation.
 
 ## Decision Log
 
@@ -146,3 +148,5 @@ At completion, `crate::contract::output::OutputEnvelope` must serialize `type`, 
 Revision note (2026-08-12): Initial plan created after repository and issue inspection; it incorporates the maintainer correction that `info.data` is a one-element array and records the required staged review process.
 
 Revision note (2026-08-13): Updated progress and discoveries after implementation, parity coverage, documentation updates, and the first full CI attempt exposed FSDB-specific `info.data` assertions.
+
+Revision note (2026-08-13): Recorded Luna Max review findings and fixes: restored negative info-row assertions, validated collected JSONL command identity, and corrected stale architecture and sampling documentation.

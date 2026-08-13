@@ -118,6 +118,7 @@ $ wavepeek property --waves path/to/dump.vcd --scope top \
     --on 'posedge clk' --eval 'ready && valid' \
     --capture match --sample-mode pre-edge --json
 {
+  "type": "result",
   "command": "property",
   "data": [
     {"time":"100ns","sample_time":"99999ps","kind":"match"},
