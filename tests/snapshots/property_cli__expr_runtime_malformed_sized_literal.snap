@@ -1,0 +1,9 @@
+---
+source: tests/common/command_cases.rs
+expression: stderr
+---
+fatal: expr: parse:EXPR-PARSE-LOGICAL-LITERAL: malformed sized integral literal
+--> span 15..20
+source: clk == (clk >= 64h10)
+                       ^^^^^
+note: insert an apostrophe: 64'h10

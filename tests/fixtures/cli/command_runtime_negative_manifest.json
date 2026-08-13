@@ -48,6 +48,27 @@
       "exit_code": 1,
       "stderr_prefix": "fatal: expr:",
       "stderr_snapshot": "expr_runtime_scoped_dotted_on"
+    },
+    {
+      "name": "property_malformed_sized_literal",
+      "command": "property",
+      "args": [
+        "--waves",
+        "tests/fixtures/generated/m2_core.vcd",
+        "--scope",
+        "top",
+        "--on",
+        "*",
+        "--sample-mode",
+        "native",
+        "--eval",
+        "clk == (clk >= 64h10)",
+        "--capture",
+        "match"
+      ],
+      "exit_code": 1,
+      "stderr_prefix": "fatal: expr:",
+      "stderr_snapshot": "expr_runtime_malformed_sized_literal"
     }
   ]
 }

@@ -432,6 +432,37 @@ impl<'a> LogicalLexer<'a> {
         self.consume_while(|ch| ch.is_ascii_digit() || ch == '_');
         let integer_end = self.index;
 
+        let malformed = if &self.source[start..integer_end] == "0"
+            && matches!(self.peek_char(), Some('x' | 'X'))
+        {
+            Some((
+                "unsupported C-style hexadecimal literal",
+                "use SystemVerilog-style based literals such as 'h10 or 8'h10",
+            ))
+        } else if matches!(self.peek_char(), Some('h' | 'H'))
+            && matches!(
+                self.peek_nth_char(1),
+                Some(ch) if ch.is_ascii_hexdigit()
+                    || matches!(ch, '_' | 'x' | 'X' | 'z' | 'Z' | 'h' | 'H' | 'u' | 'U' | 'w' | 'W' | 'l' | 'L' | '-')
+            )
+        {
+            Some((
+                "malformed sized integral literal",
+                "insert an apostrophe: 64'h10",
+            ))
+        } else {
+            None
+        };
+        if let Some((message, note)) = malformed {
+            self.consume_while(|ch| ch.is_ascii_alphanumeric() || ch == '_');
+            return Err(self.parse_diag(
+                "EXPR-PARSE-LOGICAL-LITERAL",
+                message,
+                self.span(start, self.index),
+                &[note],
+            ));
+        }
+
         if matches!(self.peek_char(), Some('.'))
             && matches!(self.peek_nth_char(1), Some(ch) if ch.is_ascii_digit())
         {
@@ -897,6 +928,26 @@ mod tests {
             let error = lex_logical_expr(source, 0).expect_err("literal should fail");
             assert_eq!(error.code, "EXPR-PARSE-LOGICAL-LITERAL", "{source}");
         }
+
+        let c_style = lex_logical_expr("0x0011_ff", 3).expect_err("C-style hex should fail");
+        assert_eq!(c_style.code, "EXPR-PARSE-LOGICAL-LITERAL");
+        assert_eq!(c_style.primary_span, crate::expr::Span::new(3, 12));
+        assert!(c_style.notes[0].contains("'h10"));
+        assert!(c_style.notes[0].contains("8'h10"));
+
+        let missing_apostrophe =
+            lex_logical_expr("64h10", 2).expect_err("missing apostrophe should fail");
+        assert_eq!(
+            missing_apostrophe.primary_span,
+            crate::expr::Span::new(2, 7)
+        );
+        assert_eq!(missing_apostrophe.notes, ["insert an apostrophe: 64'h10"]);
+
+        let tokens = lex_logical_expr("64hname", 0).expect("ordinary identifier should lex");
+        assert!(matches!(
+            tokens[1].kind,
+            super::LogicalTokenKind::Identifier(ref name) if name == "hname"
+        ));
     }
 
     #[test]
