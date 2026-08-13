@@ -147,9 +147,7 @@ fn resolve_requested_signals(
             ));
         }
 
-        let path = scoped_signal_path(display, scope).ok_or_else(|| {
-            WavepeekError::Signal(format!("signal '{display}' not found in dump"))
-        })?;
+        let path = scoped_signal_path(display, scope);
         resolved.push(RequestedSignal {
             display: display.to_string(),
             path,

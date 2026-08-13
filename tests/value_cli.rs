@@ -512,12 +512,11 @@ fn value_scoped_descendant_name_resolves() {
 }
 
 #[test]
-fn value_full_paths_are_not_accepted_when_scope_is_set() {
-    let fixture = fixture_path("change_scope_ambiguous.vcd");
+fn value_scope_accepts_mixed_relative_and_canonical_paths() {
+    let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    let mut command = wavepeek_cmd();
-    command
+    let output = wavepeek_cmd()
         .args([
             "value",
             "--waves",
@@ -526,6 +525,39 @@ fn value_full_paths_are_not_accepted_when_scope_is_set() {
             "5ns",
             "--scope",
             "top",
+            "--signals",
+            "cpu.valid,top.clk",
+            "--json",
+        ])
+        .output()
+        .expect("value should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let value: Value = serde_json::from_slice(&output.stdout).expect("stdout should be json");
+    assert_eq!(
+        value["data"][0]["signals"],
+        json!([
+            {"path": "top.cpu.valid", "value": "1'h1"},
+            {"path": "top.clk", "value": "1'h1"}
+        ])
+    );
+}
+
+#[test]
+fn value_scope_rejects_canonical_path_outside_scope() {
+    let fixture = fixture_path("change_scope_ambiguous.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "5ns",
+            "--scope",
+            "top.top",
             "--signals",
             "top.clk",
         ])

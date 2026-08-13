@@ -111,7 +111,7 @@ Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or whe
 
 ## Use scope-relative names or full canonical paths
 
-With `--scope`, short names stay readable. Without it, pass canonical paths directly:
+With `--scope`, use short relative names or canonical paths inside the scope. Without it, pass canonical paths directly:
 
 ```text
 $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
@@ -200,7 +200,7 @@ warning[WPK-W0001]: limit disabled: --max=unlimited
 - `--on` does not guarantee a row by itself. A trigger can fire, but `change` still suppresses the row if none of the requested `--signals` changed.
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were printed.
-- In scoped mode, use scope-relative names in `--signals` and `--on`. Without `--scope`, use canonical full paths.
+- In scoped mode, `--signals` and `--on` accept relative names and canonical paths inside the scope, including both forms in one request. Without `--scope`, use canonical full paths.
 - Empty output is valid. If the query is well-formed but nothing matched, the command succeeds and emits a diagnostic:
 
 ```text

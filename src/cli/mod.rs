@@ -106,8 +106,8 @@ Use this command after `scope` to inspect available signals in a target scope."#
 Behavior:
 - Prints values for the requested signals at each selected time point.
 - By default, signal names are top-related canonical paths (e.g. `top.cpu.state`).
-- For deep hierarchies, set `--scope` once with a canonical scope path and use shorter scope-relative names in `--signals`.
-- Do not mix top-related canonical names and scope-relative names in one request.
+- For deep hierarchies, set `--scope` once with a canonical scope path; signal references may be relative to it or canonical paths inside it.
+- Relative and canonical references inside the selected scope may be mixed in one request.
 - `--at` accepts one explicit time token or a comma-separated list in one argument.
 - Output preserves the input order from `--at` and `--signals`, including duplicates.
 - Human output emits one `@<time>` row per requested time with `display=value` fields, matching `change`.

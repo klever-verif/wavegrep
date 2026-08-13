@@ -239,6 +239,8 @@ $ wavepeek extract generic --waves path/to/dump.vcd \
 
 `--when` is a Boolean expression evaluated at the pre-edge sample point. `--payload` is the ordered list of signals sampled at the same pre-edge point. The command emits a row only when the event matches and `--when` is true.
 
+With `--scope`, signal references in `--on`, `--when`, and `--payload` may be relative or canonical paths inside the scope, and both forms may be mixed. The same rule applies to source-file fields.
+
 ## Source files
 
 Use `--source` when one query should extract several source types from the same dump:

@@ -702,11 +702,7 @@ fn resolve_payload_signals(
     let mut display_names = Vec::with_capacity(payload.len());
     let mut canonical_paths = Vec::with_capacity(payload.len());
     for token in payload {
-        let path = scoped_signal_path(token, scope).ok_or_else(|| {
-            WavepeekError::Args(format!(
-                "payload signal '{token}' must be relative when --scope is set. See 'wavepeek extract generic --help'."
-            ))
-        })?;
+        let path = scoped_signal_path(token, scope);
         display_names.push(token.clone());
         canonical_paths.push(path);
     }

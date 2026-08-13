@@ -170,5 +170,5 @@ Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or whe
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were evaluated.
 - `property` prints only trigger/sample times and result kind. If you need payload values for a matching row, query them with `value --at <sample_time>`.
-- With `--scope`, names inside `--on` and `--eval` must stay scope-relative. For example, `--scope top --on 'posedge top.clk'` is an error.
+- With `--scope`, names inside `--on` and `--eval` may be relative or canonical paths inside the scope, and both forms may be mixed.
 - `--on` is required. Use explicit clock edges for RTL-style checks, or `--on '*' --sample-mode native` for wildcard value-change evaluation.
