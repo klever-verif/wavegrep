@@ -24,7 +24,7 @@ This work does not change command-specific row fields, timestamp strings, ordere
 - [x] (2026-08-13) Update public machine-output documentation and command examples.
 - [x] (2026-08-13) Run focused tests and `./dev just ci`; commit the implementation.
 - [x] (2026-08-13) Run Luna Max focused review wave, fix findings, and commit.
-- [ ] Run Terra High focused review wave over the same areas, fix findings, and commit.
+- [x] (2026-08-13) Run Terra High focused review wave over the same areas, fix findings, and commit.
 - [ ] Run Sol High control review, resolve findings, run final gates, and commit cleanup.
 - [ ] Push the branch and open a pull request against `dev3`.
 
@@ -50,6 +50,9 @@ This work does not change command-specific row fields, timestamp strings, ordere
 - Decision: Do not pre-implement optional `summary` or fatal records.
   Rationale: Those belong to open issues #92 and #104, and issue #106 explicitly treats them as coordinated independent work.
   Date/Author: 2026-08-12, implementation agent.
+- Decision: Do not add a separate FSDB-only JSONL smoke test suggested as a low-severity Terra finding.
+  Rationale: JSONL dispatch and serialization are backend-independent after `info` returns its engine result; the existing all-command JSON/JSONL parity test exercises that exact path, while FSDB tests already verify the backend-specific `info` row. A duplicate test would not cover a distinct execution branch.
+  Date/Author: 2026-08-13, implementation agent.
 
 ## Outcomes & Retrospective
 
@@ -150,3 +153,5 @@ Revision note (2026-08-12): Initial plan created after repository and issue insp
 Revision note (2026-08-13): Updated progress and discoveries after implementation, parity coverage, documentation updates, and the first full CI attempt exposed FSDB-specific `info.data` assertions.
 
 Revision note (2026-08-13): Recorded Luna Max review findings and fixes: restored negative info-row assertions, validated collected JSONL command identity, and corrected stale architecture and sampling documentation.
+
+Revision note (2026-08-13): Recorded the clean Terra architecture/docs passes and the decision not to duplicate backend-independent JSONL coverage in the FSDB suite.
