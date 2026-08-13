@@ -635,6 +635,27 @@ fn extract_generic_scope_mixes_relative_and_canonical_names() {
     assert_eq!(value["data"][0]["time"], "5ns");
     assert_eq!(value["data"][0]["payload"][0]["path"], "top.cpu.valid");
     assert_eq!(value["data"][0]["payload"][1]["path"], "top.mem.ready");
+
+    wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge cpu.valid",
+            "--when",
+            "1",
+            "--payload",
+            "cpu.valid,top.cpu.valid",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "payload contains duplicate signal 'top.cpu.valid'",
+        ));
 }
 
 #[test]

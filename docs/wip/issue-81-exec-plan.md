@@ -21,7 +21,7 @@ Protocol-specific `extract ahb`, `extract apb`, `extract atb`, `extract axi`, an
 - [x] (2026-08-13) Ran focused unit, CLI, fixture-contract, and help suites plus `./dev just ci`; all passed.
 - [x] (2026-08-13) Committed implementation and documentation as `3798c93`.
 - [x] (2026-08-13) Ran Luna Max correctness/tests, docs/help, and architecture/performance/simplicity lanes; fixed docs/help findings and revalidated with `cli_contract` plus `just check`.
-- [ ] Run Terra High focused review lanes over the consolidated diff, fix findings, and revalidate.
+- [x] (2026-08-13) Ran Terra High correctness/tests, docs/help, and architecture/performance/simplicity lanes; rejected relative/canonical payload aliases resolving to one signal and revalidated with `extract_generic_cli` plus `just check`.
 - [ ] Run a Sol High control review, fix findings, and run final gates.
 - [ ] Remove this branch-local plan, commit cleanup, push, and open the pull request.
 
@@ -42,6 +42,9 @@ Protocol-specific `extract ahb`, `extract apb`, `extract atb`, `extract axi`, an
 - Observation: broad naming prose can accidentally imply that protocol-specific `extract --map` accepts canonical paths.
   Evidence: Luna Max docs review found unqualified wording in `skills/wavepeek/SKILL.md` and `command-model.md`; both now explicitly preserve scope-relative protocol mappings.
 
+- Observation: raw payload uniqueness is insufficient once two spellings can resolve to one signal.
+  Evidence: Terra High correctness review found `cpu.valid,top.cpu.valid` passed the input-token check under `--scope top`; `resolve_payload_signals` now reuses the existing uniqueness check after canonicalization.
+
 ## Decision Log
 
 - Decision: Preserve the existing shared resolver and change only its active-scope-prefix branch from rejection to canonical pass-through.
@@ -58,6 +61,10 @@ Protocol-specific `extract ahb`, `extract apb`, `extract atb`, `extract axi`, an
 
 - Decision: Qualify top-level skill and command-model prose to generic waveform queries and retain surface-specific nouns in help.
   Rationale: Luna Max review identified a real risk of promising unsupported protocol mapping behavior and weak help-contract coverage; precise wording is the smallest fix.
+  Date/Author: 2026-08-13 / pi
+
+- Decision: Enforce payload uniqueness both before and after scoped canonicalization.
+  Rationale: The first check gives immediate duplicate-token errors before opening a waveform; the second preserves the documented unique-payload contract for mixed aliases with one reused helper call.
   Date/Author: 2026-08-13 / pi
 
 ## Outcomes & Retrospective
@@ -151,3 +158,5 @@ Do not add dependencies, new public types, or new resolution layers. Existing `c
 Revision note (2026-08-13): Recorded implementation, focused-test, and CI completion; documented the infallible resolver simplification, removed obsolete negative-fixture behavior, and corrected the container startup command after observing the repository entrypoint contract.
 
 Revision note (2026-08-13): Recorded Luna Max review completion, its docs/help findings, the resulting protocol-scope clarification and help-contract coverage, and successful revalidation.
+
+Revision note (2026-08-13): Recorded Terra High review completion, canonical payload-alias uniqueness finding and fix, and successful focused/check validation.

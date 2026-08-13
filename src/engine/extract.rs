@@ -706,6 +706,7 @@ fn resolve_payload_signals(
         display_names.push(token.clone());
         canonical_paths.push(path);
     }
+    require_unique_payloads(&canonical_paths)?;
 
     let expr_resolved = waveform
         .borrow()
