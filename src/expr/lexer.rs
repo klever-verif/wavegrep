@@ -439,7 +439,13 @@ impl<'a> LogicalLexer<'a> {
                 "unsupported C-style hexadecimal literal",
                 "use SystemVerilog-style based literals such as 'h10 or 8'h10",
             ))
-        } else if matches!(self.peek_char(), Some('h' | 'H')) {
+        } else if matches!(self.peek_char(), Some('h' | 'H'))
+            && matches!(
+                self.peek_nth_char(1),
+                Some(ch) if ch.is_ascii_hexdigit()
+                    || matches!(ch, '_' | 'x' | 'X' | 'z' | 'Z' | 'h' | 'H' | 'u' | 'U' | 'w' | 'W' | 'l' | 'L' | '-')
+            )
+        {
             Some((
                 "malformed sized integral literal",
                 "insert an apostrophe: 64'h10",
@@ -936,6 +942,12 @@ mod tests {
             crate::expr::Span::new(2, 7)
         );
         assert_eq!(missing_apostrophe.notes, ["insert an apostrophe: 64'h10"]);
+
+        let tokens = lex_logical_expr("64hname", 0).expect("ordinary identifier should lex");
+        assert!(matches!(
+            tokens[1].kind,
+            super::LogicalTokenKind::Identifier(ref name) if name == "hname"
+        ));
     }
 
     #[test]

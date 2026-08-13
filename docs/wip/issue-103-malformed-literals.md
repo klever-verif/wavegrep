@@ -22,7 +22,7 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 - [x] (2026-08-13 18:22Z) Implement the shared lexer, parser, and renderer corrections without new interfaces or dependencies.
 - [x] (2026-08-13 18:22Z) Add the compact literal reminder to the bundled skill and update affected snapshots.
 - [ ] Run focused tests, `./dev just ci`, and `./dev just check`; commit logical milestones. Completed: focused tests and `./dev just ci`; remaining: commit and `./dev just check` before handoff.
-- [ ] Run two focused review waves and one independent control review, resolving substantive findings. Completed: Luna Max correctness, diagnostics, and docs/simplicity lanes; fixed one low-severity stale caret example. Remaining: Terra High wave and Sol High control.
+- [ ] Run two focused review waves and one independent control review, resolving substantive findings. Completed: Luna Max and Terra High correctness, diagnostics, and docs/simplicity lanes; fixed Luna's stale plan caret example and Terra's broad `64hname` classification. Remaining: Sol High control.
 - [ ] Remove this branch-local plan, run final checks, push the branch, and open a pull request closing issue #103.
 
 ## Surprises & Discoveries
@@ -38,6 +38,9 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 
 - Observation: `./dev` writes its devcontainer startup record to stdout, so it is not suitable for manually proving the binary's stdout is empty.
   Evidence: the exact issue command returned status 1 and the expected stderr after a devcontainer startup line; integration tests invoking the binary directly prove empty stdout.
+
+- Observation: A bare `h` prefix is also an ordinary identifier boundary unless a based digit follows it.
+  Evidence: Terra review identified that the first detector classified `64hname` as a malformed literal; the detector now checks the next character and a unit regression preserves `64` plus identifier `hname`.
 
 ## Decision Log
 
@@ -142,3 +145,5 @@ Plan revision note: 2026-08-13 — created the initial self-contained execution 
 Plan revision note: 2026-08-13 — recorded completed implementation, regression coverage, snapshot effects, and successful focused plus CI validation.
 
 Plan revision note: 2026-08-13 — recorded the first Luna Max review wave and corrected its only finding, a stale hand-aligned caret example in this plan.
+
+Plan revision note: 2026-08-13 — recorded the Terra High review wave and narrowed missing-apostrophe recognition to require a following hexadecimal based digit.
