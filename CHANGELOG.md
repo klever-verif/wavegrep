@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced the overlapping embedded documentation surfaces with `wavepeek skill <DIRECTORY>`, which extracts a complete version-matched package containing `SKILL.md`, flat offline references with explicit navigation, an examples directory, and a provenance manifest ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
 - Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.
 
+### Fixed
+- Report malformed hexadecimal expression literals at their full token span instead of blaming balanced opening parentheses, and underline expression diagnostic spans ([issue #103](https://github.com/kleverhq/wavepeek/issues/103)).
+
 ### Removed
 - Removed the Codex Web environment bootstrap; the devcontainer is now the supported development environment ([issue #93](https://github.com/kleverhq/wavepeek/issues/93)).
 - Removed JSON Schema generation, validation, publication, and the `schema` command while retaining JSON, JSONL, and structured-input behavior ([issue #89](https://github.com/kleverhq/wavepeek/issues/89)).
