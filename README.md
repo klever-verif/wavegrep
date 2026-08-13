@@ -1,7 +1,7 @@
 
 # wavepeek
 
-![wavepeek banner](docs/banner.png)
+![wavepeek](docs/wavepeek.svg)
 [![CI](https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/wavepeek.svg)](https://crates.io/crates/wavepeek)
 
