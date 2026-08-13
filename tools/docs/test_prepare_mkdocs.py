@@ -39,7 +39,7 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.temp.cleanup()
 
     def write_manifest(self, **overrides: object) -> None:
-        manifest = {"wavepeek_version": "0.5.0", "bundle_format_version": 1}
+        manifest = {"wavepeek_version": "0.5.0"}
         manifest.update(overrides)
         (self.skill / "manifest.json").write_text(
             json.dumps(manifest), encoding="utf-8"
@@ -74,11 +74,6 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.prepare()
         with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "rerun with --force"):
             self.prepare(force=False)
-
-    def test_rejects_unsupported_bundle_version(self) -> None:
-        self.write_manifest(bundle_format_version=999)
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "bundle_format_version"):
-            self.prepare()
 
     def test_rejects_mismatched_wavepeek_version(self) -> None:
         self.write_manifest(wavepeek_version="0.6.0")

@@ -84,13 +84,12 @@ fn skill_extracts_complete_bundle_into_missing_directory() {
     )
     .expect("manifest should be valid JSON");
     assert_eq!(manifest["wavepeek_version"], env!("CARGO_PKG_VERSION"));
-    assert_eq!(manifest["bundle_format_version"], 1);
     assert_eq!(
         manifest
             .as_object()
             .expect("manifest should be object")
             .len(),
-        2
+        1
     );
 }
 

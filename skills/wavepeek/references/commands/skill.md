@@ -9,6 +9,6 @@ The extracted package contains:
 - `SKILL.md`, the agent entrypoint;
 - `references/`, the offline command, workflow, troubleshooting, and semantic guidance;
 - `examples/`, reserved for concrete examples and currently empty;
-- `manifest.json`, package and bundle-format provenance.
+- `manifest.json`, the WavePeek version that produced the package.
 
 The command never merges with or overwrites existing files. Choose a missing or empty destination directory, then point the agent at `SKILL.md`. The command is human-oriented and does not support `--json` or `--jsonl`.

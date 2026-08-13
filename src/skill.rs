@@ -7,12 +7,10 @@ use serde::Serialize;
 use crate::error::WavepeekError;
 
 static BUNDLE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/skills/wavepeek");
-pub const BUNDLE_FORMAT_VERSION: u32 = 1;
 
 #[derive(Serialize)]
 struct Manifest {
     wavepeek_version: &'static str,
-    bundle_format_version: u32,
 }
 
 pub fn materialize(destination: &Path) -> Result<(), WavepeekError> {
@@ -112,7 +110,6 @@ fn write_bundle(staging: &Path) -> Result<(), WavepeekError> {
     write_dir(&BUNDLE, staging)?;
     let mut manifest = serde_json::to_vec_pretty(&Manifest {
         wavepeek_version: env!("CARGO_PKG_VERSION"),
-        bundle_format_version: BUNDLE_FORMAT_VERSION,
     })
     .map_err(|error| file_error(format!("failed to serialize skill manifest: {error}")))?;
     manifest.push(b'\n');

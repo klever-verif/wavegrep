@@ -14,7 +14,6 @@ from typing import Any
 
 import yaml
 
-BUNDLE_FORMAT_VERSION = 1
 SECTION_LABELS = {
     "commands": "Commands",
     "workflows": "Workflows",
@@ -61,8 +60,6 @@ def load_manifest(skill_dir: pathlib.Path, version: str | None) -> str:
         fail(f"skill manifest is not valid JSON: {error}")
     if not isinstance(manifest, dict):
         fail("skill manifest root must be an object")
-    if manifest.get("bundle_format_version") != BUNDLE_FORMAT_VERSION:
-        fail(f"skill manifest bundle_format_version must be {BUNDLE_FORMAT_VERSION}")
     wavepeek_version = manifest.get("wavepeek_version")
     if not isinstance(wavepeek_version, str) or not wavepeek_version:
         fail("skill manifest wavepeek_version must be a non-empty string")
