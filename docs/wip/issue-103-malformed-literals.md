@@ -21,9 +21,9 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 - [x] (2026-08-13 18:22Z) Add focused regression coverage for both malformed literals, parenthesis classification, caret rendering, CLI transport, and generic source files.
 - [x] (2026-08-13 18:22Z) Implement the shared lexer, parser, and renderer corrections without new interfaces or dependencies.
 - [x] (2026-08-13 18:22Z) Add the compact literal reminder to the bundled skill and update affected snapshots.
-- [ ] Run focused tests, `./dev just ci`, and `./dev just check`; commit logical milestones. Completed: focused tests and `./dev just ci`; remaining: commit and `./dev just check` before handoff.
-- [ ] Run two focused review waves and one independent control review, resolving substantive findings. Completed: Luna Max and Terra High lanes plus Sol High control; fixed Luna's stale plan caret example, Terra's broad `64hname` classification, and Sol's balanced-cast unmatched-open path. Remaining: Sol re-check of the fix.
-- [ ] Remove this branch-local plan, run final checks, push the branch, and open a pull request closing issue #103.
+- [x] (2026-08-13 18:49Z) Run focused tests, final `./dev just ci`, and final `./dev just check`; commit logical milestones.
+- [x] (2026-08-13 18:46Z) Run Luna Max and Terra High correctness, diagnostics, and docs/simplicity waves plus Sol High control; resolve all findings and receive a clean Sol re-check.
+- [ ] Remove this branch-local plan, push the branch, and open a pull request closing issue #103.
 
 ## Surprises & Discoveries
 
@@ -61,7 +61,9 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 
 ## Outcomes & Retrospective
 
-Implementation is not complete. The intended result is one shared correction rather than per-command guards, with regression evidence across direct expression parsing, CLI transport, and generic source-file loading.
+Implementation and validation are complete. Malformed C-style and missing-apostrophe hexadecimal literals now fail in the shared lexer with full token spans and corrective notes. Ordinary grouping and cast payloads reserve unmatched-open diagnostics for end of input, while balanced malformed forms point to the unexpected token. The shared renderer adds caret ranges without changing numeric spans or fatal transport. Regression coverage exercises logical and event parsing, property CLI output, generic source-file `on` and `when` expressions, valid identifier boundaries, snapshots, and genuinely unclosed groups.
+
+Both project gates pass. Two focused review waves and a fresh control review completed; their three substantive findings were fixed and the final Sol re-check reported no substantive findings. The remaining work is repository hygiene and pull-request publication only.
 
 ## Context and Orientation
 
@@ -152,3 +154,5 @@ Plan revision note: 2026-08-13 — recorded the first Luna Max review wave and c
 Plan revision note: 2026-08-13 — recorded the Terra High review wave and narrowed missing-apostrophe recognition to require a following hexadecimal based digit.
 
 Plan revision note: 2026-08-13 — recorded the Sol High control finding and applied EOF-only unmatched-open classification to cast payloads.
+
+Plan revision note: 2026-08-13 — recorded the clean Sol re-check, final successful CI and local handoff gates, and completed implementation outcome before WIP cleanup.
