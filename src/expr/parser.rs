@@ -1112,15 +1112,26 @@ impl<'a> LogicalParser<'a> {
                 &["cast form is type'(expr)"],
             ));
         }
+        let open = self.current().span;
         self.index += 1;
         let inner = self.parse_conditional_expr()?;
         if !matches!(self.current().kind, LogicalTokenKind::RightParen) {
-            return Err(logical_parse_diag(
-                "EXPR-PARSE-LOGICAL-UNMATCHED-OPEN",
-                "unmatched opening parenthesis in cast expression",
-                candidate.span,
-                &["cast form is type'(expr)"],
-            ));
+            let current = self.current();
+            return Err(if matches!(current.kind, LogicalTokenKind::Eof) {
+                logical_parse_diag(
+                    "EXPR-PARSE-LOGICAL-UNMATCHED-OPEN",
+                    "unmatched opening parenthesis in cast expression",
+                    open,
+                    &["cast form is type'(expr)"],
+                )
+            } else {
+                logical_parse_diag(
+                    "EXPR-PARSE-LOGICAL-EXPECTED",
+                    "cast expression must end with ')'",
+                    current.span,
+                    &["expected ')' after the cast expression"],
+                )
+            });
         }
         let close = self.current().span;
         self.index += 1;
@@ -3609,6 +3620,12 @@ mod tests {
         let error = parse_logical_expr_ast("type(state)'(a")
             .expect_err("cast payloads need a closing parenthesis");
         assert_eq!(error.code, "EXPR-PARSE-LOGICAL-UNMATCHED-OPEN");
+        assert_eq!(error.primary_span, Span::new(12, 13));
+
+        let error = parse_logical_expr_ast("type(state)'(a, b)")
+            .expect_err("balanced cast payloads should point to unexpected tokens");
+        assert_eq!(error.code, "EXPR-PARSE-LOGICAL-EXPECTED");
+        assert_eq!(error.primary_span, Span::new(14, 15));
 
         let error = parse_logical_expr_ast("logic[x]'(a)")
             .expect_err("cast widths must be integral literals");
