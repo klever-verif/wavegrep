@@ -606,7 +606,7 @@ fn extract_generic_reports_empty_result_diagnostic() {
 }
 
 #[test]
-fn extract_generic_scoped_descendant_names_resolve() {
+fn extract_generic_scope_mixes_relative_and_canonical_names() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -619,11 +619,11 @@ fn extract_generic_scoped_descendant_names_resolve() {
             "--scope",
             "top",
             "--on",
-            "posedge cpu.valid",
+            "posedge top.cpu.valid",
             "--when",
-            "!mem.ready",
+            "!mem.ready && !top.mem.ready",
             "--payload",
-            "cpu.valid,mem.ready",
+            "cpu.valid,top.mem.ready",
             "--json",
         ])
         .output()
@@ -635,6 +635,27 @@ fn extract_generic_scoped_descendant_names_resolve() {
     assert_eq!(value["data"][0]["time"], "5ns");
     assert_eq!(value["data"][0]["payload"][0]["path"], "top.cpu.valid");
     assert_eq!(value["data"][0]["payload"][1]["path"], "top.mem.ready");
+
+    wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge cpu.valid",
+            "--when",
+            "1",
+            "--payload",
+            "cpu.valid,top.cpu.valid",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "payload contains duplicate signal 'top.cpu.valid'",
+        ));
 }
 
 #[test]
@@ -667,7 +688,7 @@ fn extract_generic_rejects_unsupported_trigger_forms() {
 }
 
 #[test]
-fn extract_generic_rejects_bad_sources_and_scoped_payload_paths() {
+fn extract_generic_rejects_bad_sources_and_paths_outside_scope() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-invalid.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
     let ambiguous_fixture = fixture_path("change_scope_ambiguous.vcd");
@@ -729,9 +750,9 @@ fn extract_generic_rejects_bad_sources_and_scoped_payload_paths() {
             "--waves",
             ambiguous_fixture.as_str(),
             "--scope",
-            "top",
+            "top.top",
             "--on",
-            "posedge clk",
+            "negedge clk",
             "--when",
             "1",
             "--payload",
@@ -739,9 +760,7 @@ fn extract_generic_rejects_bad_sources_and_scoped_payload_paths() {
         ])
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "must be relative when --scope is set",
-        ));
+        .stderr(predicate::str::starts_with("fatal: signal:"));
 }
 
 #[test]

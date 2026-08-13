@@ -447,10 +447,14 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
             help.contains("Start of inclusive time range (e.g. 1234ns; omitted means dump start)")
         );
         assert!(help.contains("End of inclusive time range (e.g. 1234ns; omitted means dump end)"));
-        assert!(help.contains("Canonical scope path for scope-relative signal and trigger names"));
         assert!(help.contains(
-            "Comma-separated top-related signal paths, or scope-relative names when --scope is set"
+            "Canonical scope path for relative or in-scope canonical signal and trigger names"
         ));
+        assert!(
+            help.contains(
+                "Comma-separated canonical paths, or relative names resolved under --scope"
+            )
+        );
         assert!(help.contains(
             "Maximum number of snapshot rows (`unlimited` disables truncation, value must be > 0)"
         ));
@@ -500,7 +504,9 @@ fn property_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
             help.contains("Start of inclusive time range (e.g. 1234ns; omitted means dump start)")
         );
         assert!(help.contains("End of inclusive time range (e.g. 1234ns; omitted means dump end)"));
-        assert!(help.contains("Canonical scope path for scope-relative signal and event names"));
+        assert!(help.contains(
+            "Canonical scope path for relative or in-scope canonical event and expression names"
+        ));
         assert!(help.contains("Logical expression evaluated at selected event timestamps"));
         assert!(
             help.contains("Capture mode: level (`match`) or edge (`switch`, `assert`, `deassert`)")
@@ -686,7 +692,7 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         "Output preserves the input order from `--at` and `--signals`, including duplicates.",
         "By default, signal names are top-related canonical paths",
         "set `--scope` once with a canonical scope path",
-        "Do not mix top-related canonical names and scope-relative names",
+        "Relative and canonical references inside the selected scope may be mixed",
         "more precise than dump resolution",
     ] {
         assert!(
@@ -702,10 +708,14 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(help.contains("Other options:"));
         assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
         assert!(help.contains("Time point(s) with explicit units (e.g. 1337ns or 10ns,20ns)"));
-        assert!(help.contains("Canonical scope path for scope-relative signal names"));
-        assert!(help.contains(
-            "Comma-separated top-related signal paths, or scope-relative names when --scope is set"
-        ));
+        assert!(
+            help.contains("Canonical scope path for relative or in-scope canonical signal names")
+        );
+        assert!(
+            help.contains(
+                "Comma-separated canonical paths, or relative names resolved under --scope"
+            )
+        );
         assert!(help.contains("Show canonical signal paths"));
         assert!(help.contains("Machine-readable JSON output"));
         assert!(!help.contains("(`--waves <FILE>` is required)"));
@@ -938,6 +948,7 @@ fn extract_generic_help_is_self_descriptive() {
         "Extract protocol-neutral event rows from waveform signals.",
         "Selects edge-only event timestamps with --on.",
         "Always samples --when and --payload at the pre-edge sample point.",
+        "Canonical scope path for relative or in-scope canonical event, predicate, and payload names",
         "In source-file mode, --source provides one or more sources",
         "Source-file fields and behavior are documented in the corresponding protocol topic.",
         "JSON and JSONL rows include time, sample_time, source, and ordered payload values.",

@@ -24,17 +24,17 @@ use crate::error::WavepeekError;
 use crate::output::{self, JsonlWriter};
 use crate::output_mode::OutputMode;
 
-pub(crate) fn scoped_signal_path(name: &str, scope: Option<&str>) -> Option<String> {
+pub(crate) fn scoped_signal_path(name: &str, scope: Option<&str>) -> String {
     match scope {
         Some(scope)
             if name
                 .strip_prefix(scope)
                 .is_some_and(|suffix| suffix.starts_with('.')) =>
         {
-            None
+            name.to_string()
         }
-        Some(scope) => Some(format!("{scope}.{name}")),
-        None => Some(name.to_string()),
+        Some(scope) => format!("{scope}.{name}"),
+        None => name.to_string(),
     }
 }
 
@@ -216,13 +216,13 @@ mod tests {
     #[test]
     fn scoped_signal_path_resolves_relative_names() {
         for (name, scope, expected) in [
-            ("top.cpu.valid", None, Some("top.cpu.valid")),
-            ("valid", Some("top.cpu"), Some("top.cpu.valid")),
-            ("cpu.valid", Some("top"), Some("top.cpu.valid")),
-            ("top.cpu.valid", Some("top"), None),
-            ("topology.valid", Some("top"), Some("top.topology.valid")),
+            ("top.cpu.valid", None, "top.cpu.valid"),
+            ("valid", Some("top.cpu"), "top.cpu.valid"),
+            ("cpu.valid", Some("top"), "top.cpu.valid"),
+            ("top.cpu.valid", Some("top"), "top.cpu.valid"),
+            ("topology.valid", Some("top"), "top.topology.valid"),
         ] {
-            assert_eq!(scoped_signal_path(name, scope).as_deref(), expected);
+            assert_eq!(scoped_signal_path(name, scope), expected);
         }
     }
 

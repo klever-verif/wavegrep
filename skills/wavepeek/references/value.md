@@ -39,7 +39,7 @@ Rows follow the `--at` order. Duplicate time points are preserved.
 
 ## Shorten deep names with `--scope`
 
-When several signals live in the same scope, set that scope once and keep `--signals` relative:
+When several signals live in the same scope, set that scope once. `--signals` accepts relative names, canonical paths inside the scope, or both:
 
 ```text
 $ wavepeek value --waves path/to/dump.vcd --at 10ns --scope top --signals clk,data
@@ -93,7 +93,7 @@ Use this when another tool needs deterministic parsing instead of human formatti
 - `--at` order is preserved exactly, including duplicates.
 - `--signals` order is preserved exactly, including duplicates.
 - Without `--scope`, names in `--signals` are treated as canonical full paths.
-- With `--scope`, names in `--signals` must stay scope-relative. Do not mix relative names and full paths in one request.
+- With `--scope`, names in `--signals` may be relative or canonical paths inside the scope, and both forms may be mixed.
 - `--abs` affects only human output. With `--json`, canonical paths are emitted either way.
 - `--at` accepts dump start and dump end; both bounds are inclusive.
 - Time tokens must be integer plus unit. `10ns` is valid; `10` and `1.5ns` are errors.

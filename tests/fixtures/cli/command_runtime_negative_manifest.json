@@ -33,23 +33,6 @@
       "stderr_snapshot": "expr_runtime_invalid_eval"
     },
     {
-      "name": "property_scoped_dotted_on_expr",
-      "command": "property",
-      "args": [
-        "--waves",
-        "tests/fixtures/generated/m2_core.vcd",
-        "--scope",
-        "top",
-        "--on",
-        "posedge top.clk",
-        "--eval",
-        "data == 8'h00"
-      ],
-      "exit_code": 1,
-      "stderr_prefix": "fatal: expr:",
-      "stderr_snapshot": "expr_runtime_scoped_dotted_on"
-    },
-    {
       "name": "property_malformed_sized_literal",
       "command": "property",
       "args": [

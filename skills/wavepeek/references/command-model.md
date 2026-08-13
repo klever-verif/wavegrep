@@ -33,17 +33,17 @@ Commands without time-window flags do not participate in this model. `value` use
 
 wavepeek uses canonical dump-derived paths as the stable naming model. Without `--scope`, signal-like names are interpreted as canonical full paths.
 
-Commands that support `--scope` allow shorter names relative to the selected scope. Relative names may include child-scope components: with `--scope top`, `cpu.valid` resolves to `top.cpu.valid`, while repeating the selected scope as `top.cpu.valid` remains invalid. In scoped modes, name resolution happens inside the declared scope rather than against the full hierarchy root. Human-readable output may render short or relative names for compactness, but machine-readable output keeps canonical paths where the contract defines them.
+Generic waveform queries that support `--scope` accept shorter names relative to the selected scope and canonical paths inside it. With `--scope top`, both `cpu.valid` and `top.cpu.valid` resolve to the same signal, and both forms may appear in one request. Every name that does not begin with the exact selected-scope prefix is interpreted relative to that scope, so it cannot select a canonical path outside the scope. Human-readable output may render short or relative names for compactness, but machine-readable output keeps canonical paths where the contract defines them.
 
 The commands that depend on this model are:
 
 - `signal`, which requires an exact scope path and can optionally traverse child scopes.
-- `value`, which accepts either canonical paths or scope-relative signal names depending on whether `--scope` is set.
-- `change` and `property`, which apply the same scope-relative resolution model to sampled signals, trigger names, and expression references.
-- `extract generic`, which applies the same scope-relative model to `--on`, `--when`, and payload signal names from CLI flags or source JSON.
+- `value`, which accepts canonical paths without `--scope`, and relative or in-scope canonical signal names with it.
+- `change` and `property`, which apply the same resolution model to sampled signals, trigger names, and expression references.
+- `extract generic`, which applies the same model to `--on`, `--when`, and payload signal names from CLI flags or source JSON.
 - `extract ahb`, `extract apb`, `extract atb`, `extract axi`, and `extract axistream`, which resolve mapped waveform names and include candidates relative to `--scope` while keeping protocol standard names independent of waveform hierarchy.
 
-Unresolved names are errors. In scoped `change`, `property`, and `extract` mode, canonical full-path tokens are rejected in places where the command contract expects names to stay relative to the selected scope, preventing mixed-resolution queries.
+Unresolved names are errors. Scoped generic queries may mix relative and in-scope canonical references, but cannot escape the selected scope. Protocol extract mappings remain scope-relative.
 
 If distinct FSDB records map to one canonical signal path, wavepeek quarantines that path instead of selecting a backing record. Scopes and unambiguous signals remain available. Signal listings omit quarantined paths with a diagnostic, while an explicit reference to one fails as an ambiguous signal.
 

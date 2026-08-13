@@ -41,7 +41,7 @@ Common causes:
 - the trigger never fires in that window,
 - the trigger fires, but the printed signals did not change,
 - the signal list is correct, but the values were already stable,
-- the query uses the wrong naming mode for `--scope` versus canonical paths.
+- a signal spelling does not resolve inside the selected scope.
 
 If `change` finds no qualifying rows, it emits a diagnostic instead of failing:
 
@@ -63,7 +63,7 @@ That means empty output is normal when:
 ## Most empty results come from one of four mistakes
 
 1. **Wrong names** — the scope path or signal spelling is wrong.
-2. **Wrong naming mode** — canonical names were used under `--scope`, or short names were used without it.
+2. **Wrong naming context** — a short name was used without `--scope`, or a canonical path lies outside the selected scope.
 3. **Wrong filter or trigger** — the regex or event expression is narrower than intended.
 4. **Wrong time window** — the interesting activity is outside the selected bounds.
 

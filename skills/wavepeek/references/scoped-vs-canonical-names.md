@@ -1,15 +1,15 @@
 # Scoped vs canonical names
 
-Most name-resolution mistakes come from mixing two naming modes:
+Without `--scope`, signal references are canonical paths from the dump root, such as `top.cpu.clk`.
 
-- **canonical mode**: no `--scope`; pass full paths such as `top.cpu.clk`,
-- **scoped mode**: `--scope top.cpu`; pass names relative to that scope such as `clk`.
+With `--scope top.cpu`, references may use either:
 
-Do not mix the two modes in one query.
+- a path relative to that scope, such as `clk`, or
+- a canonical path inside that scope, such as `top.cpu.clk`.
 
-## Canonical mode: no `--scope`
+Both forms resolve to the same waveform signal and may be mixed in one request.
 
-Without `--scope`, `wavepeek` resolves signal names from the dump root.
+## Without `--scope`
 
 Use full canonical paths:
 
@@ -19,42 +19,27 @@ wavepeek change --waves dump.vcd --signals top.cpu.clk,top.cpu.state --on 'posed
 wavepeek property --waves dump.vcd --on 'posedge top.cpu.clk' --eval "top.cpu.state == 8'h03"
 ```
 
-Short names such as `clk` do not resolve in this mode unless the dump really contains a top-level canonical path with that exact name.
+A short name such as `clk` resolves only if the dump contains that exact top-level canonical path.
 
-## Scoped mode: `--scope <path>`
+## With `--scope <path>`
 
-With `--scope`, keep names relative to that scope:
+Use whichever form is convenient for each reference:
 
 ```text
-wavepeek value --waves dump.vcd --at 10ns --scope top.cpu --signals clk,state
-wavepeek change --waves dump.vcd --scope top.cpu --signals clk,state --on 'posedge clk' --from 0ns --to 20ns
-wavepeek property --waves dump.vcd --scope top.cpu --on 'posedge clk' --eval "state == 8'h03"
+wavepeek value --waves dump.vcd --at 10ns --scope top.cpu --signals clk,top.cpu.state
+wavepeek change --waves dump.vcd --scope top.cpu --signals clk,top.cpu.state --on 'posedge top.cpu.clk' --from 0ns --to 20ns
+wavepeek property --waves dump.vcd --scope top.cpu --on 'posedge clk' --eval "top.cpu.state == 8'h03"
 ```
 
-In this mode, do not repeat the scope prefix inside `--signals`, `--on`, or `--eval`.
+Canonical paths must be inside the selected scope. Every other name is interpreted relative to that scope. For example, under `--scope top.cpu`, `other.clk` means `top.cpu.other.clk`; it does not select canonical path `other.clk` outside the scope.
 
-## Command-specific reminders
-
-### `value`
-
-- without `--scope`: `--signals` expects canonical paths,
-- with `--scope`: `--signals` must be scope-relative.
-
-## `change`
-
-- `--signals` follows the same rule as `value`,
-- in scoped mode, names inside `--on` must also stay relative to the selected scope.
-
-## `property`
-
-- names inside both `--on` and `--eval` follow the same scoped-versus-canonical rule,
-- if you set `--scope top.cpu`, write `clk` or `state`, not `top.cpu.clk` or `top.cpu.state`.
+The same rule applies to `value` and `change` `--signals`, names in `--on`, `--eval`, and `--when` expressions, and `extract generic --payload`.
 
 ## How to recover quickly
 
 1. Use `wavepeek scope` to confirm the exact scope path.
-2. Use `wavepeek signal --scope <path>` to confirm the exact signal names.
-3. Decide whether you want canonical mode or scoped mode.
-4. Rewrite all signal references in that query to match the chosen mode.
+2. Use `wavepeek signal --scope <path>` to confirm signals inside it.
+3. Check that every canonical reference begins with the selected scope followed by `.`.
+4. Check that every other reference exists relative to the selected scope.
 
-If a query still fails, it usually means the scope path is wrong, the signal name spelling is wrong, or the signal lives in a different scope than expected.
+If a query still fails, the scope path or signal spelling is usually wrong, or the signal lives outside the selected scope.

@@ -393,7 +393,7 @@ fn change_named_non_edge_trigger_emits_expected_single_row() {
 }
 
 #[test]
-fn change_scoped_descendant_names_resolve() {
+fn change_scope_mixes_relative_and_canonical_names() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -405,9 +405,9 @@ fn change_scoped_descendant_names_resolve() {
             "--scope",
             "top",
             "--signals",
-            "cpu.valid",
+            "cpu.valid,top.clk",
             "--on",
-            "posedge cpu.valid",
+            "posedge top.cpu.valid",
             "--sample-mode",
             "native",
             "--json",
@@ -419,7 +419,13 @@ fn change_scoped_descendant_names_resolve() {
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"][0]["time"], "5ns");
-    assert_eq!(value["data"][0]["signals"][0]["path"], "top.cpu.valid");
+    assert_eq!(
+        value["data"][0]["signals"],
+        json!([
+            {"path": "top.cpu.valid", "value": "1'h1"},
+            {"path": "top.clk", "value": "1'h1"}
+        ])
+    );
 }
 
 #[test]
@@ -1903,26 +1909,6 @@ fn change_validates_error_paths_for_args_scope_and_signal_resolution() {
             "change",
             "--waves",
             fixture.as_str(),
-            "--scope",
-            "top",
-            "--signals",
-            "top.clk",
-            "--on",
-            "posedge top.clk",
-            "--sample-mode",
-            "native",
-        ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"));
-
-    wavepeek_cmd()
-        .args([
-            "change",
-            "--waves",
-            fixture.as_str(),
             "--on",
             "posedge nope",
             "--signals",
@@ -2149,50 +2135,38 @@ fn change_invalid_when_signal_fails_even_without_in_range_timestamps() {
 }
 
 #[test]
-fn change_scoped_mode_rejects_canonical_tokens_even_if_prefixed_path_exists() {
+fn change_scope_accepts_canonical_signal_and_trigger_paths() {
     let fixture = fixture_path("change_scope_ambiguous.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args([
             "change",
-            "--on",
-            "*",
-            "--sample-mode",
-            "native",
             "--waves",
             fixture.as_str(),
             "--scope",
             "top",
             "--signals",
             "top.clk",
-        ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"));
-
-    wavepeek_cmd()
-        .args([
-            "change",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--signals",
-            "clk",
             "--on",
             "posedge top.clk",
             "--sample-mode",
             "native",
+            "--json",
         ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: expr:"))
-        .stderr(predicate::str::contains("unknown signal 'top.clk'"));
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        parse_json(&output.stdout)["data"],
+        json!([{
+            "time": "5ns",
+            "sample_time": "5ns",
+            "signals": [{"path": "top.clk", "value": "1'h1"}]
+        }])
+    );
 }
 
 #[test]

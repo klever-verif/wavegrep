@@ -36,8 +36,9 @@ by `--eval`. `extract` does not support wildcard triggers. `change`,
 ### 1.2 Names and Resolution
 
 A name may appear as a simple signal, a hierarchical path, or another canonical
-dump-derived signal token accepted by the command surface. Names must resolve to
-signals; unresolved names are errors.
+dump-derived signal token accepted by the command surface. With `--scope`, names
+may be relative or canonical paths inside that scope, and both forms may be
+mixed. Names must resolve to signals; unresolved names are errors.
 
 ### 1.3 Basic Event Semantics
 

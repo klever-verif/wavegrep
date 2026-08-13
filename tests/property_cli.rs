@@ -1058,7 +1058,7 @@ fn property_explicit_wildcard_signal_free_eval_reports_tracking_error() {
 }
 
 #[test]
-fn property_scope_resolves_descendants_and_rejects_canonical_names() {
+fn property_scope_accepts_mixed_relative_and_canonical_names() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -1070,9 +1070,9 @@ fn property_scope_resolves_descendants_and_rejects_canonical_names() {
             "--scope",
             "top",
             "--on",
-            "posedge cpu.valid",
+            "posedge top.cpu.valid",
             "--eval",
-            "cpu.valid",
+            "cpu.valid && top.cpu.valid",
             "--capture",
             "assert",
             "--sample-mode",
@@ -1088,25 +1088,6 @@ fn property_scope_resolves_descendants_and_rejects_canonical_names() {
         parse_json(&output.stdout)["data"],
         json!([{"time": "5ns", "sample_time": "5ns", "kind": "assert"}])
     );
-
-    wavepeek_cmd()
-        .args([
-            "property",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--on",
-            "posedge top.clk",
-            "--eval",
-            "data == 8'h00",
-        ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: expr:"))
-        .stderr(predicate::str::contains("unknown signal 'top.clk'"));
 }
 
 #[test]
