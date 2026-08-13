@@ -35,7 +35,7 @@ pub struct ChangeArgs {
     /// End of inclusive time range (e.g. 1234ns; omitted means dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for relative or in-scope canonical signal names
+    /// Canonical scope path for relative or in-scope canonical signal and trigger names
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
     /// Comma-separated canonical paths, or relative names resolved under --scope

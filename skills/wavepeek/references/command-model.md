@@ -33,7 +33,7 @@ Commands without time-window flags do not participate in this model. `value` use
 
 wavepeek uses canonical dump-derived paths as the stable naming model. Without `--scope`, signal-like names are interpreted as canonical full paths.
 
-Commands that support `--scope` accept shorter names relative to the selected scope and canonical paths inside it. With `--scope top`, both `cpu.valid` and `top.cpu.valid` resolve to the same signal, and both forms may appear in one request. Every name that does not begin with the exact selected-scope prefix is interpreted relative to that scope, so it cannot select a canonical path outside the scope. Human-readable output may render short or relative names for compactness, but machine-readable output keeps canonical paths where the contract defines them.
+Generic waveform queries that support `--scope` accept shorter names relative to the selected scope and canonical paths inside it. With `--scope top`, both `cpu.valid` and `top.cpu.valid` resolve to the same signal, and both forms may appear in one request. Every name that does not begin with the exact selected-scope prefix is interpreted relative to that scope, so it cannot select a canonical path outside the scope. Human-readable output may render short or relative names for compactness, but machine-readable output keeps canonical paths where the contract defines them.
 
 The commands that depend on this model are:
 
@@ -43,7 +43,7 @@ The commands that depend on this model are:
 - `extract generic`, which applies the same model to `--on`, `--when`, and payload signal names from CLI flags or source JSON.
 - `extract ahb`, `extract apb`, `extract atb`, `extract axi`, and `extract axistream`, which resolve mapped waveform names and include candidates relative to `--scope` while keeping protocol standard names independent of waveform hierarchy.
 
-Unresolved names are errors. Scoped queries may mix relative and in-scope canonical references, but cannot escape the selected scope.
+Unresolved names are errors. Scoped generic queries may mix relative and in-scope canonical references, but cannot escape the selected scope. Protocol extract mappings remain scope-relative.
 
 If distinct FSDB records map to one canonical signal path, wavepeek quarantines that path instead of selecting a backing record. Scopes and unambiguous signals remain available. Signal listings omit quarantined paths with a diagnostic, while an explicit reference to one fails as an ambiguous signal.
 

@@ -19,8 +19,8 @@ Protocol-specific `extract ahb`, `extract apb`, `extract atb`, `extract axi`, an
 - [x] (2026-08-13) Changed the shared resolver and focused unit/integration tests.
 - [x] (2026-08-13) Updated CLI help and packaged scoped-naming documentation.
 - [x] (2026-08-13) Ran focused unit, CLI, fixture-contract, and help suites plus `./dev just ci`; all passed.
-- [ ] Commit the implementation and documentation.
-- [ ] Run Luna Max focused review lanes, fix findings, and revalidate.
+- [x] (2026-08-13) Committed implementation and documentation as `3798c93`.
+- [x] (2026-08-13) Ran Luna Max correctness/tests, docs/help, and architecture/performance/simplicity lanes; fixed docs/help findings and revalidated with `cli_contract` plus `just check`.
 - [ ] Run Terra High focused review lanes over the consolidated diff, fix findings, and revalidate.
 - [ ] Run a Sol High control review, fix findings, and run final gates.
 - [ ] Remove this branch-local plan, commit cleanup, push, and open the pull request.
@@ -39,6 +39,9 @@ Protocol-specific `extract ahb`, `extract apb`, `extract atb`, `extract axi`, an
 - Observation: an old command-runtime negative fixture encoded the former canonical-path rejection.
   Evidence: `property_scoped_dotted_on_expr` became a successful command and its obsolete manifest row and snapshot were removed.
 
+- Observation: broad naming prose can accidentally imply that protocol-specific `extract --map` accepts canonical paths.
+  Evidence: Luna Max docs review found unqualified wording in `skills/wavepeek/SKILL.md` and `command-model.md`; both now explicitly preserve scope-relative protocol mappings.
+
 ## Decision Log
 
 - Decision: Preserve the existing shared resolver and change only its active-scope-prefix branch from rejection to canonical pass-through.
@@ -53,9 +56,13 @@ Protocol-specific `extract ahb`, `extract apb`, `extract atb`, `extract axi`, an
   Rationale: `--map` is not in the issue acceptance criteria, and a cross-surface warning would require waveform-aware resolution plumbing for little benefit.
   Date/Author: 2026-08-12 / maintainer and pi
 
+- Decision: Qualify top-level skill and command-model prose to generic waveform queries and retain surface-specific nouns in help.
+  Rationale: Luna Max review identified a real risk of promising unsupported protocol mapping behavior and weak help-contract coverage; precise wording is the smallest fix.
+  Date/Author: 2026-08-13 / pi
+
 ## Outcomes & Retrospective
 
-The shared implementation and public contract updates are complete. Focused validation passes; full CI, commits, review waves, final cleanup, and PR creation remain.
+The shared implementation and public contract updates are complete and committed. Focused validation and full CI pass; review waves, final cleanup, and PR creation remain.
 
 ## Context and Orientation
 
@@ -142,3 +149,5 @@ Keep the existing internal signature in `src/engine/mod.rs`:
 Do not add dependencies, new public types, or new resolution layers. Existing `clap`, waveform backends, expression host, and error contracts remain unchanged.
 
 Revision note (2026-08-13): Recorded implementation, focused-test, and CI completion; documented the infallible resolver simplification, removed obsolete negative-fixture behavior, and corrected the container startup command after observing the repository entrypoint contract.
+
+Revision note (2026-08-13): Recorded Luna Max review completion, its docs/help findings, the resulting protocol-scope clarification and help-contract coverage, and successful revalidation.

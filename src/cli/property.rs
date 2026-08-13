@@ -26,7 +26,7 @@ pub struct PropertyArgs {
     /// End of inclusive time range (e.g. 1234ns; omitted means dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for relative or in-scope canonical signal names
+    /// Canonical scope path for relative or in-scope canonical event and expression names
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
     /// Event trigger expression (required; use `*` only with `--sample-mode native`)
