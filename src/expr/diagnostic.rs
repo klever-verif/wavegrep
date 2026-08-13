@@ -44,6 +44,22 @@ impl ExprDiagnostic {
             self.primary_span.start, self.primary_span.end
         );
         let excerpt = format!("source: {source}");
+        let caret_start = source
+            .char_indices()
+            .take_while(|(offset, _)| *offset < self.primary_span.start)
+            .count();
+        let caret_width = source
+            .char_indices()
+            .filter(|(offset, _)| {
+                *offset >= self.primary_span.start && *offset < self.primary_span.end
+            })
+            .count()
+            .max(1);
+        let underline = format!(
+            "        {}{}",
+            " ".repeat(caret_start),
+            "^".repeat(caret_width)
+        );
         let notes = if self.notes.is_empty() {
             String::new()
         } else {
@@ -55,9 +71,9 @@ impl ExprDiagnostic {
         };
 
         if notes.is_empty() {
-            [header, location, excerpt].join("\n")
+            [header, location, excerpt, underline].join("\n")
         } else {
-            [header, location, excerpt, notes].join("\n")
+            [header, location, excerpt, underline, notes].join("\n")
         }
     }
 }

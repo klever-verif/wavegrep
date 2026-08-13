@@ -18,10 +18,10 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 
 - [x] (2026-08-13 18:14Z) Read issue #103, repository guidance, expression lexer/parser/renderer paths, tests, and packaged skill.
 - [x] (2026-08-13 18:14Z) Install this worktree's host Git hooks with `./dev --install-hooks`.
-- [ ] Add focused failing regression coverage for malformed literals, parenthesis classification, caret rendering, command surfaces, and generic source files.
-- [ ] Implement the smallest shared lexer, parser, and renderer corrections.
-- [ ] Add the compact literal reminder to the bundled skill and update affected snapshots.
-- [ ] Run focused tests, `./dev just ci`, and `./dev just check`; commit logical milestones.
+- [x] (2026-08-13 18:22Z) Add focused regression coverage for both malformed literals, parenthesis classification, caret rendering, CLI transport, and generic source files.
+- [x] (2026-08-13 18:22Z) Implement the shared lexer, parser, and renderer corrections without new interfaces or dependencies.
+- [x] (2026-08-13 18:22Z) Add the compact literal reminder to the bundled skill and update affected snapshots.
+- [ ] Run focused tests, `./dev just ci`, and `./dev just check`; commit logical milestones. Completed: focused tests and `./dev just ci`; remaining: commit and `./dev just check` before handoff.
 - [ ] Run two focused review waves and one independent control review, resolving substantive findings.
 - [ ] Remove this branch-local plan, run final checks, push the branch, and open a pull request closing issue #103.
 
@@ -32,6 +32,12 @@ This work does not add C-style hexadecimal syntax, broaden the supported express
 
 - Observation: The literal diagnostic code already exists.
   Evidence: `src/expr/lexer.rs` and `src/expr/sema.rs` already emit `EXPR-PARSE-LOGICAL-LITERAL`, so no new code family is needed.
+
+- Observation: The shared renderer change mechanically affects every stored expression diagnostic, including zero-width runtime spans.
+  Evidence: Twelve existing snapshots gained only the expected caret line; `real'(xbus)` renders one caret for its existing `0..0` span.
+
+- Observation: `./dev` writes its devcontainer startup record to stdout, so it is not suitable for manually proving the binary's stdout is empty.
+  Evidence: the exact issue command returned status 1 and the expected stderr after a devcontainer startup line; integration tests invoking the binary directly prove empty stdout.
 
 ## Decision Log
 
@@ -132,3 +138,5 @@ The implementation must instead identify bytes 15 through 20 in this shortened e
 No public Rust interface or dependency is added. The existing `LogicalLexer::lex_numeric_literal`, `LogicalParser::parse_primary_expr`, and `ExprDiagnostic::render(&self, source: &str) -> String` remain the ownership points. Existing `ExprDiagnostic`, `Span`, `DiagnosticLayer`, `WavepeekError::Expr`, Insta, and current integration-test helpers are reused.
 
 Plan revision note: 2026-08-13 — created the initial self-contained execution plan after tracing issue #103 through the shared expression and CLI paths.
+
+Plan revision note: 2026-08-13 — recorded completed implementation, regression coverage, snapshot effects, and successful focused plus CI validation.

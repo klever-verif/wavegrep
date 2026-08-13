@@ -904,12 +904,22 @@ impl<'a> LogicalParser<'a> {
                 self.index += 1;
                 let expr = self.parse_conditional_expr()?;
                 if !matches!(self.current().kind, LogicalTokenKind::RightParen) {
-                    return Err(logical_parse_diag(
-                        "EXPR-PARSE-LOGICAL-UNMATCHED-OPEN",
-                        "unmatched opening parenthesis in logical expression",
-                        open,
-                        &["close this '('"],
-                    ));
+                    let current = self.current();
+                    return Err(if matches!(current.kind, LogicalTokenKind::Eof) {
+                        logical_parse_diag(
+                            "EXPR-PARSE-LOGICAL-UNMATCHED-OPEN",
+                            "unmatched opening parenthesis in logical expression",
+                            open,
+                            &["close this '('"],
+                        )
+                    } else {
+                        logical_parse_diag(
+                            "EXPR-PARSE-LOGICAL-EXPECTED",
+                            "parenthesized expression must end with ')'",
+                            current.span,
+                            &["expected ')' after the expression"],
+                        )
+                    });
                 }
                 let close = self.current().span;
                 self.index += 1;

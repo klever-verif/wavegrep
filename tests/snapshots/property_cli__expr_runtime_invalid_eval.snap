@@ -5,4 +5,5 @@ expression: stderr
 fatal: expr: parse:EXPR-PARSE-LOGICAL-EXPECTED: incomplete logical expression
 --> span 1..1
 source: (
+         ^
 note: expected an operand or literal

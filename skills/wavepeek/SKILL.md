@@ -28,6 +28,7 @@ Read [Command overview](references/overview.md) for command selection and [Help 
 - Keep output bounded with filters, focused signal lists, explicit time windows, and row limits.
 - Use canonical full signal paths without `--scope`; with `--scope`, use names relative to that scope throughout the query. Do not mix naming modes.
 - Time tokens require explicit units. Use `info` to learn dump bounds and precision.
+- Write hexadecimal expression literals in SystemVerilog form, such as `64'h10` or `128'h0011...`; `0x...` and `64h10` are invalid.
 - For synchronous RTL, separate the sampling event from the tested condition: use `--on 'posedge <clock>'` and put the condition in `--eval` or `--when`.
 - Edge-triggered queries commonly evaluate pre-edge values. Use each row's `sample_time` for follow-up sampling unless same-edge dump state is intentional.
 - Derive event and transaction counts from `extract` or `property --capture match`, not from `change`; repeated events with unchanged displayed values are intentionally collapsed by `change`.

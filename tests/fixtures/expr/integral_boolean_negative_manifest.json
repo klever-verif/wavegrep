@@ -1052,6 +1052,45 @@
       },
       "snapshot": null,
       "host_profile": "integral_boolean_baseline"
+    },
+    {
+      "name": "rejects_c_style_hex_literal",
+      "entrypoint": "logical",
+      "source": "a == (a >= 0x10)",
+      "layer": "parse",
+      "code": "EXPR-PARSE-LOGICAL-LITERAL",
+      "span": {
+        "start": 11,
+        "end": 15
+      },
+      "snapshot": null,
+      "host_profile": "integral_boolean_baseline"
+    },
+    {
+      "name": "rejects_sized_hex_literal_without_apostrophe",
+      "entrypoint": "logical",
+      "source": "a == (a >= 64h10)",
+      "layer": "parse",
+      "code": "EXPR-PARSE-LOGICAL-LITERAL",
+      "span": {
+        "start": 11,
+        "end": 16
+      },
+      "snapshot": null,
+      "host_profile": "integral_boolean_baseline"
+    },
+    {
+      "name": "genuinely_unclosed_logical_parenthesis",
+      "entrypoint": "logical",
+      "source": "a == (a >= 1",
+      "layer": "parse",
+      "code": "EXPR-PARSE-LOGICAL-UNMATCHED-OPEN",
+      "span": {
+        "start": 5,
+        "end": 6
+      },
+      "snapshot": null,
+      "host_profile": "integral_boolean_baseline"
     }
   ]
 }

@@ -461,6 +461,56 @@ fn extract_generic_source_file_collects_independent_clock_sources() {
 }
 
 #[test]
+fn extract_generic_source_file_reports_malformed_literals() {
+    let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-bad-literal.vcd");
+
+    for (on, when, rendered_source, caret) in [
+        (
+            "posedge clk iff data == 0x10",
+            "valid",
+            "source: posedge clk iff data == 0x10",
+            "                                ^^^^",
+        ),
+        (
+            "posedge clk",
+            "data == 64h10",
+            "source: data == 64h10",
+            "                ^^^^^",
+        ),
+    ] {
+        let source = write_source(
+            serde_json::json!({
+                "kind": "extract.generic.sources",
+                "sources": [{"name": "bad", "on": on, "when": when, "payload": ["data"]}]
+            })
+            .to_string()
+            .as_str(),
+        );
+
+        wavepeek_cmd()
+            .args([
+                "extract",
+                "generic",
+                "--waves",
+                fixture.path().to_str().unwrap(),
+                "--scope",
+                "top",
+                "--source",
+                source.path().to_str().unwrap(),
+            ])
+            .assert()
+            .code(1)
+            .stdout(predicate::str::is_empty())
+            .stderr(
+                predicate::str::starts_with("fatal: expr:")
+                    .and(predicate::str::contains("EXPR-PARSE-LOGICAL-LITERAL"))
+                    .and(predicate::str::contains(rendered_source))
+                    .and(predicate::str::contains(caret)),
+            );
+    }
+}
+
+#[test]
 fn extract_generic_reports_limit_diagnostics() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-limit.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
