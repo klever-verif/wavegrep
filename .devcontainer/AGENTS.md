@@ -6,8 +6,8 @@ This directory owns the single tool-only container definition, fixture provision
 
 ## Source of Truth
 
-- Container workflow: `../docs/dev/environment.md`
-- Quality gates: `../docs/dev/quality.md`
+- Container workflow: `../docs/environment.md`
+- Quality gates: `../docs/quality.md`
 - Container config and provisioning: `Dockerfile`, `devcontainer.json`, `env_contract.sh`
 
 ## Local Guidance

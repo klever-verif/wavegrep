@@ -2,8 +2,8 @@
 
 ## Source of Truth
 
-- Rust style and CLI constraints: `../docs/dev/style.md`
-- Internal architecture: `../docs/dev/architecture.md`
+- Rust style and CLI constraints: `../docs/style.md`
+- Internal architecture: `../docs/architecture.md`
 - Public command and output contracts: `../skills/wavepeek/references/command-model.md`, `../skills/wavepeek/references/machine-output.md`
 - Expression semantics for `change`, `property`, and `extract` family: `../skills/wavepeek/references/expression-language.md`
 
@@ -15,4 +15,4 @@
 
 ## Local Guidance
 
-Keep `../docs/dev/architecture.md` consistent when module boundaries, execution layers, or ownership responsibilities change. Public behavior changes must update the relevant packaged references and tests in the same slice.
+Keep `../docs/architecture.md` consistent when module boundaries, execution layers, or ownership responsibilities change. Public behavior changes must update the relevant packaged references and tests in the same slice.

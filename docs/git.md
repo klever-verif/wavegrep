@@ -8,7 +8,7 @@ Do not bypass hooks with `--no-verify` unless the user or maintainer explicitly 
 
 Use repository-root `tmp/` for ignored scratch files, logs, and ad hoc outputs. Do not globally clean it or delete arbitrary existing files because another agent or the user may own them.
 
-Use `docs/tracker/wip/` for branch-local tracked artifacts that need review or must survive across agent sessions. Those artifacts should be removed before merging to the default branch unless a maintainer intentionally keeps them for handoff.
+Use `docs/wip/` for branch-local tracked artifacts that need review or must survive across agent sessions. Those artifacts should be removed before merging to the default branch unless a maintainer intentionally keeps them for handoff.
 
 ## GitHub and Fork Remotes
 

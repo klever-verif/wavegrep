@@ -55,4 +55,4 @@ The full FSDB build, fixture, benchmark, and repository-safety contract lives in
 
 Use repository-root `tmp/` for scratch files, ad hoc logs, temporary benchmark captures, and other disposable working artifacts. It is ignored by Git and may be created freely.
 
-Never globally clean `tmp/` or delete arbitrary existing files there. Other agents or the user may own them. If a temporary artifact needs review or must survive across sessions, move it intentionally into a tracked location such as `docs/tracker/wip/` and explain why.
+Never globally clean `tmp/` or delete arbitrary existing files there. Other agents or the user may own them. If a temporary artifact needs review or must survive across sessions, move it intentionally into a tracked location such as `docs/wip/` and explain why.

@@ -20,16 +20,16 @@
 
 ## Development
 
-Maintainer workflow lives under `docs/dev/`:
+Maintainer workflow lives under `docs/`:
 
-- `docs/dev/environment.md` for the shared devcontainer, host entrypoint, fixtures, and `tmp/`.
-- `docs/dev/quality.md` for `just check`, `just ci`, coverage, and hooks.
-- `docs/dev/testing.md` for test strategy and fixtures.
-- `docs/dev/style.md` for Rust, CLI, output, and docs conventions.
-- `docs/dev/benchmarking.md` for manual performance gate and E2E benchmark workflows.
-- `docs/dev/automation.md` for CI, `justfile`, pre-commit, and helper tools.
-- `docs/dev/git.md`, `docs/dev/changelog.md`, and `docs/dev/release.md` for contribution hygiene and releases.
-- `docs/dev/architecture.md` for internal module boundaries.
+- `docs/environment.md` for the shared devcontainer, host entrypoint, fixtures, and `tmp/`.
+- `docs/quality.md` for `just check`, `just ci`, coverage, and hooks.
+- `docs/testing.md` for test strategy and fixtures.
+- `docs/style.md` for Rust, CLI, output, and docs conventions.
+- `docs/benchmarking.md` for manual performance gate and E2E benchmark workflows.
+- `docs/automation.md` for CI, `justfile`, pre-commit, and helper tools.
+- `docs/git.md`, `docs/changelog.md`, and `docs/release.md` for contribution hygiene and releases.
+- `docs/architecture.md` for internal module boundaries.
 
 ## Map
 
@@ -39,6 +39,5 @@ Maintainer workflow lives under `docs/dev/`:
 - `bench/` — end-to-end benchmark harnesses.
 - `.github/workflows/` — CI and release workflows.
 - `.devcontainer/` — shared development and automation container setup.
-- `docs/dev/` — maintainer workflow, quality, style, release, and architecture docs.
-- `docs/tracker/` — backlog, roadmap, and branch-local WIP artifacts.
+- `docs/` — maintainer workflow, quality, style, release, backlog, and roadmap docs, with branch-local artifacts under `docs/wip/`.
 - `skills/wavepeek/` — canonical source for the packaged Wavepeek skill.

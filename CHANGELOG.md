@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Replaced the overlapping embedded documentation surfaces with `wavepeek skill <DIRECTORY>`, which extracts a complete version-matched package containing `SKILL.md`, flat offline references with explicit navigation, an examples directory, and a provenance manifest ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
+- Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.
 
 ### Removed
 - Removed the Codex Web environment bootstrap; the devcontainer is now the supported development environment ([issue #93](https://github.com/kleverhq/wavepeek/issues/93)).
