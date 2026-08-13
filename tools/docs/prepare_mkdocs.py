@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -9,29 +7,13 @@ import pathlib
 import shutil
 import sys
 import tempfile
-from dataclasses import dataclass
 from typing import Any
 
 import yaml
 
-SECTION_LABELS = {
-    "commands": "Commands",
-    "workflows": "Workflows",
-    "troubleshooting": "Troubleshooting",
-    "reference": "Reference",
-}
-SECTION_ORDER = tuple(SECTION_LABELS)
-
 
 class PrepareError(Exception):
     pass
-
-
-@dataclass(frozen=True)
-class Topic:
-    title: str
-    source: pathlib.Path
-    page: pathlib.PurePosixPath
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -50,14 +32,17 @@ def fail(message: str) -> None:
     raise PrepareError(message)
 
 
-def load_manifest(skill_dir: pathlib.Path, version: str | None) -> str:
-    manifest_path = skill_dir / "manifest.json"
-    if not manifest_path.is_file():
-        fail(f"missing skill manifest: {manifest_path}")
+def load_json(path: pathlib.Path, description: str) -> Any:
+    if not path.is_file():
+        fail(f"missing {description}: {path}")
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
-        fail(f"skill manifest is not valid JSON: {error}")
+        fail(f"{description} is not valid JSON: {error}")
+
+
+def load_manifest(skill_dir: pathlib.Path, version: str | None) -> str:
+    manifest = load_json(skill_dir / "manifest.json", "skill manifest")
     if not isinstance(manifest, dict):
         fail("skill manifest root must be an object")
     wavepeek_version = manifest.get("wavepeek_version")
@@ -70,62 +55,42 @@ def load_manifest(skill_dir: pathlib.Path, version: str | None) -> str:
     return wavepeek_version
 
 
-def markdown_title(path: pathlib.Path) -> str:
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("# "):
-            return line[2:].strip()
-    fail(f"reference is missing an H1 title: {path}")
+def load_navigation(references: pathlib.Path) -> tuple[list[dict[str, Any]], list[str]]:
+    manifest = load_json(references / "docs.json", "reference navigation")
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("navigation"), list):
+        fail("reference navigation must contain a navigation array")
 
+    nav = manifest["navigation"]
+    pages: list[str] = []
+    try:
+        for group in nav:
+            if not isinstance(group, dict) or len(group) != 1:
+                raise ValueError
+            items = next(iter(group.values()))
+            if not isinstance(items, list) or not items:
+                raise ValueError
+            for item in items:
+                if not isinstance(item, dict) or len(item) != 1:
+                    raise ValueError
+                path = next(iter(item.values()))
+                if not isinstance(path, str):
+                    raise ValueError
+                relative = pathlib.PurePosixPath(path)
+                if (
+                    path != relative.as_posix()
+                    or relative.is_absolute()
+                    or len(relative.parts) != 1
+                    or relative.suffix != ".md"
+                ):
+                    fail(f"reference navigation path must be a flat Markdown filename: {path}")
+                pages.append(path)
+    except ValueError:
+        fail("reference navigation must use MkDocs group and page objects")
 
-def load_topics(skill_dir: pathlib.Path) -> list[Topic]:
-    for required in ("SKILL.md", "references", "examples"):
-        if not (skill_dir / required).exists():
-            fail(f"skill bundle is missing {required}: {skill_dir / required}")
-    references = skill_dir / "references"
-    if not references.is_dir():
-        fail(f"skill references path is not a directory: {references}")
-
-    topics: list[Topic] = []
-    for source in sorted(references.rglob("*.md")):
-        relative = source.relative_to(references)
-        page = pathlib.PurePosixPath(*relative.parts)
-        if page == pathlib.PurePosixPath("intro.md"):
-            page = pathlib.PurePosixPath("index.md")
-        topics.append(Topic(markdown_title(source), source, page))
-    if not any(topic.page == pathlib.PurePosixPath("index.md") for topic in topics):
-        fail(f"skill references are missing intro.md: {references}")
-    return topics
-
-
-def build_nav(topics: list[Topic]) -> list[dict[str, Any]]:
-    intro = next(topic for topic in topics if topic.page == pathlib.PurePosixPath("index.md"))
-    nav: list[dict[str, Any]] = [{intro.title: "index.md"}]
-    by_section: dict[str, list[Topic]] = {}
-    for topic in topics:
-        if topic is intro:
-            continue
-        section = topic.page.parts[0] if len(topic.page.parts) > 1 else "other"
-        by_section.setdefault(section, []).append(topic)
-    for section in SECTION_ORDER:
-        section_topics = by_section.pop(section, [])
-        if section_topics:
-            nav.append(
-                {
-                    SECTION_LABELS[section]: [
-                        {topic.title: topic.page.as_posix()} for topic in section_topics
-                    ]
-                }
-            )
-    for section in sorted(by_section):
-        nav.append(
-            {
-                section.replace("-", " ").replace("_", " ").title(): [
-                    {topic.title: topic.page.as_posix()}
-                    for topic in by_section[section]
-                ]
-            }
-        )
-    return nav
+    discovered = sorted(path.relative_to(references).as_posix() for path in references.rglob("*.md"))
+    if sorted(pages) != discovered:
+        fail("reference navigation must list every flat Markdown file exactly once")
+    return nav, pages
 
 
 def write_generated_config(
@@ -155,7 +120,7 @@ def prepare_tree(
     version: str | None,
     *,
     force: bool,
-) -> tuple[str, list[Topic]]:
+) -> tuple[str, list[str]]:
     skill_dir = skill_dir.resolve()
     output = output.resolve()
     config_output = config_output.resolve()
@@ -167,29 +132,25 @@ def prepare_tree(
         fail(f"config output already exists: {config_output}; rerun with --force")
 
     wavepeek_version = load_manifest(skill_dir, version)
-    topics = load_topics(skill_dir)
+    references = skill_dir / "references"
+    nav, pages = load_navigation(references)
     output.parent.mkdir(parents=True, exist_ok=True)
-    temp_dir = pathlib.Path(tempfile.mkdtemp(prefix=f".{output.name}-", dir=output.parent))
-    try:
-        for topic in topics:
-            destination = temp_dir / pathlib.Path(*topic.page.parts)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(topic.source, destination)
+    with tempfile.TemporaryDirectory(prefix=f".{output.name}-", dir=output.parent) as temporary:
+        temp_dir = pathlib.Path(temporary)
+        for page in pages:
+            shutil.copyfile(references / page, temp_dir / page)
+        shutil.copyfile(pathlib.Path(__file__).with_name("monochrome.css"), temp_dir / "monochrome.css")
         if output.exists():
             shutil.rmtree(output)
         temp_dir.replace(output)
-        write_generated_config(config_output, output, build_nav(topics))
-    except Exception:
-        if temp_dir.exists():
-            shutil.rmtree(temp_dir)
-        raise
-    return wavepeek_version, topics
+    write_generated_config(config_output, output, nav)
+    return wavepeek_version, pages
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        version, topics = prepare_tree(
+        version, pages = prepare_tree(
             args.skill_dir,
             args.output,
             args.config_output,
@@ -199,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     except PrepareError as error:
         print(f"error: docs-site: {error}", file=sys.stderr)
         return 1
-    print(f"prepared {len(topics)} reference(s) for wavepeek {version} at {args.output}")
+    print(f"prepared {len(pages)} reference(s) for wavepeek {version} at {args.output}")
     return 0
 
 

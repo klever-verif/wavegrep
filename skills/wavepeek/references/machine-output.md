@@ -40,7 +40,7 @@ Transfer payload (`extract axi`):
 {"command":"extract axi","data":{"name":"axi","profile":"axi4-lite","issue":"H.c","mappings":{"aclk":{"path":"top.clk"},"awready":{"path":"top.axi_aw_ready_i"},"awvalid":{"path":"top.axi_aw_valid_o"}},"transfers":[{"time":"5ns","sample_time":"4ns","profile":"axi4-lite","channel":"aw","payload":{}}]},"diagnostics":[]}
 ```
 
-Machine-readable paths are canonical. Protocol extraction payloads retain the context fields documented in [Extract command](../commands/extract.md); rows contain only mapped observations. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
+Machine-readable paths are canonical. Protocol extraction payloads retain the context fields documented in [Extract command](extract.md); rows contain only mapped observations. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
 
 A diagnostic has `kind`, `message`, and, for warnings and errors, a stable `code`:
 

@@ -1,6 +1,6 @@
 # Architecture
 
-This file holds the internal engineering view of wavepeek: non-functional requirements, module boundaries, dependencies, execution strategy, and testing strategy. It does not restate the exact CLI flag surface. For command semantics and machine-output guarantees, use `skills/wavepeek/references/reference/command-model.md` and `skills/wavepeek/references/reference/machine-output.md`.
+This file holds the internal engineering view of wavepeek: non-functional requirements, module boundaries, dependencies, execution strategy, and testing strategy. It does not restate the exact CLI flag surface. For command semantics and machine-output guarantees, use `skills/wavepeek/references/command-model.md` and `skills/wavepeek/references/machine-output.md`.
 
 ## Non-Functional Requirements
 
@@ -144,7 +144,7 @@ Development dependencies include `assert_cmd`, `predicates`, `tempfile`, and `in
 
 ## Expression Engine Architecture
 
-The `change`, `property`, and `extract` commands share a typed expression stack in `src/expr/`. The language contract itself lives in `skills/wavepeek/references/reference/expression-language.md`; this section describes how the implementation is arranged.
+The `change`, `property`, and `extract` commands share a typed expression stack in `src/expr/`. The language contract itself lives in `skills/wavepeek/references/expression-language.md`; this section describes how the implementation is arranged.
 
 The pipeline is:
 
@@ -237,6 +237,6 @@ Runtime test execution does not fetch those larger fixtures dynamically; they ar
 The architectural split matters for docs maintenance:
 
 - `src/cli/`, `wavepeek --help`, and `wavepeek <command> --help` are the exact CLI surface authority.
-- `skills/wavepeek/references/reference/machine-output.md` and direct runtime tests define machine-output behavior.
-- `skills/wavepeek/references/` documents user-visible semantics that code alone does not explain well enough.
+- `skills/wavepeek/references/machine-output.md` and direct runtime tests define machine-output behavior.
+- Flat Markdown files under `skills/wavepeek/references/` document user-visible semantics, while `references/docs.json` defines website navigation.
 - this file documents internals that help contributors change implementation safely without regrowing a monolithic design doc.

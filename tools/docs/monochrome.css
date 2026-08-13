@@ -1,0 +1,12 @@
+[data-md-color-scheme="default"] {
+  --md-accent-fg-color: #424242;
+  --md-accent-fg-color--transparent: #4242421a;
+  --md-typeset-a-color: #212121;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 0;
+  --md-accent-fg-color: #bdbdbd;
+  --md-accent-fg-color--transparent: #bdbdbd1a;
+  --md-typeset-a-color: #eeeeee;
+}

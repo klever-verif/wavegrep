@@ -36,7 +36,7 @@ Examples:
 - whether a string or enum comparison matched,
 - whether an event-like source triggered at selected timestamps.
 
-`property` uses the surface documented in [Expression language](../reference/expression-language.md), which is broader than the raw sampled-value surfaces used by `value` and `change`.
+`property` uses the surface documented in [Expression language](expression-language.md), which is broader than the raw sampled-value surfaces used by `value` and `change`.
 
 ## What to do when you still need a raw value timeline
 

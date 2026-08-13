@@ -7,7 +7,7 @@ A good mental model is a lightweight SystemVerilog event-driven monitor:
 - `--on` uses SystemVerilog-style event semantics, roughly the same surface you would write inside `@(...)`, but without the outer `@` and parentheses.
 - `--eval` uses SystemVerilog-style value and logical expression semantics. By default, edge-triggered checks use pre-edge sampling: the row timestamp stays at the trigger edge, but `--eval` reads values from immediately before that edge. Use `--sample-mode native` when you intentionally want dump values from the selected timestamp.
 - In practice, `--eval` supports 4-state values and the usual useful SV-style operators: logical operators, bitwise operators, comparisons and equalities, arithmetic and shifts, casts, bit-select and part-select, concatenation and replication, and related expression forms. Final property decisions are then reduced to a Boolean true/false result for capture.
-- `wavepeek` supports that SV-like surface as a defined dump-oriented contract, not as full temporal SVA. The exact supported syntax and semantics live in [Expression language](../reference/expression-language.md).
+- `wavepeek` supports that SV-like surface as a defined dump-oriented contract, not as full temporal SVA. The exact supported syntax and semantics live in [Expression language](expression-language.md).
 
 The command works in two steps:
 
@@ -145,7 +145,7 @@ Common `--on` patterns:
 - `posedge clk iff rst_n`
 - `* or posedge clk` with `--sample-mode native`
 
-Full trigger and expression syntax is defined in [Expression language](../reference/expression-language.md). Wildcard, plain-signal, and mixed triggers are native-sampling queries; edge-only triggers can use the default pre-edge sampling.
+Full trigger and expression syntax is defined in [Expression language](expression-language.md). Wildcard, plain-signal, and mixed triggers are native-sampling queries; edge-only triggers can use the default pre-edge sampling.
 
 ## Choose native or pre-edge value sampling
 
@@ -159,7 +159,7 @@ $ wavepeek property --waves path/to/dump.vcd --scope top \
 
 Pre-edge sampling is accepted only with an explicit edge-only `--on`: `posedge`, `negedge`, or `edge`, optionally with `iff`. The trigger edge detection and any `iff` guard still use dump-native values at the edge timestamp; only the `--eval` value sampling moves to the pre-edge sample point. JSON and JSONL rows always include both `time` and `sample_time`; use `sample_time` for follow-up `value --at` checks.
 
-Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or when you intentionally want values from the same dump timestamp as the selected event. Use the default pre-edge mode when `property` appears one clock ahead of a SystemVerilog assertion because a value is dumped after a nonblocking assignment at the same clock edge. See [Clock-edge sampling](../troubleshooting/clock-edge-sampling.md) for diagrams and boundary behavior.
+Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or when you intentionally want values from the same dump timestamp as the selected event. Use the default pre-edge mode when `property` appears one clock ahead of a SystemVerilog assertion because a value is dumped after a nonblocking assignment at the same clock edge. See [Clock-edge sampling](clock-edge-sampling.md) for diagrams and boundary behavior.
 
 ## Non-obvious behavior
 

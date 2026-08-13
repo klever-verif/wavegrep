@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib
@@ -24,16 +22,15 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.skill = self.root / "skill"
         self.output = self.root / "mkdocs-src"
         self.config = self.root / "mkdocs.yml"
-        (self.skill / "references" / "commands").mkdir(parents=True)
-        (self.skill / "examples").mkdir()
-        (self.skill / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
-        (self.skill / "references" / "intro.md").write_text(
+        (self.skill / "references").mkdir(parents=True)
+        (self.skill / "references" / "index.md").write_text(
             "# Introduction\n\nStart here.\n", encoding="utf-8"
         )
-        (self.skill / "references" / "commands" / "change.md").write_text(
+        (self.skill / "references" / "change.md").write_text(
             "# Change command\n\nFind changes.\n", encoding="utf-8"
         )
         self.write_manifest()
+        self.write_navigation()
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -45,29 +42,39 @@ class PrepareMkdocsTests(unittest.TestCase):
             json.dumps(manifest), encoding="utf-8"
         )
 
+    def write_navigation(self, navigation: object | None = None) -> None:
+        if navigation is None:
+            navigation = [
+                {"Start here": [{"Introduction": "index.md"}]},
+                {"Commands": [{"Change": "change.md"}]},
+            ]
+        (self.skill / "references" / "docs.json").write_text(
+            json.dumps({"navigation": navigation}), encoding="utf-8"
+        )
+
     def prepare(self, *, force: bool = True, version: str = "0.5.0"):
         return prepare_mkdocs.prepare_tree(
             self.skill, self.output, self.config, version, force=force
         )
 
-    def test_prepares_reference_tree_and_nav(self) -> None:
-        version, topics = self.prepare()
+    def test_prepares_flat_reference_tree_and_explicit_nav(self) -> None:
+        version, pages = self.prepare()
 
         self.assertEqual(version, "0.5.0")
-        self.assertEqual(len(topics), 2)
-        self.assertEqual(
-            (self.output / "index.md").read_text(encoding="utf-8"),
-            "# Introduction\n\nStart here.\n",
-        )
-        self.assertTrue((self.output / "commands" / "change.md").is_file())
-        self.assertFalse((self.output / "manifest.json").exists())
+        self.assertEqual(pages, ["index.md", "change.md"])
+        self.assertTrue((self.output / "index.md").is_file())
+        self.assertTrue((self.output / "change.md").is_file())
+        self.assertTrue((self.output / "monochrome.css").is_file())
+        self.assertFalse((self.output / "docs.json").exists())
         config = yaml.safe_load(self.config.read_text(encoding="utf-8"))
         self.assertEqual(config["docs_dir"], "mkdocs-src")
         self.assertEqual(config["site_dir"], "mkdocs-site")
-        self.assertIn({"Introduction": "index.md"}, config["nav"])
-        self.assertIn(
-            {"Commands": [{"Change command": "commands/change.md"}]},
+        self.assertEqual(
             config["nav"],
+            [
+                {"Start here": [{"Introduction": "index.md"}]},
+                {"Commands": [{"Change": "change.md"}]},
+            ],
         )
 
     def test_force_is_required_to_replace_outputs(self) -> None:
@@ -80,16 +87,26 @@ class PrepareMkdocsTests(unittest.TestCase):
         with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "does not match"):
             self.prepare()
 
-    def test_rejects_missing_required_bundle_paths(self) -> None:
-        (self.skill / "examples").rmdir()
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "missing examples"):
+    def test_rejects_noncanonical_alias_path(self) -> None:
+        self.write_navigation(
+            [
+                {"Start here": [{"Introduction": "index.md"}]},
+                {"Commands": [{"Change": "./change.md"}]},
+            ]
+        )
+        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "flat Markdown filename"):
             self.prepare()
 
-    def test_rejects_reference_without_h1(self) -> None:
-        (self.skill / "references" / "intro.md").write_text(
-            "No title.\n", encoding="utf-8"
-        )
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "missing an H1"):
+    def test_navigation_must_match_flat_markdown_inventory(self) -> None:
+        self.write_navigation([{"Start here": [{"Introduction": "index.md"}]}])
+        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "every flat Markdown file"):
+            self.prepare()
+
+        nested = self.skill / "references" / "commands"
+        nested.mkdir()
+        (nested / "info.md").write_text("# Info\n", encoding="utf-8")
+        self.write_navigation()
+        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "every flat Markdown file"):
             self.prepare()
 
 

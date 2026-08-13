@@ -1,12 +1,12 @@
 # Command Model Contract
 
-This document is normative for the cross-cutting semantics shared across the shipped waveform-inspection commands. It intentionally avoids repeating exact flag lists and defaults. For skill extraction behavior, see [Skill command](../commands/skill.md). For the precise command-line surface in an installed build, follow `wavepeek -h`, `wavepeek --help`, and `wavepeek help <command-path...>`.
+This document is normative for the cross-cutting semantics shared across the shipped waveform-inspection commands. It intentionally avoids repeating exact flag lists and defaults. For skill extraction behavior, see [Skill command](skill.md). For the precise command-line surface in an installed build, follow `wavepeek -h`, `wavepeek --help`, and `wavepeek help <command-path...>`.
 
 ## 1. Waveform Input Model
 
 wavepeek is a stateless CLI. Each invocation opens one waveform dump when needed, executes one command, writes its result, and exits.
 
-All waveform-inspection commands require `--waves <FILE>` and operate on a single dump per invocation. Non-waveform `help` and `skill` surfaces are outside this document's scope and follow exact CLI help plus [Skill command](../commands/skill.md).
+All waveform-inspection commands require `--waves <FILE>` and operate on a single dump per invocation. Non-waveform `help` and `skill` surfaces are outside this document's scope and follow exact CLI help plus [Skill command](skill.md).
 
 Default builds support VCD (Value Change Dump) and FST (Fast Signal Trace). FSDB support is currently Linux x86_64 only. FSDB (Fast Signal Database) requires a wavepeek binary built with the Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK. In an FSDB-enabled build all waveform-related commands use the same command contracts as VCD/FST for digital bit-vector/integral signals. FSDB real and string value decoding are not part of the current implementation.
 

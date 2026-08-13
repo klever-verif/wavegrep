@@ -1,6 +1,6 @@
 # Benchmarking Guide
 
-Benchmark work must run in the shared devcontainer image so fixture availability, Rust toolchain versions, and helper behavior match project gates. Preserve the public behavior contracts in `skills/wavepeek/references/reference/command-model.md` and `skills/wavepeek/references/reference/machine-output.md` while optimizing.
+Benchmark work must run in the shared devcontainer image so fixture availability, Rust toolchain versions, and helper behavior match project gates. Preserve the public behavior contracts in `skills/wavepeek/references/command-model.md` and `skills/wavepeek/references/machine-output.md` while optimizing.
 
 ## Manual performance gate
 

@@ -30,12 +30,12 @@ Identical inputs must produce identical outputs. Sort user-facing collections de
 
 ## CLI Design Constraints
 
-Waveform-inspection commands use named flags for primary inputs. The waveform file flag is always `--waves`. Default output is human-readable; `--json` enables the strict JSON envelope documented in `skills/wavepeek/references/reference/machine-output.md`. Time values require explicit units; reject bare numbers.
+Waveform-inspection commands use named flags for primary inputs. The waveform file flag is always `--waves`. Default output is human-readable; `--json` enables the strict JSON envelope documented in `skills/wavepeek/references/machine-output.md`. Time values require explicit units; reject bare numbers.
 
 Help must remain layered and standalone: `wavepeek` with no args aliases compact help, `-h` stays compact, `--help` stays detailed, and `wavepeek help <command-path...>` aliases long nested help. `wavepeek skill <DIRECTORY>` extracts the complete packaged skill into a new or empty directory.
 
 ## Packaged Skill Maintenance
 
-The canonical package source lives under `skills/wavepeek/`. Keep `SKILL.md` concise, put narrative guidance under `references/`, and keep internal Markdown links relative so they resolve in an extracted package. Exact syntax, flags, defaults, and required arguments belong in generated CLI help.
+The canonical package source lives under `skills/wavepeek/`. Keep `SKILL.md` concise, keep narrative guidance as flat Markdown files under `references/`, and keep internal links relative so they resolve in an extracted package. Exact syntax, flags, defaults, and required arguments belong in generated CLI help.
 
-The extracted package is rooted at `SKILL.md` and includes `references/`, `examples/`, and `manifest.json`. Keep `examples/` empty until a concrete example is required.
+`skills/wavepeek/references/docs.json` is the source of truth for website navigation labels, groups, and order. Every reference Markdown file must appear exactly once. The extracted package is rooted at `SKILL.md` and includes `references/`, `examples/`, and `manifest.json`. Keep `examples/` empty until a concrete example is required.

@@ -11,7 +11,7 @@ This extracted package provides version-matched references. Do not infer exact s
 
 ## Start here
 
-1. Run `wavepeek info --waves <FILE> --json` to confirm format, bounds, and time unit.
+1. Run `wavepeek info --waves <FILE> --json` to confirm bounds and time unit.
 2. Discover unknown hierarchy with `scope`, then signals within a selected scope with `signal`.
 3. Choose the command matching the question:
    - `value` for state at explicit timestamps;
@@ -20,7 +20,7 @@ This extracted package provides version-matched references. Do not infer exact s
    - `extract` for every matching event or transfer with payload values.
 4. Use `--json` for scripts and agent-side processing, and inspect diagnostics before trusting results.
 
-Read [Command overview](references/commands/overview.md) for command selection and [Help command](references/commands/help.md) for exact help discovery.
+Read [Command overview](references/overview.md) for command selection and [Help command](references/help.md) for exact help discovery.
 
 ## Safety and query discipline
 
@@ -37,11 +37,11 @@ Read [Command overview](references/commands/overview.md) for command selection a
 
 Read only the references needed for the current task:
 
-- Commands: [info](references/commands/info.md), [scope](references/commands/scope.md), [signal](references/commands/signal.md), [value](references/commands/value.md), [change](references/commands/change.md), [property](references/commands/property.md), and [extract](references/commands/extract.md).
-- Shared semantics: [command model](references/reference/command-model.md), [expression language](references/reference/expression-language.md), and [machine output](references/reference/machine-output.md).
-- Workflows: [extract a clocked handshake](references/workflows/extract-handshake.md) and [find the first change](references/workflows/find-first-change.md).
-- Troubleshooting: [empty results](references/troubleshooting/empty-results.md), [clock-edge sampling](references/troubleshooting/clock-edge-sampling.md), [scoped versus canonical names](references/troubleshooting/scoped-vs-canonical-names.md), [time tokens and alignment](references/troubleshooting/time-tokens-and-alignment.md), and [unsupported signal encodings](references/troubleshooting/unsupported-signal-encodings.md).
-- Large dumps: [waveform performance](references/reference/waveform-performance.md).
+- Commands: [info](references/info.md), [scope](references/scope.md), [signal](references/signal.md), [value](references/value.md), [change](references/change.md), [property](references/property.md), and [extract](references/extract.md).
+- Shared semantics: [command model](references/command-model.md), [expression language](references/expression-language.md), and [machine output](references/machine-output.md).
+- Workflows: [extract a clocked handshake](references/extract-handshake.md) and [find the first change](references/find-first-change.md).
+- Troubleshooting: [empty results](references/empty-results.md), [clock-edge sampling](references/clock-edge-sampling.md), [scoped versus canonical names](references/scoped-vs-canonical-names.md), [time tokens and alignment](references/time-tokens-and-alignment.md), and [unsupported signal encodings](references/unsupported-signal-encodings.md).
+- Large dumps: [waveform performance](references/waveform-performance.md).
 
 ## Final checks
 

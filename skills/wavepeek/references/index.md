@@ -20,17 +20,17 @@ Default `wavepeek` builds support VCD and FST waveform dumps, hierarchy and sign
 2. **Human by default, JSON when requested.** Human-readable output is the default user experience. Stable machine-readable output is opt-in with `--json` where supported.
 3. **Composable commands.** Each command does one focused job so scripts and agents can combine commands into repeatable debug recipes.
 4. **Deterministic output.** Identical inputs should produce identical observable output.
-5. **Stable machine contracts.** JSON and JSONL shapes are documented in [Machine output](reference/machine-output.md) and covered by direct runtime tests, while human-readable output stays intentionally more flexible.
+5. **Stable machine contracts.** JSON and JSONL shapes are documented in [Machine output](machine-output.md) and covered by direct runtime tests, while human-readable output stays intentionally more flexible.
 6. **Minimal footprint.** `wavepeek` is stateless, fast to start, and does not require a background service.
 
 ## Documentation map
 
 The packaged references are organized by topic type:
 
-- [Command guides](commands/overview.md) help you choose a command family and find exact CLI help.
-- [Workflows](workflows/extract-handshake.md) show repeatable task recipes.
-- [Troubleshooting](troubleshooting/empty-results.md) explains surprising but valid results and recovery steps.
-- [Reference material](reference/command-model.md) defines stable semantics and contracts.
+- [Command guides](overview.md) help you choose a command family and find exact CLI help.
+- [Workflows](extract-handshake.md) show repeatable task recipes.
+- [Troubleshooting](empty-results.md) explains surprising but valid results and recovery steps.
+- [Reference material](command-model.md) defines stable semantics and contracts.
 
 For exact command syntax, defaults, required flags, and examples, use generated help from the installed binary rather than these narrative topics.
 

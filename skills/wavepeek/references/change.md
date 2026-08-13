@@ -6,7 +6,7 @@ Use `change` when explicit point snapshots are not enough and you need the momen
 
 In practice, `change` is the command between `value` and `property`: it is more selective than sampling every cycle, but still shows raw signal snapshots instead of a derived pass/fail result.
 
-`--on` is intentionally a SystemVerilog-style event-expression surface. Treat it as a practical CLI spelling of the same concepts you would use in `@(...)`: named events, `posedge`/`negedge`/`edge`, `*` for any tracked change, unions with `or` or `,`, and `iff` for gating. For the full shipped syntax and semantics, see [Expression language](../reference/expression-language.md).
+`--on` is intentionally a SystemVerilog-style event-expression surface. Treat it as a practical CLI spelling of the same concepts you would use in `@(...)`: named events, `posedge`/`negedge`/`edge`, `*` for any tracked change, unions with `or` or `,`, and `iff` for gating. For the full shipped syntax and semantics, see [Expression language](expression-language.md).
 
 A rough mental model is this SystemVerilog-like pseudocode:
 
@@ -107,7 +107,7 @@ $ wavepeek change --waves path/to/dump.vcd --scope top \
 
 Pre-edge sampling is accepted only with an explicit edge-only `--on`: `posedge`, `negedge`, or `edge`, optionally with `iff`. The trigger edge detection and any `iff` guard still use dump-native values at the edge timestamp; only the displayed signal values move to the pre-edge sample point. JSON and JSONL rows always include both `time` and `sample_time`; use `sample_time` for follow-up `value --at` checks.
 
-Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or when you intentionally want values from the same dump timestamp as the selected event. Use the default pre-edge mode when a value updated by nonblocking assignment at a clock edge appears one clock early compared with an RTL assertion or simulator log. See [Clock-edge sampling](../troubleshooting/clock-edge-sampling.md) for diagrams and trade-offs.
+Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or when you intentionally want values from the same dump timestamp as the selected event. Use the default pre-edge mode when a value updated by nonblocking assignment at a clock edge appears one clock early compared with an RTL assertion or simulator log. See [Clock-edge sampling](clock-edge-sampling.md) for diagrams and trade-offs.
 
 ## Use scope-relative names or full canonical paths
 
