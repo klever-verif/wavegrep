@@ -767,6 +767,36 @@ fn extract_generic_rejects_bad_sources_and_paths_outside_scope() {
 }
 
 #[test]
+fn extract_generic_does_not_suggest_unusable_payload_signals() {
+    let fixture = fixture_path("change_property_real_output.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge clk",
+            "--when",
+            "clk",
+            "--payload",
+            "tem",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tem'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
+}
+
+#[test]
 fn extract_generic_rejects_zero_max() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-zero-max.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();

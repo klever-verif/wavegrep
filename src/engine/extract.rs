@@ -706,6 +706,11 @@ fn resolve_payload_signals(
     }
     require_unique_payloads(&canonical_paths)?;
 
+    let resolved = waveform.borrow().resolve_signals_with_diagnostics(
+        canonical_paths.as_slice(),
+        display_names.as_slice(),
+        scope,
+    )?;
     let expr_resolved = waveform.borrow().resolve_expr_signals_with_diagnostics(
         canonical_paths.as_slice(),
         display_names.as_slice(),
@@ -714,11 +719,6 @@ fn resolve_payload_signals(
     waveform
         .borrow()
         .validate_expr_values_supported(expr_resolved.as_slice())?;
-    let resolved = waveform.borrow().resolve_signals_with_diagnostics(
-        canonical_paths.as_slice(),
-        display_names.as_slice(),
-        scope,
-    )?;
     Ok(display_names
         .into_iter()
         .zip(resolved)

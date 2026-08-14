@@ -519,6 +519,26 @@ fn value_signal_typo_suggests_close_basename() {
         .stderr(predicate::str::contains(
             "closest query names:\n  cpu.valid",
         ));
+
+    let event_fixture = fixture_path("change_property_events.vcd");
+    let event_fixture = event_fixture.to_string_lossy().into_owned();
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            event_fixture.as_str(),
+            "--at",
+            "5ns",
+            "--scope",
+            "top",
+            "--signals",
+            "tik",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("closest query names:\n  tick"));
 }
 
 #[test]

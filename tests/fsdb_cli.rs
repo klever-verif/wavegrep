@@ -622,6 +622,36 @@ fn fsdb_missing_path_uses_backend_neutral_signal_suggestions() {
 }
 
 #[test]
+fn fsdb_missing_path_does_not_suggest_unsupported_events() {
+    let dir = TempDir::new().expect("temporary directory should create");
+    let fixture = path_str(&convert_vcd_fixture(
+        dir.path(),
+        "change_property_events.vcd",
+    ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "5ns",
+            "--scope",
+            "top",
+            "--signals",
+            "tik",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tik'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
+}
+
+#[test]
 fn fsdb_value_preserves_scope_relative_human_output_and_abs() {
     let fixtures = GeneratedFsdbFixtures::new();
     let fixture = path_str(&fixtures.value_vectors());

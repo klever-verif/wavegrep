@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::error::WavepeekError;
-use crate::expr::{ExprTypeKind, SampledValue};
+use crate::expr::SampledValue;
 
 #[allow(unused_imports)]
 pub(crate) use types::{
@@ -460,12 +460,18 @@ impl Waveform {
         }
         match kind {
             SignalLookupKind::Direct => {
-                matches!(
-                    expr_signal.expr_type.kind,
-                    ExprTypeKind::BitVector | ExprTypeKind::IntegerLike(_) | ExprTypeKind::EnumCore
-                ) && self.resolve_signals(std::slice::from_ref(path)).is_ok()
+                self.resolve_signals(std::slice::from_ref(path)).is_ok()
+                    && self.validate_direct_value_supported(path).is_ok()
             }
             SignalLookupKind::Expression => true,
+        }
+    }
+
+    fn validate_direct_value_supported(&self, _path: &str) -> Result<(), WavepeekError> {
+        match &self.backend {
+            Backend::Wellen(_) => Ok(()),
+            #[cfg(feature = "fsdb")]
+            Backend::Fsdb(backend) => backend.validate_direct_value_supported(_path),
         }
     }
 

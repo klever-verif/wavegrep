@@ -765,6 +765,15 @@ impl FsdbBackend {
         Ok(metadata)
     }
 
+    pub(super) fn validate_direct_value_supported(&self, path: &str) -> Result<(), WavepeekError> {
+        match self.hierarchy()?.signal_value_encoding(path)? {
+            FsdbValueEncoding::BitVector => Ok(()),
+            FsdbValueEncoding::Unsupported | FsdbValueEncoding::DatatypeCandidate => {
+                Err(unsupported_value_sampling(path))
+            }
+        }
+    }
+
     pub(super) fn validate_expr_values_supported(
         &self,
         resolved: &[ExprResolvedSignal],

@@ -24,7 +24,8 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - [x] (2026-08-14 05:02Z) Run focused tests and `./dev just ci`; all mandatory, coverage, docs, and FSDB gates passed. Implementation commit remains.
 - [x] (2026-08-14 05:24Z) Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance; fix the substantive candidate-validity, bounded-work, documentation, JSONL, and repeated protocol adapter findings; focused VCD/FST/FSDB tests pass.
 - [x] (2026-08-14 05:31Z) Run parallel Terra High reviews over the same four areas; fix unscoped protocol candidate filtering, protocol documentation/error wording, and avoidable edit-distance allocation; focused protocol tests pass.
-- [ ] Run one independent Sol High control review, fix any substantive findings, and run the final quality gate.
+- [x] (2026-08-14 05:49Z) Run independent Sol High control review and targeted confirmations; fix payload resolver ordering plus backend-specific direct event validity, with focused Wellen payload/event and FSDB event tests passing.
+- [ ] Run the final `./dev just ci` quality gate.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR that closes issue #84.
 
 ## Surprises & Discoveries
@@ -56,6 +57,12 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - Observation: protocol docs and errors previously used “scope-relative” for a stricter direct-member rule.
   Evidence: Terra High documentation review identified ambiguous wording in `extract.md` and all five protocol engines. They now distinguish direct local explicit mappings from scope-relative include candidates.
 
+- Observation: generic payload diagnostic order determines which candidate capability is advertised.
+  Evidence: Sol High control review found expression resolution ran before direct payload resolution, allowing a Wellen real signal typo to receive a suggestion that direct payload output rejects. Direct resolution now runs first, and `extract_generic_does_not_suggest_unusable_payload_signals` covers this boundary.
+
+- Observation: direct event value support differs by backend encoding.
+  Evidence: Sol High confirmation found that an integral-only whitelist wrongly removed usable Wellen events, while removing it alone admitted unsupported FSDB events. Candidate validation now combines shared expression support, direct resolution, and an FSDB direct-encoding check; focused Wellen `tick` and converted FSDB event tests cover both outcomes.
+
 ## Decision Log
 
 - Decision: Keep at most five suggestions, rank exact basename matches before close spelling matches, then by edit distance and displayed path.
@@ -81,6 +88,10 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - Decision: Keep one single-path contextual protocol resolver instead of repeating one-element bulk adapters in five engines.
   Rationale: Luna Max architecture review identified the repeated slices plus `remove(0)` as avoidable glue. The shared method preserves one policy and deletes command-local adapters.
   Date/Author: 2026-08-14, coding agent.
+
+- Decision: Validate direct candidates through existing backend capabilities rather than a shared type whitelist.
+  Rationale: Wellen accepts raw events as direct values, while FSDB can expose event metadata with an unsupported direct encoding. Resolution plus backend support checks describe actual usability without duplicating type policy.
+  Date/Author: 2026-08-14, coding agent after Sol High control review.
 
 ## Outcomes & Retrospective
 
@@ -187,4 +198,4 @@ No dependency will be added. `src/waveform/mod.rs` will own candidate ranking an
 
 `WaveformExprHost` will carry only the fixed optional scope for one command execution; this is not configurable policy or a new abstraction. Existing raw `resolve_signals` and `resolve_expr_signal` methods remain the low-level backend operations used for candidate validation and internal callers that do not represent user query boundaries.
 
-Revision note (2026-08-14 05:31Z): Recorded all four Terra High review lanes, applied unscoped protocol correctness, documentation/error, and allocation fixes, and captured focused protocol test evidence before the second-wave fix commit.
+Revision note (2026-08-14 05:49Z): Recorded Sol High control findings, the payload-order and backend-specific event fixes, and focused cross-backend evidence before the control-fix commit and final quality gate.
