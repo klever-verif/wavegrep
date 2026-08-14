@@ -23,7 +23,7 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 - [x] (2026-08-14 14:36Z) Commit the implementation as `43a4023` after `./dev just ci` passed, including 22 FSDB integration tests and all pre-commit hooks.
 - [x] (2026-08-14 14:53Z) Run four parallel Luna Max lanes with KISS/YAGNI and ponytail-review; correctness was clean, docs/parity/allowlist/human-allocation findings were fixed, focused CLI tests and 665 library tests passed, and all three impacted lanes rechecked clean.
 - [x] (2026-08-14 14:59Z) Run four parallel Terra High lanes with the same KISS/YAGNI and ponytail-review principles; three lanes were clean, unscoped generic parity was added, focused tests passed, and the impacted contract lane rechecked clean.
-- [ ] Run one independent Sol High control review, fix substantive findings, and run the final quality gate.
+- [x] (2026-08-14 15:05Z) Run an independent Sol High control review; clarify one low-severity generic-extract sentence, receive a clean recheck, and pass final `./dev just ci`, including enabled FSDB coverage.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR against `dev3` that closes issue #114.
 
 ## Surprises & Discoveries
@@ -70,7 +70,7 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 
 ## Outcomes & Retrospective
 
-The implementation now produces the intended scoped JSON and JSONL shapes while preserving focused unscoped and human-output behavior. Focused CLI suites, JSON/JSONL parity, enabled FSDB integration, and full CI pass. A manual `value` invocation emitted canonical `path`, `context.scope`, and `relative_path`. Commits, requested review waves, WIP cleanup, and PR creation remain.
+The implementation produces scoped JSON and JSONL context and relative paths while preserving unscoped, human, and protocol behavior. Focused suites, expanded JSON/JSONL parity, 665 library tests, enabled FSDB integration, hooks, benchmark smoke, and final full CI pass. Four Luna Max lanes and four Terra High lanes reviewed correctness, contracts, architecture, and performance with KISS/YAGNI and ponytail-review; impacted lanes rechecked clean. Sol High independently controlled the consolidated branch and rechecked its one wording fix clean. Only WIP cleanup, push, and PR creation remain.
 
 ## Context and Orientation
 
@@ -176,3 +176,7 @@ Revision note (2026-08-14 14:52Z): Recorded Luna Max findings, fixes, focused va
 Revision note (2026-08-14 14:53Z): Recorded clean Luna impacted-lane rechecks.
 
 Revision note (2026-08-14 14:59Z): Recorded Terra High results, unscoped generic parity fix, focused validation, and clean impacted-lane recheck.
+
+Revision note (2026-08-14 15:04Z): Recorded Sol High control finding and clarified that unscoped generic payloads retain canonical `path`.
+
+Revision note (2026-08-14 15:05Z): Recorded clean Sol recheck, successful final CI, and completed outcome evidence before WIP cleanup.
