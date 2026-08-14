@@ -721,6 +721,27 @@ fn fsdb_value_rejects_non_bit_vector_signal() {
         .stderr(predicate::str::contains(
             "signal 'top.temp' has unsupported non-bit-vector encoding",
         ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--signals",
+            "tem",
+            "--at",
+            "0ns",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tem'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
 }
 
 #[test]

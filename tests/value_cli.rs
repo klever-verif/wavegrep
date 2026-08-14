@@ -430,6 +430,23 @@ fn value_missing_signal_is_signal_error_and_fails_fast() {
         .stderr(predicate::str::contains(
             "no dumped signal with basename 'nope'; the RTL declaration may be optimized, aliased, or not dumped",
         ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "10ns",
+            "--signals",
+            "top.nope",
+            "--jsonl",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("fatal: signal:"));
 }
 
 #[test]

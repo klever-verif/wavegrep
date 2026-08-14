@@ -22,7 +22,7 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - [x] (2026-08-14 05:02Z) Add focused CLI tests for exact basename, close spelling, absent signals, naming mode, bounded ordering, VCD/FST parity, expression envelopes, payloads, protocol mappings, and FSDB parity; preserve ambiguity through existing FSDB quarantine coverage.
 - [x] (2026-08-14 05:02Z) Update packaged command and machine-output contracts, correct the empty-result guide, and add the changelog entry.
 - [x] (2026-08-14 05:02Z) Run focused tests and `./dev just ci`; all mandatory, coverage, docs, and FSDB gates passed. Implementation commit remains.
-- [ ] Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance; fix findings and revalidate.
+- [x] (2026-08-14 05:24Z) Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance; fix the substantive candidate-validity, bounded-work, documentation, JSONL, and repeated protocol adapter findings; focused VCD/FST/FSDB tests pass.
 - [ ] Run parallel Terra High reviews over the same four areas; fix findings and revalidate.
 - [ ] Run one independent Sol High control review, fix any substantive findings, and run the final quality gate.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR that closes issue #84.
@@ -44,6 +44,12 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - Observation: the full quality gate can exercise the optional backend in this environment.
   Evidence: `./dev just ci` reported `ok: fsdb: Verdi FSDB Reader SDK found`, passed 666 library tests, 20 FSDB CLI tests, documentation checks, and 92.77% minimum source coverage before the focused FSDB suggestion test was added.
 
+- Observation: successful path resolution alone does not make an FSDB candidate usable.
+  Evidence: Luna Max correctness and architecture reviewers found that `resolve_signal` accepts real/string and unsupported FSDB encodings before sampling rejects them. Candidate validation now resolves the expression type, applies the existing backend support check, and requires a direct integral-like type for direct surfaces; `fsdb_value_rejects_non_bit_vector_signal` proves `tem` does not suggest unusable `temp`.
+
+- Observation: sorting every matching hierarchy entry made the output bound independent from the work bound.
+  Evidence: Luna Max performance review identified O(K log K) memory/time for K common-basename matches. Candidate selection now keeps only the best five while scanning and uses thresholded edit distance with length and row-minimum exits.
+
 ## Decision Log
 
 - Decision: Keep at most five suggestions, rank exact basename matches before close spelling matches, then by edit distance and displayed path.
@@ -62,8 +68,12 @@ This work does not add automatic signal selection, fuzzy success, configurable m
   Rationale: The standard library has no edit-distance function, but the required bounded comparison is small and only runs after a failed lookup; a dependency would exceed the need.
   Date/Author: 2026-08-14, coding agent.
 
-- Decision: Limit scoped protocol mapping candidates to direct members of the selected scope.
-  Rationale: Protocol mapping validation currently rejects dotted relative names. Suggesting recursive descendants would violate the issue requirement that every suggestion be valid in the active naming mode; generic and expression lookups remain recursive.
+- Decision: Limit scoped protocol mapping candidates to direct members of the selected scope and reject dotted displayed leaf names.
+  Rationale: Protocol mapping validation currently rejects any dotted input, including an escaped local name containing a literal dot. Suggesting recursive descendants or dotted leaves would violate the issue requirement that every suggestion be valid in the active naming mode; generic and expression lookups remain recursive.
+  Date/Author: 2026-08-14, coding agent, refined after Luna Max review.
+
+- Decision: Keep one single-path contextual protocol resolver instead of repeating one-element bulk adapters in five engines.
+  Rationale: Luna Max architecture review identified the repeated slices plus `remove(0)` as avoidable glue. The shared method preserves one policy and deletes command-local adapters.
   Date/Author: 2026-08-14, coding agent.
 
 ## Outcomes & Retrospective
@@ -171,4 +181,4 @@ No dependency will be added. `src/waveform/mod.rs` will own candidate ranking an
 
 `WaveformExprHost` will carry only the fixed optional scope for one command execution; this is not configurable policy or a new abstraction. Existing raw `resolve_signals` and `resolve_expr_signal` methods remain the low-level backend operations used for candidate validation and internal callers that do not represent user query boundaries.
 
-Revision note (2026-08-14 05:02Z): Recorded completed implementation, tests, documentation, full quality evidence, the discovered protocol-local naming constraint, and its candidate-depth decision before the first implementation commit.
+Revision note (2026-08-14 05:24Z): Recorded all four Luna Max review lanes, the applied validity/performance/KISS/docs/test fixes, and focused revalidation before the review-fix commit.

@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::error::WavepeekError;
-use crate::expr::SampledValue;
+use crate::expr::{ExprTypeKind, SampledValue};
 
 #[allow(unused_imports)]
 pub(crate) use types::{
@@ -261,13 +261,21 @@ impl Waveform {
         self.resolve_signals_with_diagnostic_depth(canonical_paths, query_names, scope, true)
     }
 
-    pub(crate) fn resolve_local_signals_with_diagnostics(
+    pub(crate) fn resolve_local_signal_with_diagnostic(
         &self,
-        canonical_paths: &[String],
-        query_names: &[String],
+        canonical_path: &String,
+        query_name: &String,
         scope: Option<&str>,
-    ) -> Result<Vec<ResolvedSignal>, WavepeekError> {
-        self.resolve_signals_with_diagnostic_depth(canonical_paths, query_names, scope, false)
+    ) -> Result<ResolvedSignal, WavepeekError> {
+        self.resolve_signals_with_diagnostic_depth(
+            std::slice::from_ref(canonical_path),
+            std::slice::from_ref(query_name),
+            scope,
+            false,
+        )?
+        .into_iter()
+        .next()
+        .ok_or_else(|| WavepeekError::Internal("signal resolution returned no result".to_string()))
     }
 
     fn resolve_signals_with_diagnostic_depth(
@@ -395,36 +403,36 @@ impl Waveform {
         }
 
         let basename = query_name.rsplit('.').next().unwrap_or(query_name);
-        let max_distance = if basename.chars().count() <= 3 { 1 } else { 2 };
-        let mut candidates = listing
-            .entries
-            .into_iter()
-            .filter_map(|entry| {
-                let distance = levenshtein(basename, entry.name.as_str());
-                (distance <= max_distance).then(|| {
-                    let display = display_signal_path(entry.path.as_str(), scope);
-                    (distance, display, entry)
-                })
-            })
-            .collect::<Vec<_>>();
-        candidates.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
-
-        let mut suggestions = Vec::new();
-        for (_, display, entry) in candidates {
-            let resolvable = match kind {
-                SignalLookupKind::Direct => self
-                    .resolve_signals(std::slice::from_ref(&entry.path))
-                    .is_ok(),
-                SignalLookupKind::Expression => self.resolve_expr_signal(&entry.path).is_ok(),
+        let basename_chars = basename.chars().collect::<Vec<_>>();
+        let max_distance = if basename_chars.len() <= 3 { 1 } else { 2 };
+        let mut candidates = Vec::with_capacity(MAX_SIGNAL_SUGGESTIONS);
+        for entry in listing.entries {
+            let Some(distance) = levenshtein_with_limit(
+                basename_chars.as_slice(),
+                entry.name.as_str(),
+                max_distance,
+            ) else {
+                continue;
             };
-            if resolvable {
-                suggestions.push(display);
-                suggestions.dedup();
-                if suggestions.len() == MAX_SIGNAL_SUGGESTIONS {
-                    break;
-                }
+            let display = display_signal_path(entry.path.as_str(), scope);
+            if (!recursive && display.contains('.'))
+                || !self.signal_candidate_is_resolvable(&entry.path, kind)
+            {
+                continue;
             }
+            candidates.push((distance, entry));
+            candidates.sort_by(|left, right| {
+                left.0.cmp(&right.0).then_with(|| {
+                    display_signal_path(left.1.path.as_str(), scope)
+                        .cmp(display_signal_path(right.1.path.as_str(), scope))
+                })
+            });
+            candidates.truncate(MAX_SIGNAL_SUGGESTIONS);
         }
+        let suggestions = candidates
+            .into_iter()
+            .map(|(_, entry)| display_signal_path(entry.path.as_str(), scope).to_string())
+            .collect::<Vec<_>>();
 
         let location = match scope {
             Some(scope) => format!("signal '{query_name}' not found under scope '{scope}'"),
@@ -438,6 +446,27 @@ impl Waveform {
             format!("closest query names:\n  {}", suggestions.join("\n  "))
         };
         WavepeekError::Signal(format!("{location}\n{detail}"))
+    }
+
+    fn signal_candidate_is_resolvable(&self, path: &String, kind: SignalLookupKind) -> bool {
+        let Ok(expr_signal) = self.resolve_expr_signal(path) else {
+            return false;
+        };
+        if self
+            .validate_expr_values_supported(std::slice::from_ref(&expr_signal))
+            .is_err()
+        {
+            return false;
+        }
+        match kind {
+            SignalLookupKind::Direct => {
+                matches!(
+                    expr_signal.expr_type.kind,
+                    ExprTypeKind::BitVector | ExprTypeKind::IntegerLike(_) | ExprTypeKind::EnumCore
+                ) && self.resolve_signals(std::slice::from_ref(path)).is_ok()
+            }
+            SignalLookupKind::Expression => true,
+        }
     }
 
     fn signal_candidates(
@@ -699,32 +728,35 @@ fn is_fsdb_looking_path(path: &Path) -> bool {
     file_name.ends_with(".fsdb") || file_name.ends_with(".fsdb.gz")
 }
 
-fn display_signal_path(canonical_path: &str, scope: Option<&str>) -> String {
+fn display_signal_path<'a>(canonical_path: &'a str, scope: Option<&str>) -> &'a str {
     scope
         .and_then(|scope| canonical_path.strip_prefix(scope))
         .and_then(|path| path.strip_prefix('.'))
         .unwrap_or(canonical_path)
-        .to_string()
 }
 
-fn levenshtein(left: &str, right: &str) -> usize {
+fn levenshtein_with_limit(left: &[char], right: &str, limit: usize) -> Option<usize> {
     let right = right.chars().collect::<Vec<_>>();
-    let mut previous = (0..=right.len()).collect::<Vec<_>>();
-
-    for (left_index, left_char) in left.chars().enumerate() {
-        let mut current = Vec::with_capacity(right.len() + 1);
-        current.push(left_index + 1);
-        for (right_index, right_char) in right.iter().enumerate() {
-            current.push(
-                (previous[right_index + 1] + 1)
-                    .min(current[right_index] + 1)
-                    .min(previous[right_index] + usize::from(left_char != *right_char)),
-            );
-        }
-        previous = current;
+    if left.len().abs_diff(right.len()) > limit {
+        return None;
     }
 
-    previous[right.len()]
+    let mut previous = (0..=right.len()).collect::<Vec<_>>();
+    let mut current = vec![0; right.len() + 1];
+    for (left_index, left_char) in left.iter().enumerate() {
+        current[0] = left_index + 1;
+        for (right_index, right_char) in right.iter().enumerate() {
+            current[right_index + 1] = (previous[right_index + 1] + 1)
+                .min(current[right_index] + 1)
+                .min(previous[right_index] + usize::from(left_char != right_char));
+        }
+        if current.iter().copied().min().unwrap_or(usize::MAX) > limit {
+            return None;
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+
+    (previous[right.len()] <= limit).then_some(previous[right.len()])
 }
 
 fn duplicate_preserving_projection(canonical_paths: &[String]) -> (Vec<String>, Vec<usize>) {
