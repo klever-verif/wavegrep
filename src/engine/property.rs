@@ -105,6 +105,7 @@ pub fn run(args: PropertyArgs) -> Result<CommandResult, WavepeekError> {
         command: CommandName::Property,
         output_mode,
         human_options: HumanRenderOptions::default(),
+        scope: None,
         data: CommandData::Property(sink.rows),
         diagnostics: outcome.diagnostics,
     })

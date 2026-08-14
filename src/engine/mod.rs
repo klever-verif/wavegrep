@@ -164,6 +164,8 @@ pub struct CommandResult {
     pub output_mode: OutputMode,
     #[serde(skip)]
     pub human_options: HumanRenderOptions,
+    #[serde(skip)]
+    pub scope: Option<String>,
     pub data: CommandData,
     pub diagnostics: Vec<Diagnostic>,
 }

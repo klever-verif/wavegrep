@@ -159,8 +159,8 @@ fn change_dense_pre_edge_delta_keeps_empty_rows() {
     assert_eq!(
         parse_json(&output.stdout)["data"],
         json!([
-            {"time":"5ns","sample_time":"4ns","signals":[{"path":"top.data","value":"8'h00"}]},
-            {"time":"15ns","sample_time":"14ns","signals":[{"path":"top.data","value":"8'haa"}]},
+            {"time":"5ns","sample_time":"4ns","signals":[{"path":"top.data", "relative_path": "data","value":"8'h00"}]},
+            {"time":"15ns","sample_time":"14ns","signals":[{"path":"top.data", "relative_path": "data","value":"8'haa"}]},
             {"time":"25ns","sample_time":"24ns","signals":[]}
         ])
     );
@@ -282,7 +282,7 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
         json!([{
             "time": "5ns",
             "sample_time": "5ns",
-            "signals": [{"path": "top.data", "value": "8'haa"}]
+            "signals": [{"path": "top.data", "relative_path": "data", "value": "8'haa"}]
         }])
     );
     assert_eq!(
@@ -290,7 +290,7 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
         json!([{
             "time": "15ns",
             "sample_time": "14ns",
-            "signals": [{"path": "top.data", "value": "8'haa"}]
+            "signals": [{"path": "top.data", "relative_path": "data", "value": "8'haa"}]
         }])
     );
     assert_eq!(
@@ -364,7 +364,7 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
         json!([{
             "time": "35ns",
             "sample_time": "34ns",
-            "signals": [{"path": "top.data", "value": "8'h55"}]
+            "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h55"}]
         }])
     );
 }
@@ -542,8 +542,8 @@ fn change_named_non_edge_trigger_emits_expected_single_row() {
                 "time": "10ns",
                 "sample_time": "10ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h0f"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -576,12 +576,13 @@ fn change_scope_mixes_relative_and_canonical_names() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"][0]["time"], "5ns");
     assert_eq!(
         value["data"][0]["signals"],
         json!([
-            {"path": "top.cpu.valid", "value": "1'h1"},
-            {"path": "top.clk", "value": "1'h1"}
+            {"path": "top.cpu.valid", "relative_path": "cpu.valid", "value": "1'h1"},
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
         ])
     );
 }
@@ -796,7 +797,7 @@ fn change_omitted_from_uses_dump_start_baseline_checkpoint() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.sig", "value": "1'h0"}
+                    {"path": "top.sig", "relative_path": "sig", "value": "1'h0"}
                 ]
             }
         ])
@@ -1148,8 +1149,8 @@ fn change_iff_executes_end_to_end() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h00"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -1306,8 +1307,8 @@ fn change_rich_type_iff_payload_executes() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h00"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -1351,8 +1352,8 @@ fn change_triggered_iff_payload_executes() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.sig", "value": "1'h0"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.sig", "relative_path": "sig", "value": "1'h0"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -1372,10 +1373,12 @@ fn change_dense_empty_result_reports_no_selected_events() {
             "6ns",
             "--to",
             "9ns",
+            "--scope",
+            "top",
             "--signals",
-            "top.data",
+            "data",
             "--on",
-            "posedge top.clk",
+            "posedge clk",
             "--sample-mode",
             "native",
             "--json",
@@ -1384,8 +1387,10 @@ fn change_dense_empty_result_reports_no_selected_events() {
         .expect("change should execute");
 
     assert!(output.status.success());
+    let value = parse_json(&output.stdout);
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(
-        parse_json(&output.stdout)["diagnostics"],
+        value["diagnostics"],
         json!([{"kind": "warning", "code": "WPK-W0003", "message": "no selected events found in selected time range"}])
     );
 }
@@ -2374,7 +2379,7 @@ fn change_scope_accepts_canonical_signal_and_trigger_paths() {
         json!([{
             "time": "5ns",
             "sample_time": "5ns",
-            "signals": [{"path": "top.clk", "value": "1'h1"}]
+            "signals": [{"path": "top.clk", "relative_path": "clk", "value": "1'h1"}]
         }])
     );
 }

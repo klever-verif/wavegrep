@@ -104,6 +104,7 @@ fn value_json_shape_with_scope_is_stable_and_ordered() {
     let value: Value = serde_json::from_str(&stdout).expect("value output should be valid json");
 
     assert_eq!(value["command"], "value");
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
         value["data"],
@@ -111,8 +112,8 @@ fn value_json_shape_with_scope_is_stable_and_ordered() {
             {
                 "time": "10ns",
                 "signals": [
-                    {"path": "top.clk", "value": "1'h1"},
-                    {"path": "top.data", "value": "8'h0f"}
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
                 ]
             }
         ])
@@ -176,22 +177,22 @@ fn value_json_preserves_time_order_and_duplicates() {
             {
                 "time": "10ns",
                 "signals": [
-                    {"path": "top.clk", "value": "1'h1"},
-                    {"path": "top.data", "value": "8'h0f"}
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
                 ]
             },
             {
                 "time": "5ns",
                 "signals": [
-                    {"path": "top.clk", "value": "1'h1"},
-                    {"path": "top.data", "value": "8'h00"}
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"}
                 ]
             },
             {
                 "time": "10ns",
                 "signals": [
-                    {"path": "top.clk", "value": "1'h1"},
-                    {"path": "top.data", "value": "8'h0f"}
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
                 ]
             }
         ])
@@ -614,9 +615,9 @@ fn value_preserves_duplicate_signal_order() {
     assert_eq!(
         value["data"][0]["signals"],
         json!([
-            {"path": "top.clk", "value": "1'h1"},
-            {"path": "top.clk", "value": "1'h1"},
-            {"path": "top.data", "value": "8'h0f"}
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+            {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
         ])
     );
 }
@@ -698,8 +699,8 @@ fn value_scope_accepts_mixed_relative_and_canonical_paths() {
     assert_eq!(
         value["data"][0]["signals"],
         json!([
-            {"path": "top.cpu.valid", "value": "1'h1"},
-            {"path": "top.clk", "value": "1'h1"}
+            {"path": "top.cpu.valid", "relative_path": "cpu.valid", "value": "1'h1"},
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
         ])
     );
 }

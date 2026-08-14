@@ -40,6 +40,8 @@ pub struct ExtractPayloadValue {
     #[serde(skip_serializing)]
     pub display: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relative_path: Option<String>,
     pub value: String,
 }
 
@@ -104,6 +106,7 @@ impl ExtractSource {
 struct PayloadSignal {
     display: String,
     path: String,
+    relative_path: Option<String>,
     resolved: ResolvedSignal,
 }
 
@@ -203,11 +206,15 @@ impl ExtractRowSink for CollectingExtractSink {
 
 struct JsonlExtractSink<'a, W: std::io::Write> {
     writer: &'a mut crate::output::JsonlWriter<W>,
+    scope: Option<String>,
 }
 
 impl<W: std::io::Write> ExtractRowSink for JsonlExtractSink<'_, W> {
     fn start(&mut self) -> Result<(), WavepeekError> {
-        self.writer.begin()
+        match self.scope.as_deref() {
+            Some(scope) => self.writer.begin_scope(scope),
+            None => self.writer.begin(),
+        }
     }
 
     fn emit(&mut self, row: ExtractGenericRow) -> Result<(), WavepeekError> {
@@ -232,6 +239,7 @@ struct SourceFileSource {
 pub fn run(args: GenericArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let scope = args.scope.clone();
     let mut sink = CollectingExtractSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -242,6 +250,7 @@ pub fn run(args: GenericArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope,
         data: CommandData::ExtractGeneric(ExtractGenericData {
             source_count: outcome.source_count,
             rows: sink.rows,
@@ -255,7 +264,10 @@ pub fn run_jsonl<W: std::io::Write>(
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
     let outcome = {
-        let mut sink = JsonlExtractSink { writer };
+        let mut sink = JsonlExtractSink {
+            writer,
+            scope: args.scope.clone(),
+        };
         run_with_sink(args, &mut sink)?
     };
 
@@ -718,10 +730,14 @@ fn resolve_payload_signals(
         .validate_expr_values_supported(expr_resolved.as_slice())?;
     Ok(resolved
         .into_iter()
-        .map(|resolved| PayloadSignal {
-            display: display_signal_path(resolved.path.as_str(), scope).to_string(),
-            path: resolved.path.clone(),
-            resolved,
+        .map(|resolved| {
+            let display = display_signal_path(resolved.path.as_str(), scope).to_string();
+            PayloadSignal {
+                relative_path: scope.map(|_| display.clone()),
+                display,
+                path: resolved.path.clone(),
+                resolved,
+            }
         })
         .collect())
 }
@@ -1087,6 +1103,7 @@ fn build_payload_value(
     Ok(ExtractPayloadValue {
         display: requested.display.clone(),
         path: requested.path.clone(),
+        relative_path: requested.relative_path.clone(),
         value: format_verilog_literal(sampled.width, bits.as_str()),
     })
 }

@@ -101,6 +101,7 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: tree,
             signals_abs: false,
         },
+        scope: None,
         data: CommandData::Scope(entries),
         diagnostics,
     })

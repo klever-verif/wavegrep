@@ -18,9 +18,9 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 
 - [x] (2026-08-14 14:15Z) Read issue #114, repository guidance, output contracts, command engines, streaming sinks, and existing tests.
 - [x] (2026-08-14 14:15Z) Choose the smallest design: one optional scope on command results, one boundary-safe relative-path helper, and direct JSONL scope begin support.
-- [ ] Implement scoped context and relative paths for `signal`, `value`, `change`, and `extract generic` in JSON and JSONL.
-- [ ] Add focused contract and CLI coverage, update packaged machine-output documentation, and run focused tests.
-- [ ] Commit the implementation and run `./dev just ci`.
+- [x] (2026-08-14 14:31Z) Implement scoped context and relative paths for `signal`, `value`, `change`, and `extract generic` in JSON and JSONL.
+- [x] (2026-08-14 14:31Z) Add focused contract and CLI coverage, update packaged machine-output documentation, and pass 129 focused CLI tests plus the JSON/JSONL parity test.
+- [ ] Commit the implementation and run `./dev just ci` (completed: full CI gate, including 22 FSDB integration tests; remaining: implementation commit).
 - [ ] Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance, all including KISS/YAGNI and ponytail-review; fix findings and revalidate.
 - [ ] Run parallel Terra High reviews over the same four areas and principles; fix findings and revalidate.
 - [ ] Run one independent Sol High control review, fix substantive findings, and run the final quality gate.
@@ -36,6 +36,12 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 
 - Observation: current scope lookup is exact and accepts canonical dot-separated paths; there is no alias normalization layer to preserve.
   Evidence: Wellen uses `lookup_scope` on components and FSDB indexes scopes by canonical string.
+
+- Observation: protocol extractors reuse the generic extraction sink trait, so changing that trait's `start` signature would spread scope handling into unrelated protocol modules.
+  Evidence: the first compile check rejected four protocol sink implementations after a draft signature change; keeping scope on `JsonlExtractSink` preserved the existing shared trait and removed that coupling.
+
+- Observation: the full CI gate includes enabled FSDB integration tests whose exact scoped JSON expectations must evolve with the public contract.
+  Evidence: the first full gate exposed five stale FSDB expectations; after adding scope-relative fields, `./dev just test-fsdb` passed all 22 tests and the repeated full `./dev just ci` passed.
 
 ## Decision Log
 
@@ -57,7 +63,7 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 
 ## Outcomes & Retrospective
 
-Implementation has not started. The intended outcome is one minimal shared path helper, explicit command-level scope metadata, matching JSON/JSONL contracts, focused tests, two model-specific review waves, and one clean independent control review.
+The implementation now produces the intended scoped JSON and JSONL shapes while preserving focused unscoped and human-output behavior. Focused CLI suites, JSON/JSONL parity, enabled FSDB integration, and full CI pass. A manual `value` invocation emitted canonical `path`, `context.scope`, and `relative_path`. Commits, requested review waves, WIP cleanup, and PR creation remain.
 
 ## Context and Orientation
 
@@ -152,4 +158,8 @@ No dependency will be added. `src/engine/mod.rs` will expose a crate-private hel
 
 `CommandResult` will carry `scope: Option<String>`. `ValueSignalValue`, `ChangeSignalValue`, and `ExtractPayloadValue` will carry `relative_path: Option<String>` with engine serde omission and matching contract DTO omission. `OutputContextData` will add a scope variant containing one canonical `scope` string. `JsonlWriter` will add one scope-aware begin method; existing protocol `begin_context` remains unchanged.
 
-Revision note (2026-08-14): Initial plan created after issue and repository investigation; no implementation exists yet.
+Revision note (2026-08-14 14:15Z): Initial plan created after issue and repository investigation; no implementation existed yet.
+
+Revision note (2026-08-14 14:31Z): Recorded implementation, focused-test evidence, manual output evidence, and the decision to avoid changing the shared protocol sink trait.
+
+Revision note (2026-08-14 14:34Z): Recorded the FSDB expectation discovery and successful full CI evidence.

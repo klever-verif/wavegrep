@@ -12,6 +12,7 @@ fn derives_private_state_and_mode_helpers() {
     let signal = ChangeSignalValue {
         display: "sig".to_string(),
         path: "top.sig".to_string(),
+        relative_path: Some("sig".to_string()),
         value: "1'b1".to_string(),
     };
     assert_eq!(signal.clone(), signal);
@@ -30,6 +31,7 @@ fn derives_private_state_and_mode_helpers() {
     let requested = RequestedSignal {
         display: "sig".to_string(),
         path: "top.sig".to_string(),
+        relative_path: Some("sig".to_string()),
     };
     assert_eq!(requested.clone(), requested);
     assert!(format!("{requested:?}").contains("top.sig"));

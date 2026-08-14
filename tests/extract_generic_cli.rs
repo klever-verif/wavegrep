@@ -178,8 +178,8 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
                 "sample_time": "4ns",
                 "source": "transfer",
                 "payload": [
-                    {"path": "top.data", "value": "8'haa"},
-                    {"path": "top.last", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'haa"},
+                    {"path": "top.last", "relative_path": "last", "value": "1'h1"}
                 ]
             },
             {
@@ -187,8 +187,8 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
                 "sample_time": "14ns",
                 "source": "transfer",
                 "payload": [
-                    {"path": "top.data", "value": "8'haa"},
-                    {"path": "top.last", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'haa"},
+                    {"path": "top.last", "relative_path": "last", "value": "1'h1"}
                 ]
             }
         ])
@@ -284,7 +284,7 @@ fn extract_generic_from_bounds_apply_to_event_time_not_sample_time() {
             "time": "5ns",
             "sample_time": "4ns",
             "source": "transfer",
-            "payload": [{"path": "top.data", "value": "8'haa"}]
+            "payload": [{"path": "top.data", "relative_path": "data", "value": "8'haa"}]
         }])
     );
 }
@@ -346,7 +346,7 @@ fn extract_generic_iff_uses_event_time_while_when_uses_sample_time() {
             "time": "5ns",
             "sample_time": "4ns",
             "source": "transfer",
-            "payload": [{"path": "top.data", "value": "8'haa"}]
+            "payload": [{"path": "top.data", "relative_path": "data", "value": "8'haa"}]
         }])
     );
     assert!(when_output.status.success());
@@ -440,13 +440,13 @@ fn extract_generic_source_file_collects_independent_clock_sources() {
                 "time": "5ns",
                 "sample_time": "4ns",
                 "source": "write",
-                "payload": [{"path": "top.wdata", "value": "8'haa"}]
+                "payload": [{"path": "top.wdata", "relative_path": "wdata", "value": "8'haa"}]
             },
             {
                 "time": "7ns",
                 "sample_time": "6ns",
                 "source": "read",
-                "payload": [{"path": "top.rdata", "value": "8'h55"}]
+                "payload": [{"path": "top.rdata", "relative_path": "rdata", "value": "8'h55"}]
             }
         ])
     );
@@ -593,6 +593,7 @@ fn extract_generic_reports_empty_result_diagnostic() {
 
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"], json!([]));
     assert_eq!(value["diagnostics"][0]["code"], "WPK-W0003");
 }
@@ -624,9 +625,12 @@ fn extract_generic_scope_mixes_relative_and_canonical_names() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"][0]["time"], "5ns");
     assert_eq!(value["data"][0]["payload"][0]["path"], "top.cpu.valid");
+    assert_eq!(value["data"][0]["payload"][0]["relative_path"], "cpu.valid");
     assert_eq!(value["data"][0]["payload"][1]["path"], "top.mem.ready");
+    assert_eq!(value["data"][0]["payload"][1]["relative_path"], "mem.ready");
 
     wavepeek_cmd()
         .args([
@@ -648,6 +652,41 @@ fn extract_generic_scope_mixes_relative_and_canonical_names() {
         .stderr(predicate::str::contains(
             "payload contains duplicate signal 'top.cpu.valid'",
         ));
+}
+
+#[test]
+fn extract_generic_unscoped_output_omits_scope_and_relative_path() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.as_str(),
+            "--on",
+            "posedge top.cpu.valid",
+            "--when",
+            "1",
+            "--payload",
+            "top.mem.ready",
+            "--max",
+            "1",
+            "--json",
+        ])
+        .output()
+        .expect("extract should execute");
+
+    assert!(output.status.success());
+    let value = parse_json(&output.stdout);
+    assert!(value.get("context").is_none());
+    assert_eq!(value["data"][0]["payload"][0]["path"], "top.mem.ready");
+    assert!(
+        value["data"][0]["payload"][0]
+            .get("relative_path")
+            .is_none()
+    );
 }
 
 #[test]

@@ -294,6 +294,7 @@ pub fn run(args: AtbArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
         data: CommandData::ExtractAtb(AtbData {
             name: outcome.context.name,
             profile: outcome.context.profile,

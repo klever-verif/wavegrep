@@ -32,6 +32,11 @@ impl<W: Write> JsonlWriter<W> {
         self.write_record(&record)
     }
 
+    pub fn begin_scope(&mut self, scope: &str) -> Result<(), WavepeekError> {
+        let record = stream::BeginRecord::with_scope(self.next_seq, self.command, scope)?;
+        self.write_record(&record)
+    }
+
     pub fn begin_context<T: stream::StreamContext + ?Sized>(
         &mut self,
         context: &T,
@@ -127,7 +132,10 @@ pub fn write_jsonl_result<W: Write>(
             | CommandData::ExtractAxi(_)
             | CommandData::ExtractAxiStream(_)
     ) {
-        writer.begin()?;
+        match result.scope.as_deref() {
+            Some(scope) => writer.begin_scope(scope)?,
+            None => writer.begin()?,
+        }
     }
     match &result.data {
         CommandData::Info(data) => writer.data(data)?,
@@ -643,6 +651,7 @@ mod tests {
             command: CommandName::Info,
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
+            scope: None,
             data: CommandData::Info(crate::engine::info::InfoData {
                 time_unit: "1ns".to_string(),
                 time_start: "0ns".to_string(),
@@ -668,6 +677,7 @@ mod tests {
             command: CommandName::Scope,
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
+            scope: None,
             data: CommandData::Scope(vec![crate::engine::scope::ScopeEntry {
                 path: "top.cpu".to_string(),
                 depth: 1,
@@ -792,6 +802,7 @@ mod tests {
             command: CommandName::Scope,
             output_mode: OutputMode::Jsonl,
             human_options: HumanRenderOptions::default(),
+            scope: None,
             data: CommandData::Scope(Vec::new()),
             diagnostics: Vec::new(),
         };
@@ -811,6 +822,7 @@ mod tests {
             command: CommandName::Scope,
             output_mode: OutputMode::Jsonl,
             human_options: HumanRenderOptions::default(),
+            scope: None,
             data: CommandData::Scope(vec![crate::engine::scope::ScopeEntry {
                 path: "top".to_string(),
                 depth: 0,
@@ -909,11 +921,13 @@ mod tests {
                     crate::engine::value::ValueSignalValue {
                         display: "clk".to_string(),
                         path: "top.clk".to_string(),
+                        relative_path: Some("clk".to_string()),
                         value: "1'h1".to_string(),
                     },
                     crate::engine::value::ValueSignalValue {
                         display: "data".to_string(),
                         path: "top.data".to_string(),
+                        relative_path: Some("data".to_string()),
                         value: "8'h0f".to_string(),
                     },
                 ],
@@ -935,11 +949,13 @@ mod tests {
                         crate::engine::change::ChangeSignalValue {
                             display: "clk".to_string(),
                             path: "top.clk".to_string(),
+                            relative_path: Some("clk".to_string()),
                             value: "1'h1".to_string(),
                         },
                         crate::engine::change::ChangeSignalValue {
                             display: "data".to_string(),
                             path: "top.data".to_string(),
+                            relative_path: Some("data".to_string()),
                             value: "8'h00".to_string(),
                         },
                     ],
@@ -1037,6 +1053,7 @@ mod tests {
             command: CommandName::Info,
             output_mode: OutputMode::Human,
             human_options: HumanRenderOptions::default(),
+            scope: None,
             data: CommandData::Text("already-newline\n".to_string()),
             diagnostics: Vec::new(),
         })

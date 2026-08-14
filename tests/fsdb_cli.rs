@@ -449,12 +449,12 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
     assert_eq!(
         fsdb_value["data"][0]["signals"],
         json!([
-            {"path": "top.data", "value": "8'h0f"},
-            {"path": "top.clk", "value": "1'h1"},
-            {"path": "top.data", "value": "8'h0f"},
-            {"path": "top.nibble", "value": "4'hx"},
-            {"path": "top.status", "value": "4'h3"},
-            {"path": "top.asc", "value": "4'h3"},
+            {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+            {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+            {"path": "top.nibble", "relative_path": "nibble", "value": "4'hx"},
+            {"path": "top.status", "relative_path": "status", "value": "4'h3"},
+            {"path": "top.asc", "relative_path": "asc", "value": "4'h3"},
         ])
     );
 }
@@ -468,28 +468,28 @@ fn fsdb_value_samples_exact_transitions_and_dump_end() {
         (
             "0ns",
             json!([
-                {"path": "top.data", "value": "8'h00"},
-                {"path": "top.nibble", "value": "4'ha"},
-                {"path": "top.status", "value": "4'hz"},
-                {"path": "top.asc", "value": "4'hc"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                {"path": "top.nibble", "relative_path": "nibble", "value": "4'ha"},
+                {"path": "top.status", "relative_path": "status", "value": "4'hz"},
+                {"path": "top.asc", "relative_path": "asc", "value": "4'hc"},
             ]),
         ),
         (
             "5ns",
             json!([
-                {"path": "top.data", "value": "8'h0f"},
-                {"path": "top.nibble", "value": "4'hx"},
-                {"path": "top.status", "value": "4'h3"},
-                {"path": "top.asc", "value": "4'h3"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                {"path": "top.nibble", "relative_path": "nibble", "value": "4'hx"},
+                {"path": "top.status", "relative_path": "status", "value": "4'h3"},
+                {"path": "top.asc", "relative_path": "asc", "value": "4'h3"},
             ]),
         ),
         (
             "10ns",
             json!([
-                {"path": "top.data", "value": "8'hf0"},
-                {"path": "top.nibble", "value": "4'h5"},
-                {"path": "top.status", "value": "4'hx"},
-                {"path": "top.asc", "value": "4'ha"},
+                {"path": "top.data", "relative_path": "data", "value": "8'hf0"},
+                {"path": "top.nibble", "relative_path": "nibble", "value": "4'h5"},
+                {"path": "top.status", "relative_path": "status", "value": "4'hx"},
+                {"path": "top.asc", "relative_path": "asc", "value": "4'ha"},
             ]),
         ),
     ] {
@@ -533,8 +533,8 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
         assert_eq!(
             fsdb_value["data"][0]["signals"],
             json!([
-                {"path": "top.glitch", "value": "1'h1"},
-                {"path": "top.bus", "value": "2'h2"}
+                {"path": "top.glitch", "relative_path": "glitch", "value": "1'h1"},
+                {"path": "top.bus", "relative_path": "bus", "value": "2'h2"}
             ])
         );
     }
@@ -562,12 +562,12 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
         fsdb_change["data"],
         json!([
             {"time": "5ns", "sample_time": "5ns", "signals": [
-                {"path": "top.glitch", "value": "1'h1"},
-                {"path": "top.bus", "value": "2'h2"}
+                {"path": "top.glitch", "relative_path": "glitch", "value": "1'h1"},
+                {"path": "top.bus", "relative_path": "bus", "value": "2'h2"}
             ]},
             {"time": "10ns", "sample_time": "10ns", "signals": [
-                {"path": "top.glitch", "value": "1'h0"},
-                {"path": "top.bus", "value": "2'h0"}
+                {"path": "top.glitch", "relative_path": "glitch", "value": "1'h0"},
+                {"path": "top.bus", "relative_path": "bus", "value": "2'h0"}
             ]}
         ])
     );
@@ -703,7 +703,7 @@ fn fsdb_value_uses_previous_sample_and_reports_missing_initial_value() {
     ]);
     assert_eq!(
         previous["data"][0]["signals"],
-        json!([{ "path": "top.late", "value": "1'h1" }])
+        json!([{ "path": "top.late", "relative_path": "late", "value": "1'h1" }])
     );
 
     wavepeek_cmd()
@@ -805,19 +805,19 @@ fn fsdb_change_json_matches_vcd_contracts() {
         fsdb_edge["data"],
         json!([
             {"time": "5ns", "sample_time": "5ns", "signals": [
-                {"path": "top.valid", "value": "1'h1"},
-                {"path": "top.ready", "value": "1'h0"},
-                {"path": "top.data", "value": "8'h0f"}
+                {"path": "top.valid", "relative_path": "valid", "value": "1'h1"},
+                {"path": "top.ready", "relative_path": "ready", "value": "1'h0"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
             ]},
             {"time": "15ns", "sample_time": "15ns", "signals": [
-                {"path": "top.valid", "value": "1'h1"},
-                {"path": "top.ready", "value": "1'h1"},
-                {"path": "top.data", "value": "8'h2a"}
+                {"path": "top.valid", "relative_path": "valid", "value": "1'h1"},
+                {"path": "top.ready", "relative_path": "ready", "value": "1'h1"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h2a"}
             ]},
             {"time": "35ns", "sample_time": "35ns", "signals": [
-                {"path": "top.valid", "value": "1'h1"},
-                {"path": "top.ready", "value": "1'h1"},
-                {"path": "top.data", "value": "8'h3c"}
+                {"path": "top.valid", "relative_path": "valid", "value": "1'h1"},
+                {"path": "top.ready", "relative_path": "ready", "value": "1'h1"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h3c"}
             ]}
         ])
     );
@@ -870,9 +870,9 @@ fn fsdb_change_json_matches_vcd_contracts() {
     assert_eq!(
         fsdb_wildcard["data"],
         json!([
-            {"time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "value": "8'h0f"}]},
-            {"time": "7ns", "sample_time": "7ns", "signals": [{"path": "top.data", "value": "8'h1f"}]},
-            {"time": "15ns", "sample_time": "15ns", "signals": [{"path": "top.data", "value": "8'h2a"}]}
+            {"time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h0f"}]},
+            {"time": "7ns", "sample_time": "7ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h1f"}]},
+            {"time": "15ns", "sample_time": "15ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h2a"}]}
         ])
     );
 
@@ -901,7 +901,7 @@ fn fsdb_change_json_matches_vcd_contracts() {
     );
     assert_eq!(
         fsdb_truncated["data"],
-        json!([{ "time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "value": "8'h0f"}] }])
+        json!([{ "time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h0f"}] }])
     );
 
     let relative = run_stdout_success(&[

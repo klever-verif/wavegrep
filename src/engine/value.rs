@@ -16,6 +16,8 @@ pub struct ValueSignalValue {
     #[serde(skip_serializing)]
     pub display: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relative_path: Option<String>,
     pub value: String,
 }
 
@@ -78,11 +80,15 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
         let sampled = waveform.sample_signals_at_time(&canonical_paths, query_time_raw)?;
         let signals = sampled
             .into_iter()
-            .map(|sampled| ValueSignalValue {
-                display: display_signal_path(sampled.path.as_str(), args.scope.as_deref())
-                    .to_string(),
-                path: sampled.path,
-                value: format_verilog_literal(sampled.width, sampled.bits.as_str()),
+            .map(|sampled| {
+                let display =
+                    display_signal_path(sampled.path.as_str(), args.scope.as_deref()).to_string();
+                ValueSignalValue {
+                    relative_path: args.scope.as_ref().map(|_| display.clone()),
+                    display,
+                    path: sampled.path,
+                    value: format_verilog_literal(sampled.width, sampled.bits.as_str()),
+                }
             })
             .collect::<Vec<_>>();
 
@@ -105,6 +111,7 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs: args.abs,
         },
+        scope: args.scope,
         data: CommandData::Value(snapshots),
         diagnostics: Vec::new(),
     })

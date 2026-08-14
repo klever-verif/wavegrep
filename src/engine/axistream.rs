@@ -246,6 +246,7 @@ pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
         data: CommandData::ExtractAxiStream(AxiStreamData {
             name: outcome.context.name,
             profile: outcome.context.profile,

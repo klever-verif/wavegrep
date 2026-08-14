@@ -9,7 +9,7 @@ use super::output::{
     ChangeSnapshot, ExtractAhbContext, ExtractAhbEvent, ExtractApbContext, ExtractApbEvent,
     ExtractAtbContext, ExtractAtbEvent, ExtractAxiContext, ExtractAxiStreamContext,
     ExtractAxiStreamTransfer, ExtractAxiTransfer, ExtractGenericRow, InfoData, OutputContextData,
-    PropertyRow, ScopeEntry, SignalEntry, ValueSnapshot,
+    PropertyRow, ScopeContext, ScopeEntry, SignalEntry, ValueSnapshot,
 };
 
 #[derive(Debug, Serialize)]
@@ -35,6 +35,32 @@ impl BeginRecord<'static> {
 }
 
 impl<'a> BeginRecord<'a> {
+    pub fn with_scope(
+        seq: usize,
+        command: CommandName,
+        scope: &'a str,
+    ) -> Result<Self, WavepeekError> {
+        require_stream_command(command)?;
+        if !matches!(
+            command,
+            CommandName::Signal
+                | CommandName::Value
+                | CommandName::Change
+                | CommandName::ExtractGeneric
+        ) {
+            return Err(WavepeekError::Internal(format!(
+                "command {} cannot begin with scope context",
+                command.as_str()
+            )));
+        }
+        Ok(Self {
+            record_type: "begin",
+            seq,
+            command: command.as_str(),
+            context: Some(OutputContextData::Scope(ScopeContext::new(scope))),
+        })
+    }
+
     pub fn with_context<T: StreamContext + ?Sized>(
         seq: usize,
         command: CommandName,

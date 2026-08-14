@@ -1231,6 +1231,7 @@ pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
         data: CommandData::ExtractAxi(AxiData {
             name: outcome.context.name,
             profile: outcome.context.profile,

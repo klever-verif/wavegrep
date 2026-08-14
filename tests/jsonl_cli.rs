@@ -197,6 +197,7 @@ fn change_jsonl_reports_empty_result_before_end() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout, "change");
+    assert_eq!(records[0]["context"]["scope"], "top");
     assert_eq!(
         records
             .iter()
@@ -238,12 +239,15 @@ fn extract_generic_jsonl_streams_rows_with_stable_record_order() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout, "extract generic");
+    assert_eq!(records[0]["context"]["scope"], "top");
     let items = records
         .iter()
         .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["data"]["source"], "transfer");
+    assert_eq!(items[0]["data"]["payload"][0]["path"], "top.data");
+    assert_eq!(items[0]["data"]["payload"][0]["relative_path"], "data");
 }
 
 #[test]
