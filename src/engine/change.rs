@@ -21,9 +21,7 @@ use crate::engine::time::{
     parse_dump_time_context, validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary,
-};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::{
     BoundEventExpr, EventEvalFrame, ExprTypeKind, ExpressionHost, SampledValue, SignalHandle,

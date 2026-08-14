@@ -12,6 +12,8 @@ pub enum WavepeekError {
     Scope(String),
     #[error("fatal: signal: {0}")]
     Signal(String),
+    #[error("fatal: signal: {0}")]
+    SignalNotFound(String),
     #[error("fatal: expr: {0}")]
     Expr(String),
     #[error("fatal: internal: {0}")]
@@ -30,6 +32,7 @@ impl WavepeekError {
             Self::Args(_)
             | Self::Scope(_)
             | Self::Signal(_)
+            | Self::SignalNotFound(_)
             | Self::Expr(_)
             | Self::Internal(_)
             | Self::Unimplemented(_) => 1,
@@ -53,9 +56,12 @@ mod tests {
     fn scope_and_signal_errors_use_exit_code_one() {
         let scope = WavepeekError::Scope("scope 'top.cpu' not found".to_string());
         let signal = WavepeekError::Signal("signal 'top.cpu.clk' not found".to_string());
+        let missing = WavepeekError::SignalNotFound("signal 'top.cpu.clk' not found".to_string());
 
         assert_eq!(scope.exit_code(), 1);
         assert_eq!(signal.exit_code(), 1);
+        assert_eq!(missing.exit_code(), 1);
+        assert_eq!(missing.to_string(), signal.to_string());
         assert_eq!(scope.to_string(), "fatal: scope: scope 'top.cpu' not found");
         assert_eq!(
             signal.to_string(),

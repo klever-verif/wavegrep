@@ -670,7 +670,9 @@ impl FsdbHierarchyIndex {
             .get(canonical_path)
             .map(|index| &self.signals[*index])
             .ok_or_else(|| {
-                WavepeekError::Signal(format!("signal '{canonical_path}' not found in dump"))
+                WavepeekError::SignalNotFound(format!(
+                    "signal '{canonical_path}' not found in dump"
+                ))
             })
     }
 }
@@ -1422,10 +1424,9 @@ mod tests {
             SignalId::from_backend_index(3)
         );
         let expected = "fatal: signal: signal 'top.opcode' is ambiguous in FSDB hierarchy; candidates: idcode=1 kind=reg width=1 encoding=bit-vector datatype=none, idcode=2 kind=reg width=1 encoding=bit-vector datatype=none; no candidate was selected";
-        assert_eq!(
-            index.resolve_signal("top.opcode").unwrap_err().to_string(),
-            expected
-        );
+        let error = index.resolve_signal("top.opcode").unwrap_err();
+        assert!(matches!(error, WavepeekError::Signal(_)));
+        assert_eq!(error.to_string(), expected);
         assert_eq!(
             index
                 .resolve_expr_signal("top.opcode")
@@ -1809,8 +1810,10 @@ mod tests {
             index.signals_in_scope("missing").unwrap_err().to_string(),
             "fatal: scope: scope 'missing' not found in dump"
         );
+        let error = index.resolve_signal("top.missing").unwrap_err();
+        assert!(matches!(error, WavepeekError::SignalNotFound(_)));
         assert_eq!(
-            index.resolve_signal("top.missing").unwrap_err().to_string(),
+            error.to_string(),
             "fatal: signal: signal 'top.missing' not found in dump"
         );
     }

@@ -460,6 +460,32 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
 }
 
 #[test]
+fn fsdb_value_preserves_exact_projection_like_path_errors() {
+    let dir = tempfile::tempdir().expect("tempdir should be created");
+    let fixture = convert_vcd_fixture(dir.path(), "projection_ambiguous_exact.vcd");
+    let fixture = path_str(&fixture);
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "0ns",
+            "--signals",
+            "top.flags[0:0]",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "signal 'top.flags[0:0]' is ambiguous in FSDB hierarchy",
+        ))
+        .stderr(predicate::str::contains("no candidate was selected"));
+}
+
+#[test]
 fn fsdb_value_samples_exact_transitions_and_dump_end() {
     let fixtures = GeneratedFsdbFixtures::new();
     let fixture = path_str(&fixtures.value_vectors());

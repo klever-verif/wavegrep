@@ -77,13 +77,17 @@ pub(crate) fn resolve_projected_signal(
     scope: Option<&str>,
 ) -> Result<ProjectedSignal, WavepeekError> {
     let canonical_path = scoped_signal_path(token, scope);
-    if let Ok(mut resolved) = waveform.resolve_signals(std::slice::from_ref(&canonical_path)) {
-        let source = resolved.remove(0);
-        return Ok(ProjectedSignal {
-            path: source.path.clone(),
-            source,
-            range: None,
-        });
+    match waveform.resolve_signals(std::slice::from_ref(&canonical_path)) {
+        Ok(mut resolved) => {
+            let source = resolved.remove(0);
+            return Ok(ProjectedSignal {
+                path: source.path.clone(),
+                source,
+                range: None,
+            });
+        }
+        Err(WavepeekError::SignalNotFound(_)) => {}
+        Err(error) => return Err(error),
     }
 
     let Some((base_token, range)) = parse_trailing_range(token)? else {
