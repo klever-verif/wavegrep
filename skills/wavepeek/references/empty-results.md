@@ -40,7 +40,8 @@ Common causes:
 - the selected time window is too narrow,
 - the trigger never fires in that window,
 - sparse mode selected events, but the printed signals did not change,
-- sparse mode sampled a correct signal list whose values were already stable.
+- sparse mode sampled a correct signal list whose values were already stable,
+- a signal spelling does not resolve inside the selected scope.
 
 If `change` finds no qualifying rows, it emits a mode-specific diagnostic instead of failing:
 
@@ -61,11 +62,12 @@ That means empty output is normal when:
 - `--capture assert` or `--capture deassert` asked for a transition that never happened,
 - the window starts after the transition you were hoping to see.
 
-## Separate lookup failures from empty results
+## Most empty results come from one of four mistakes
 
-Wrong signal names and naming contexts are not empty results. They exit non-zero with a fatal error and, when possible, suggest copyable names for the current scope. Use those suggestions or confirm the hierarchy with `scope` and `signal` before changing filters or time bounds.
-
-Valid empty results usually mean that a list filter or event trigger is too narrow, or that the interesting activity lies outside the selected time window.
+1. **Wrong names** — the scope path or signal spelling is wrong.
+2. **Wrong naming context** — a short name was used without `--scope`, or a canonical path lies outside the selected scope.
+3. **Wrong filter or trigger** — the regex or event expression is narrower than intended.
+4. **Wrong time window** — the interesting activity is outside the selected bounds.
 
 ## Recover safely
 

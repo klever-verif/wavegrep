@@ -92,7 +92,7 @@ Process-level failures are fail-fast and use:
 fatal: <category>: <message>
 ```
 
-Representative categories include `args`, `file`, `scope`, `signal`, and `expr`. Fatal messages may span multiple stderr lines; missing-signal failures use continuation lines for bounded query-name suggestions or for the explanation that no useful dumped signal exists. JSON and JSONL flags do not wrap these process-level failures, and stdout remains empty when failure occurs before a JSONL `begin` record.
+Representative categories include `args`, `file`, `scope`, `signal`, and `expr`.
 
 | Code | Meaning |
 |------|---------|

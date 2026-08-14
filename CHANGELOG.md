@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.
 
 ### Fixed
-- Suggested bounded, copyable signal paths for wrong hierarchy names and close spelling mistakes, while explaining when a signal may be absent from the dump ([issue #84](https://github.com/kleverhq/wavepeek/issues/84)).
+- Improved missing-signal errors to distinguish invalid paths from signals absent from the dump ([issue #84](https://github.com/kleverhq/wavepeek/issues/84)).
 - Report malformed hexadecimal expression literals at their full token span instead of blaming balanced opening parentheses, and underline expression diagnostic spans ([issue #103](https://github.com/kleverhq/wavepeek/issues/103)).
 - Accepted mixed relative and in-scope canonical signal paths across scoped `value`, `change`, `property`, and generic extraction queries ([issue #81](https://github.com/kleverhq/wavepeek/issues/81)).
 

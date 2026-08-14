@@ -43,9 +43,9 @@ The commands that depend on this model are:
 - `extract generic`, which applies the same model to `--on`, `--when`, and payload signal names from CLI flags or source JSON.
 - `extract ahb`, `extract apb`, `extract atb`, `extract axi`, and `extract axistream`, which resolve mapped waveform names and include candidates relative to `--scope` while keeping protocol standard names independent of waveform hierarchy.
 
-Unresolved names are errors. When a requested path is absent, wavepeek reports up to five deterministic query-name suggestions with an exact or close basename. Suggestions are canonical without `--scope` and relative with `--scope`, so they can be copied into the current naming mode. If no useful candidate exists, the error explains that the RTL declaration may be optimized, aliased, or absent from the dump. These failures remain fatal in human, JSON, and JSONL modes; expression references retain expression diagnostics. Scoped generic queries may mix relative and in-scope canonical references, but cannot escape the selected scope. Protocol extract mappings remain scope-relative and currently accept only signals declared directly in the selected scope.
+Unresolved names are errors. Scoped generic queries may mix relative and in-scope canonical references, but cannot escape the selected scope. Protocol extract mappings remain scope-relative.
 
-If distinct FSDB records map to one canonical signal path, wavepeek quarantines that path instead of selecting a backing record. Scopes and unambiguous signals remain available. Signal listings omit quarantined paths with a diagnostic, while an explicit reference to one fails as an ambiguous signal. Quarantined paths and entries that the current lookup cannot resolve are never suggested.
+If distinct FSDB records map to one canonical signal path, wavepeek quarantines that path instead of selecting a backing record. Scopes and unambiguous signals remain available. Signal listings omit quarantined paths with a diagnostic, while an explicit reference to one fails as an ambiguous signal.
 
 ## 5. Human-Readable and Machine-Readable Modes
 

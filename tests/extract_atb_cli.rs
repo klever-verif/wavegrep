@@ -564,9 +564,7 @@ fn extract_atb_rejects_invalid_map_include_scope_and_source_inputs() {
     )
     .assert()
     .failure()
-    .stderr(predicate::str::contains(
-        "must name a signal declared directly in the selected scope",
-    ));
+    .stderr(predicate::str::contains("must use a scope-relative signal"));
 
     command_with_maps(
         "atb-c",

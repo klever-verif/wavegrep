@@ -784,7 +784,7 @@ fn explicit_mappings(
         }
         if scope.is_some() && waves.contains('.') {
             return Err(WavepeekError::Args(format!(
-                "APB mapping for '{standard}' must name a signal declared directly in the selected scope. See 'wavepeek extract apb --help'."
+                "APB mapping for '{standard}' must use a scope-relative signal when --scope is set. See 'wavepeek extract apb --help'."
             )));
         }
         let query_path = match scope {

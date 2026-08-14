@@ -1577,7 +1577,7 @@ fn explicit_mappings(
         }
         if scope.is_some() && waves.contains('.') {
             return Err(WavepeekError::Args(format!(
-                "AXI mapping for '{standard}' must name a signal declared directly in the selected scope. See 'wavepeek extract axi --help'."
+                "AXI mapping for '{standard}' must use a scope-relative signal when --scope is set. See 'wavepeek extract axi --help'."
             )));
         }
         let query_path = match scope {

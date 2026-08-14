@@ -26,7 +26,7 @@ Read [Command overview](references/overview.md) for command selection and [Help 
 
 - Do not read `.fst` or `.fsdb` with generic text or binary tools. Avoid raw `.vcd` reads too; dumps can be large and timing-sensitive.
 - Keep output bounded with filters, focused signal lists, explicit time windows, and row limits.
-- For `value`, `change`, `property`, and `extract generic`, use canonical paths without `--scope`; with `--scope`, relative and in-scope canonical names may be mixed. Scoped protocol extract mappings use local signal names declared directly in the selected scope.
+- For `value`, `change`, `property`, and `extract generic`, use canonical paths without `--scope`; with `--scope`, relative and in-scope canonical names may be mixed. Protocol extract mappings remain scope-relative.
 - Time tokens require explicit units. Use `info` to learn dump bounds and precision.
 - Write hexadecimal expression literals in SystemVerilog form, such as `64'h10` or `128'h0011...`; `0x...` and `64h10` are invalid.
 - For synchronous RTL, separate the sampling event from the tested condition: use `--on 'posedge <clock>'` and put the condition in `--eval` or `--when`.

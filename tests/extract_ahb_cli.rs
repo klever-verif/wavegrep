@@ -454,7 +454,7 @@ fn extract_ahb_requires_manager_progress_and_pipeline_control_mappings() {
         .failure()
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::contains(
-            "must name a signal declared directly in the selected scope",
+            "must use a scope-relative signal when --scope is set",
         ));
 }
 
