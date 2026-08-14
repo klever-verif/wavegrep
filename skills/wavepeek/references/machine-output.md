@@ -24,13 +24,19 @@ A successful `--json` command emits `type`, `command`, optional `context`, `data
 {"type":"result","command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}],"diagnostics":[]}
 ```
 
+A `signal` row contains the leaf `name`, canonical `path`, path relative to the exact selected scope in `relative_path`, normalized `kind`, and optional `width`. Immediate children use their basename as `relative_path`; descendants retain the child scope path:
+
+```json
+{"type":"result","command":"signal","data":[{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1}],"diagnostics":[]}
+```
+
 Protocol extractors put command-wide metadata in `context` and rows directly in `data`:
 
 ```json
 {"type":"result","command":"extract apb","context":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}}},"data":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}],"diagnostics":[]}
 ```
 
-Machine-readable paths are canonical. Protocol context fields are documented in [Extract command](extract.md); row fields remain command-specific. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
+Machine-readable `path` fields are canonical; `signal` rows also include scope-relative `relative_path`. Protocol context fields are documented in [Extract command](extract.md); row fields remain command-specific. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
 
 A diagnostic has `kind`, `message`, and, for warnings and errors, a stable `code`:
 

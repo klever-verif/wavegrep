@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added scope-relative paths to `signal` JSON and JSONL entries while retaining leaf names and canonical paths ([issue #82](https://github.com/kleverhq/wavepeek/issues/82)).
+
 ### Changed
 - Changed `change` to emit every selected event with full signal values by default, added independent `--row-mode dense|sparse` and `--row-values full|delta` controls, and provided the version 2 sparse/full row shape through `--row-mode sparse --row-values full`; sparse comparisons now use the previous selected sample rather than the preceding dump timestamp ([issue #85](https://github.com/kleverhq/wavepeek/issues/85)).
 - Normalized successful JSON and JSONL results so JSON `data` is always an array, protocol metadata uses `context`, and streamed rows match JSON data elements ([issue #106](https://github.com/kleverhq/wavepeek/issues/106)).

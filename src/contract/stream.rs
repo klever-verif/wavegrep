@@ -349,9 +349,9 @@ mod tests {
     #[test]
     fn data_record_uses_contract_payload_shape() {
         let item = crate::engine::signal::SignalEntry {
-            display: "clk".to_string(),
             name: "clk".to_string(),
             path: "top.clk".to_string(),
+            relative_path: "clk".to_string(),
             kind: "wire".to_string(),
             width: Some(1),
         };
@@ -365,7 +365,7 @@ mod tests {
             json!({
                 "type": "data",
                 "seq": 1,
-                "data": {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1}
+                "data": {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1}
             })
         );
     }

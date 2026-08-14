@@ -82,11 +82,11 @@ Without `--abs`, recursive output is easier to read. With `--abs`, it is easier 
 
 ## Use JSON when another tool will consume the result
 
-`--json` keeps the stable machine contract and always includes canonical paths:
+`--json` keeps the stable machine contract and includes both canonical and scope-relative paths:
 
 ```text
 $ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --json --max 10
-{"type":"result","command":"signal","data":[{"name":"cfg","path":"top.cfg","kind":"parameter","width":8},{"name":"clk","path":"top.clk","kind":"wire","width":1},{"name":"data","path":"top.data","kind":"reg","width":8},{"name":"valid","path":"top.cpu.valid","kind":"wire","width":1},{"name":"ready","path":"top.mem.ready","kind":"wire","width":1}],"diagnostics":[]}
+{"type":"result","command":"signal","data":[{"name":"cfg","path":"top.cfg","relative_path":"cfg","kind":"parameter","width":8},{"name":"clk","path":"top.clk","relative_path":"clk","kind":"wire","width":1},{"name":"data","path":"top.data","relative_path":"data","kind":"reg","width":8},{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1},{"name":"ready","path":"top.mem.ready","relative_path":"mem.ready","kind":"wire","width":1}],"diagnostics":[]}
 ```
 
 Use this in scripts and agents when human formatting is not reliable enough.
@@ -138,7 +138,7 @@ $ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --filter '^cp
 ```
 
   This succeeds with no rows, because the names are `valid` and `ready`; `cpu.` is only part of the human display string.
-- Recursive human output is scope-relative by default, but JSON `path` fields stay canonical.
+- Recursive human output is scope-relative by default. In JSON and JSONL, `path` stays canonical while `relative_path` is relative to the exact `--scope` value.
 - Signal kinds are not limited to wires. You may see `reg`, `parameter`, and other stable signal kind aliases; backend-specific VHDL spellings are normalized to the stable contract surface.
 - `--max-depth` requires `--recursive`.
 - An empty match is a valid result, not an error; it emits `WPK-W0003`.

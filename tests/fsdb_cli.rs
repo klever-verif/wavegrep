@@ -176,8 +176,8 @@ fn fsdb_signal_direct_and_recursive_queries_are_stable() {
     assert_eq!(
         direct["data"],
         json!([
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "reset_n", "path": "top.reset_n", "kind": "wire", "width": 1},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "reset_n", "path": "top.reset_n", "relative_path": "reset_n", "kind": "wire", "width": 1},
         ])
     );
     assert_eq!(
@@ -188,11 +188,11 @@ fn fsdb_signal_direct_and_recursive_queries_are_stable() {
     assert_eq!(
         recursive["data"],
         json!([
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "reset_n", "path": "top.reset_n", "kind": "wire", "width": 1},
-            {"name": "valid", "path": "top.cpu.valid", "kind": "wire", "width": 1},
-            {"name": "execute", "path": "top.cpu.core.execute", "kind": "wire", "width": 1},
-            {"name": "ready", "path": "top.mem.ready", "kind": "wire", "width": 1},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "reset_n", "path": "top.reset_n", "relative_path": "reset_n", "kind": "wire", "width": 1},
+            {"name": "valid", "path": "top.cpu.valid", "relative_path": "cpu.valid", "kind": "wire", "width": 1},
+            {"name": "execute", "path": "top.cpu.core.execute", "relative_path": "cpu.core.execute", "kind": "wire", "width": 1},
+            {"name": "ready", "path": "top.mem.ready", "relative_path": "mem.ready", "kind": "wire", "width": 1},
         ])
     );
 }
@@ -1013,8 +1013,8 @@ fn fsdb_raw_event_property_matches_vcd_when_converter_preserves_events() {
     assert_eq!(
         signal_listing["data"],
         json!([
-            {"name": "armed", "path": "top.armed", "kind": "wire", "width": 1},
-            {"name": "tick", "path": "top.tick", "kind": "event", "width": 1}
+            {"name": "armed", "path": "top.armed", "relative_path": "armed", "kind": "wire", "width": 1},
+            {"name": "tick", "path": "top.tick", "relative_path": "tick", "kind": "event", "width": 1}
         ])
     );
 
@@ -1345,9 +1345,20 @@ fn assert_signal_entry(entry: &Value) {
     let path = entry["path"]
         .as_str()
         .expect("signal path should be string");
+    let relative_path = entry["relative_path"]
+        .as_str()
+        .expect("relative signal path should be string");
     assert!(!name.is_empty(), "signal name should not be empty");
     assert!(!path.is_empty(), "signal path should not be empty");
+    assert!(
+        !relative_path.is_empty(),
+        "relative signal path should not be empty"
+    );
     assert!(!path.contains('/'), "signal path should be dot-separated");
+    assert!(
+        !relative_path.contains('/'),
+        "relative signal path should be dot-separated"
+    );
     let kind = entry["kind"]
         .as_str()
         .expect("signal kind should be string");

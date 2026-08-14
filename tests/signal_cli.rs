@@ -79,15 +79,15 @@ fn signal_json_shape_for_vcd_keeps_full_paths() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "data", "path": "top.data", "kind": "reg", "width": 8}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "data", "path": "top.data", "relative_path": "data", "kind": "reg", "width": 8}
         ])
     );
 }
 
 #[test]
-fn signal_json_shape_for_fst_keeps_full_paths() {
+fn signal_recursive_json_for_fst_keeps_canonical_and_relative_paths() {
     let fixture = fixture_path("m2_core.fst");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -99,6 +99,7 @@ fn signal_json_shape_for_fst_keeps_full_paths() {
             fixture.as_str(),
             "--scope",
             "top",
+            "--recursive",
             "--max",
             "50",
             "--json",
@@ -112,9 +113,41 @@ fn signal_json_shape_for_fst_keeps_full_paths() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "data", "path": "top.data", "kind": "reg", "width": 8}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "data", "path": "top.data", "relative_path": "data", "kind": "reg", "width": 8},
+            {"name": "valid", "path": "top.cpu.valid", "relative_path": "cpu.valid", "kind": "wire", "width": 1},
+            {"name": "ready", "path": "top.mem.ready", "relative_path": "mem.ready", "kind": "wire", "width": 1}
+        ])
+    );
+}
+
+#[test]
+fn signal_json_paths_are_relative_to_exact_nested_scope() {
+    let fixture = fixture_path("signal_recursive_depth.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
+        .args([
+            "signal",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top.cpu",
+            "--recursive",
+            "--json",
+        ])
+        .output()
+        .expect("nested-scope signal run should execute");
+
+    assert!(output.status.success());
+    let value: Value =
+        serde_json::from_slice(&output.stdout).expect("signal output should be json");
+    assert_eq!(
+        value["data"],
+        json!([
+            {"name": "valid", "path": "top.cpu.valid", "relative_path": "valid", "kind": "wire", "width": 1},
+            {"name": "execute", "path": "top.cpu.core.execute", "relative_path": "core.execute", "kind": "wire", "width": 1}
         ])
     );
 }
@@ -145,8 +178,8 @@ fn signal_filter_applies_to_signal_names() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1}
         ])
     );
 }
@@ -516,6 +549,7 @@ fn signal_recursive_max_depth_respects_grandchild_boundary() {
             "top.mem.ready",
         ]
     );
+    assert_eq!(depth_2_json["data"][3]["relative_path"], "cpu.core.execute");
 }
 
 #[test]
