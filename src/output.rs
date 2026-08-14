@@ -927,26 +927,33 @@ mod tests {
     #[test]
     fn change_human_render_is_single_line_per_snapshot() {
         let rendered = render_human(
-            &CommandData::Change(vec![crate::engine::change::ChangeSnapshot {
-                time: "5ns".to_string(),
-                sample_time: "4ns".to_string(),
-                signals: vec![
-                    crate::engine::change::ChangeSignalValue {
-                        display: "clk".to_string(),
-                        path: "top.clk".to_string(),
-                        value: "1'h1".to_string(),
-                    },
-                    crate::engine::change::ChangeSignalValue {
-                        display: "data".to_string(),
-                        path: "top.data".to_string(),
-                        value: "8'h00".to_string(),
-                    },
-                ],
-            }]),
+            &CommandData::Change(vec![
+                crate::engine::change::ChangeSnapshot {
+                    time: "5ns".to_string(),
+                    sample_time: "4ns".to_string(),
+                    signals: vec![
+                        crate::engine::change::ChangeSignalValue {
+                            display: "clk".to_string(),
+                            path: "top.clk".to_string(),
+                            value: "1'h1".to_string(),
+                        },
+                        crate::engine::change::ChangeSignalValue {
+                            display: "data".to_string(),
+                            path: "top.data".to_string(),
+                            value: "8'h00".to_string(),
+                        },
+                    ],
+                },
+                crate::engine::change::ChangeSnapshot {
+                    time: "15ns".to_string(),
+                    sample_time: "15ns".to_string(),
+                    signals: vec![],
+                },
+            ]),
             HumanRenderOptions::default(),
         );
 
-        assert_eq!(rendered, "@5ns sample@4ns clk=1'h1 data=8'h00");
+        assert_eq!(rendered, "@5ns sample@4ns clk=1'h1 data=8'h00\n@15ns");
     }
 
     #[test]

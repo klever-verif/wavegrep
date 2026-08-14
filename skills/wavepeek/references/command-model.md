@@ -65,6 +65,8 @@ wavepeek is designed to avoid flooding terminals and LLM context windows. Comman
 
 When a command truncates output because of an active limit, it emits a warning diagnostic. `change`, `property`, and `extract` use `--max` for event-row limits and default to 50 rows. When a command supports disabling a limit explicitly, that opt-out also emits a warning diagnostic so automation can tell the boundedness contract changed on purpose. List and search-style commands also emit an empty-result diagnostic when a valid query produces no rows; diagnostics do not change the successful exit code.
 
+`change` applies its `--max` limit after row-mode filtering. Dense mode counts every selected event that can be sampled; sparse mode counts only selected samples whose requested values changed from the previous selected sample.
+
 ## 7. Deterministic Ordering
 
 Deterministic output is a repository-wide design requirement. Given identical input data and identical command arguments, wavepeek must emit results in a stable order.

@@ -563,29 +563,6 @@ pub(crate) fn classify_edge(previous_bits: &str, current_bits: &str) -> EdgeClas
     EdgeClassification { posedge, negedge }
 }
 
-pub(crate) fn should_emit_delta_and_update_baseline(
-    previous_values: &mut [Option<String>],
-    current_values: &[Option<String>],
-) -> bool {
-    let mut changed = false;
-
-    for (previous, current) in previous_values.iter().zip(current_values) {
-        if let (Some(previous), Some(current)) = (previous.as_ref(), current.as_ref())
-            && previous != current
-        {
-            changed = true;
-        }
-    }
-
-    for (previous, current) in previous_values.iter_mut().zip(current_values) {
-        if let Some(current) = current {
-            *previous = Some(current.clone());
-        }
-    }
-
-    changed
-}
-
 #[allow(dead_code)]
 fn normalize_to_four_state(bit: char) -> char {
     match bit.to_ascii_lowercase() {

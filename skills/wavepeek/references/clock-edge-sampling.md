@@ -90,7 +90,7 @@ The restriction keeps the mode tied to edge-triggered RTL-style sampling. Use `-
 
 ## Range boundaries
 
-Time bounds are still inclusive. Transition captures and `change` also keep their normal baseline at `--from`.
+Time bounds are still inclusive. Transition captures and sparse `change` rows keep their comparison baseline at `--from`; dense `change` rows can include a selected event exactly at `--from`.
 
 If a trigger occurs exactly at `--from`, its pre-edge query point may be before the selected window:
 
@@ -105,9 +105,9 @@ data        00       aa       aa       aa
              pre-edge sample is before --from
 ```
 
-For transition modes, that pre-window sample does not replace the `--from` baseline. The baseline remains the value sampled at the range start. This prevents a boundary edge from manufacturing an extra `assert`, `deassert`, or `change` row using a value outside the requested range.
+For property transition captures and `change --row-mode sparse`, that pre-window sample does not replace the `--from` baseline. The baseline remains the value sampled at the range start, so the boundary event does not manufacture a transition row. Dense `change` may emit the boundary event and use its pre-edge sample when that sample point exists.
 
-If there is no representable query point before a trigger, for example at the first timestamp in the dump, `pre-edge` skips value evaluation for that trigger. This can produce an empty result even though the edge itself was present.
+If there is no representable query point before a trigger, for example at the first timestamp in the dump, `pre-edge` skips value evaluation for that trigger. Dense `change` also skips that event rather than substituting native values. This can produce an empty result even though the edge itself was present.
 
 ## Back-to-back handshakes
 

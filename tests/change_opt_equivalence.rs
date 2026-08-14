@@ -58,6 +58,9 @@ fn run_change_json_with_mode(
         "--sample-mode",
         "native",
     ];
+    if !extra_args.contains(&"--row-mode") {
+        args.extend_from_slice(&["--row-mode", "sparse"]);
+    }
     if engine_mode == "edge-fast" {
         args.push("--tune-edge-fast-force");
     }
@@ -78,7 +81,41 @@ fn run_change_json_with_mode(
 }
 
 #[test]
-fn change_uses_strict_previous_timestamp_not_previous_candidate() {
+fn change_all_row_combinations_match_optimized_engines() {
+    let fixture = write_fixture(
+        "$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! clk $end\n$var wire 1 \" data $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n0\"\n#1\n1!\n#2\n0!\n#3\n1!\n1\"\n#4\n0!\n#5\n1!\n",
+        "change-row-mode-equivalence.vcd",
+    );
+    let fixture = fixture.path().to_string_lossy().into_owned();
+
+    for (row_mode, row_values) in [
+        ("dense", "full"),
+        ("dense", "delta"),
+        ("sparse", "full"),
+        ("sparse", "delta"),
+    ] {
+        run_change_json_with_edge_modes(
+            fixture.as_str(),
+            &[
+                "--from",
+                "0ns",
+                "--to",
+                "5ns",
+                "--signals",
+                "top.data",
+                "--on",
+                "posedge top.clk",
+                "--row-mode",
+                row_mode,
+                "--row-values",
+                row_values,
+            ],
+        );
+    }
+}
+
+#[test]
+fn change_sparse_compares_with_previous_selected_sample() {
     let fixture = write_fixture(
         "$date\n  today\n$end\n$version\n  wavepeek-test\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! trig $end\n$var wire 1 \" sig $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n0\"\n#5\n1!\n1\"\n#7\n0\"\n#8\n0!\n#10\n1!\n",
         "change-opt-equivalence.vcd",
@@ -109,13 +146,20 @@ fn change_uses_strict_previous_timestamp_not_previous_candidate() {
                 "signals": [
                     {"path": "top.sig", "value": "1'h1"}
                 ]
+            },
+            {
+                "time": "10ns",
+                "sample_time": "10ns",
+                "signals": [
+                    {"path": "top.sig", "value": "1'h0"}
+                ]
             }
         ])
     );
 }
 
 #[test]
-fn change_from_inside_window_respects_intermediate_non_candidate_updates() {
+fn change_from_inside_window_compares_with_range_baseline() {
     let fixture = write_fixture(
         "$date\n  today\n$end\n$version\n  wavepeek-test\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! trig $end\n$var wire 1 \" sig $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n0\"\n#5\n1!\n1\"\n#7\n0\"\n#8\n0!\n#10\n1!\n",
         "change-opt-equivalence.vcd",
@@ -136,10 +180,14 @@ fn change_from_inside_window_respects_intermediate_non_candidate_updates() {
         ],
     );
 
-    assert_eq!(value["data"], json!([]));
+    assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
+        value["data"],
+        json!([{
+            "time": "10ns",
+            "sample_time": "10ns",
+            "signals": [{"path": "top.sig", "value": "1'h0"}]
+        }])
     );
 }
 
@@ -344,6 +392,41 @@ fn change_anychange_trigger_detects_none_to_some_transition() {
                 ]
             }
         ])
+    );
+}
+
+#[test]
+fn change_sparse_delta_emits_first_available_value() {
+    let fixture = write_fixture(
+        "$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! clk $end\n$var wire 1 \" sig $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n#5\n1!\n1\"\n",
+        "change-delayed-value.vcd",
+    );
+    let fixture = fixture.path().to_string_lossy().into_owned();
+
+    let value = run_change_json_with_edge_modes(
+        fixture.as_str(),
+        &[
+            "--from",
+            "0ns",
+            "--to",
+            "5ns",
+            "--signals",
+            "top.sig",
+            "--on",
+            "posedge top.clk",
+            "--row-values",
+            "delta",
+        ],
+    );
+
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(
+        value["data"],
+        json!([{
+            "time": "5ns",
+            "sample_time": "5ns",
+            "signals": [{"path": "top.sig", "value": "1'h1"}]
+        }])
     );
 }
 

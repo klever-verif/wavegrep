@@ -24,6 +24,22 @@ pub enum TuneChangeCandidateMode {
     Stream,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+#[value(rename_all = "kebab-case")]
+pub enum RowMode {
+    #[default]
+    Dense,
+    Sparse,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+#[value(rename_all = "kebab-case")]
+pub enum RowValues {
+    #[default]
+    Full,
+    Delta,
+}
+
 #[derive(Debug, Args)]
 pub struct ChangeArgs {
     /// Path to VCD/FST/FSDB waveform file
@@ -59,6 +75,24 @@ pub struct ChangeArgs {
         help_heading = "Selection options"
     )]
     pub sample_mode: SampleMode,
+    /// Select whether every sampled event or only changed samples become rows
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = RowMode::Dense,
+        value_name = "MODE",
+        help_heading = "Output options"
+    )]
+    pub row_mode: RowMode,
+    /// Select whether rows contain all values or only changed values
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = RowValues::Full,
+        value_name = "VALUES",
+        help_heading = "Output options"
+    )]
+    pub row_values: RowValues,
     /// Maximum number of snapshot rows (`unlimited` disables truncation, value must be > 0)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
