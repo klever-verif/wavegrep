@@ -19,8 +19,8 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 - [x] (2026-08-14 04:53Z) Added one shared scope-relative value to signal engine entries and exposed it through the existing JSON/JSONL contract data transfer object.
 - [x] (2026-08-14 04:53Z) Updated focused VCD, FST, JSONL, and FSDB contract tests plus required in-source constructors.
 - [x] (2026-08-14 04:53Z) Updated packaged signal and machine-output documentation and the Unreleased changelog.
-- [ ] Run focused tests and `./dev just ci`, then commit the implementation (completed: focused VCD/FST, JSONL, FSDB, and full CI all pass; remaining: commit).
-- [ ] Run first review wave with separate Luna Max code/architecture and tests/docs lanes, fix findings, verify, and commit.
+- [x] (2026-08-14 04:54Z) Ran focused VCD/FST, JSONL, FSDB, and full CI checks, then committed the implementation as `3d47328`.
+- [ ] Run first review wave with separate Luna Max code/architecture and tests/docs lanes, fix findings, verify, and commit (completed: both lanes returned; all four findings fixed; focused tests and full CI pass; remaining: commit).
 - [ ] Run second review wave with separate Terra High lanes over the same areas, fix findings, verify, and commit.
 - [ ] Run independent Sol High control review, fix any substantive findings, and run final `./dev just check` and `./dev just ci`.
 - [ ] Remove this branch-local plan, commit final cleanup, push the branch, and open a pull request for issue #82.
@@ -35,6 +35,9 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 
 - Observation: The local environment includes a usable Verdi FSDB Reader SDK, so optional backend parity was fully exercised rather than skipped.
   Evidence: `./dev just test-fsdb` passed 20 FSDB CLI tests, and `./dev just ci` reported `ok: fsdb: Verdi FSDB Reader SDK found`.
+
+- Observation: Once `relative_path` existed, the prior renderer-only `display` field held identical data for every signal row.
+  Evidence: Luna Max code review identified the duplication; human rendering now reads `relative_path` directly and seven source lines were removed.
 
 ## Decision Log
 
@@ -148,3 +151,7 @@ No dependency changes are allowed or needed. At completion, `crate::engine::sign
 Revision note (2026-08-14): Initial plan created after repository exploration and maintainer confirmation that removed JSON Schema support stays out of scope.
 
 Revision note (2026-08-14 04:53Z): Recorded implementation, documentation, focused test, FSDB, and full CI completion before the implementation commit.
+
+Revision note (2026-08-14 04:54Z): Recorded implementation commit `3d47328` and started the two-lane Luna Max review wave.
+
+Revision note (2026-08-14 05:04Z): Recorded Luna Max findings and fixes: removed duplicate display state, added exact nested-scope JSON/JSONL coverage, added recursive FST coverage, and clarified path terminology. Focused tests and full CI pass.

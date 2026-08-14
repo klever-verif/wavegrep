@@ -349,7 +349,6 @@ mod tests {
     #[test]
     fn data_record_uses_contract_payload_shape() {
         let item = crate::engine::signal::SignalEntry {
-            display: "clk".to_string(),
             name: "clk".to_string(),
             path: "top.clk".to_string(),
             relative_path: "clk".to_string(),

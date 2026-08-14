@@ -349,13 +349,16 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
             .any(|record| { record["type"] == "data" && record["data"]["path"] == "top" })
     );
 
+    let signal_fixture = fixture_path("signal_recursive_depth.vcd");
+    let signal_fixture = signal_fixture.to_string_lossy().into_owned();
     let signal = wavepeek_cmd()
         .args([
             "signal",
             "--waves",
-            fixture.as_str(),
+            signal_fixture.as_str(),
             "--scope",
-            "top",
+            "top.cpu",
+            "--recursive",
             "--jsonl",
         ])
         .output()
@@ -364,8 +367,8 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
     let signal_records = parse_stream(&signal.stdout, "signal");
     assert!(signal_records.iter().any(|record| {
         record["type"] == "data"
-            && record["data"]["path"] == "top.clk"
-            && record["data"]["relative_path"] == "clk"
+            && record["data"]["path"] == "top.cpu.core.execute"
+            && record["data"]["relative_path"] == "core.execute"
     }));
 
     let value = wavepeek_cmd()

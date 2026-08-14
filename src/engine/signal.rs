@@ -10,8 +10,6 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SignalEntry {
-    #[serde(skip_serializing)]
-    pub display: String,
     pub name: String,
     pub path: String,
     pub relative_path: String,
@@ -100,11 +98,6 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
                 .unwrap_or(entry.name.as_str())
                 .to_string();
             SignalEntry {
-                display: if recursive {
-                    relative_path.clone()
-                } else {
-                    entry.name.clone()
-                },
                 name: entry.name,
                 path: entry.path,
                 relative_path,

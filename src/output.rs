@@ -586,7 +586,7 @@ fn signal_display_name(entry: &crate::engine::signal::SignalEntry, abs: bool) ->
     if abs {
         entry.path.as_str()
     } else {
-        entry.display.as_str()
+        entry.relative_path.as_str()
     }
 }
 
@@ -980,7 +980,6 @@ mod tests {
 
         let signals = vec![
             crate::engine::signal::SignalEntry {
-                display: "clk".to_string(),
                 name: "clk".to_string(),
                 path: "top.clk".to_string(),
                 relative_path: "clk".to_string(),
@@ -988,7 +987,6 @@ mod tests {
                 width: Some(1),
             },
             crate::engine::signal::SignalEntry {
-                display: "status".to_string(),
                 name: "status".to_string(),
                 path: "top.status".to_string(),
                 relative_path: "status".to_string(),
