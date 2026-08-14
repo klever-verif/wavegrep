@@ -734,7 +734,7 @@ fn is_fsdb_looking_path(path: &Path) -> bool {
     file_name.ends_with(".fsdb") || file_name.ends_with(".fsdb.gz")
 }
 
-fn display_signal_path<'a>(canonical_path: &'a str, scope: Option<&str>) -> &'a str {
+pub(crate) fn display_signal_path<'a>(canonical_path: &'a str, scope: Option<&str>) -> &'a str {
     scope
         .and_then(|scope| canonical_path.strip_prefix(scope))
         .and_then(|path| path.strip_prefix('.'))

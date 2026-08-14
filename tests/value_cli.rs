@@ -10,7 +10,7 @@ use common::{fixture_path, wavepeek_cmd};
 
 #[test]
 fn value_human_output_with_scope_is_default() {
-    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     let mut command = wavepeek_cmd();
@@ -22,19 +22,21 @@ fn value_human_output_with_scope_is_default() {
             "--at",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "clk,data",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
         ])
         .assert()
         .success()
-        .stdout(predicate::eq("@10ns clk=1'h1 data=8'h0f\n"))
+        .stdout(predicate::eq(
+            "@10ns valid=1'h1 core.execute=1'h1 valid=1'h1 core.execute=1'h1\n",
+        ))
         .stderr(predicate::str::is_empty());
 }
 
 #[test]
 fn value_human_output_with_abs_shows_canonical_paths() {
-    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     let mut command = wavepeek_cmd();
@@ -46,14 +48,16 @@ fn value_human_output_with_abs_shows_canonical_paths() {
             "--at",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "clk,data",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--abs",
         ])
         .assert()
         .success()
-        .stdout(predicate::eq("@10ns top.clk=1'h1 top.data=8'h0f\n"))
+        .stdout(predicate::eq(
+            "@10ns top.cpu.valid=1'h1 top.cpu.core.execute=1'h1 top.cpu.valid=1'h1 top.cpu.core.execute=1'h1\n",
+        ))
         .stderr(predicate::str::is_empty());
 }
 

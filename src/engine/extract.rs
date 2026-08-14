@@ -28,7 +28,7 @@ use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, BoundLogicalExpr, EventEvalFrame};
 use crate::waveform::{
     ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    SignalId, expr_host::WaveformExprHost,
+    SignalId, display_signal_path, expr_host::WaveformExprHost,
 };
 
 const DEFAULT_SOURCE_NAME: &str = "transfer";
@@ -697,33 +697,29 @@ fn resolve_payload_signals(
     scope: Option<&str>,
     payload: &[String],
 ) -> Result<Vec<PayloadSignal>, WavepeekError> {
-    let mut display_names = Vec::with_capacity(payload.len());
-    let mut canonical_paths = Vec::with_capacity(payload.len());
-    for token in payload {
-        let path = scoped_signal_path(token, scope);
-        display_names.push(token.clone());
-        canonical_paths.push(path);
-    }
+    let canonical_paths = payload
+        .iter()
+        .map(|token| scoped_signal_path(token, scope))
+        .collect::<Vec<_>>();
     require_unique_payloads(&canonical_paths)?;
 
     let resolved = waveform.borrow().resolve_signals_with_diagnostics(
         canonical_paths.as_slice(),
-        display_names.as_slice(),
+        payload,
         scope,
     )?;
     let expr_resolved = waveform.borrow().resolve_expr_signals_with_diagnostics(
         canonical_paths.as_slice(),
-        display_names.as_slice(),
+        payload,
         scope,
     )?;
     waveform
         .borrow()
         .validate_expr_values_supported(expr_resolved.as_slice())?;
-    Ok(display_names
+    Ok(resolved
         .into_iter()
-        .zip(resolved)
-        .map(|(display, resolved)| PayloadSignal {
-            display,
+        .map(|resolved| PayloadSignal {
+            display: display_signal_path(resolved.path.as_str(), scope).to_string(),
             path: resolved.path.clone(),
             resolved,
         })

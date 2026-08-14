@@ -198,8 +198,8 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
 
 #[test]
 fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
-    let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-human.vcd");
-    let fixture = fixture.path().to_string_lossy().into_owned();
+    let fixture = fixture_path("signal_recursive_depth.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
 
     let relative = wavepeek_cmd()
         .args([
@@ -208,17 +208,13 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
             "--waves",
             fixture.as_str(),
             "--scope",
-            "top",
+            "top.cpu",
             "--on",
-            "posedge clk",
+            "posedge valid",
             "--when",
-            "valid && ready",
+            "1",
             "--payload",
-            "data,last",
-            "--from",
-            "5ns",
-            "--to",
-            "5ns",
+            "top.cpu.valid,core.execute",
         ])
         .output()
         .expect("extract should execute");
@@ -229,17 +225,13 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
             "--waves",
             fixture.as_str(),
             "--scope",
-            "top",
+            "top.cpu",
             "--on",
-            "posedge clk",
+            "posedge valid",
             "--when",
-            "valid && ready",
+            "1",
             "--payload",
-            "data,last",
-            "--from",
-            "5ns",
-            "--to",
-            "5ns",
+            "top.cpu.valid,core.execute",
             "--abs",
         ])
         .output()
@@ -249,11 +241,11 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
     assert!(absolute.status.success());
     assert_eq!(
         String::from_utf8(relative.stdout).expect("stdout should be UTF-8"),
-        "@5ns sample@4ns data=8'haa last=1'h1\n"
+        "@5ns sample@4ns valid=1'h0 core.execute=1'h0\n"
     );
     assert_eq!(
         String::from_utf8(absolute.stdout).expect("stdout should be UTF-8"),
-        "@5ns sample@4ns top.data=8'haa top.last=1'h1\n"
+        "@5ns sample@4ns top.cpu.valid=1'h0 top.cpu.core.execute=1'h0\n"
     );
 }
 
