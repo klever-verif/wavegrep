@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added exact scope context and scope-relative paths to scoped `signal`, `value`, `change`, and `extract generic` JSON and JSONL output while retaining canonical paths ([issue #114](https://github.com/kleverhq/wavepeek/issues/114)).
 - Added scope-relative paths to `signal` JSON and JSONL entries while retaining leaf names and canonical paths ([issue #82](https://github.com/kleverhq/wavepeek/issues/82)).
 
 ### Changed
