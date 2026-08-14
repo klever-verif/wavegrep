@@ -25,7 +25,7 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - [x] (2026-08-14 05:24Z) Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance; fix the substantive candidate-validity, bounded-work, documentation, JSONL, and repeated protocol adapter findings; focused VCD/FST/FSDB tests pass.
 - [x] (2026-08-14 05:31Z) Run parallel Terra High reviews over the same four areas; fix unscoped protocol candidate filtering, protocol documentation/error wording, and avoidable edit-distance allocation; focused protocol tests pass.
 - [x] (2026-08-14 05:49Z) Run independent Sol High control review and targeted confirmations; fix payload resolver ordering plus backend-specific direct event validity, with focused Wellen payload/event and FSDB event tests passing.
-- [ ] Run the final `./dev just ci` quality gate.
+- [x] (2026-08-14 05:51Z) Run the final `./dev just ci` quality gate; all formatting, lint, build, unit, CLI, docs, coverage, and FSDB checks passed with 93.22% average source coverage and 22 FSDB CLI tests.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR that closes issue #84.
 
 ## Surprises & Discoveries
@@ -95,7 +95,9 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 
 ## Outcomes & Retrospective
 
-The implementation and first complete quality gate are finished. One shared waveform-facade policy now produces bounded candidates for direct and expression resolution, with thin engine call-site changes and documented fatal-output behavior. Review waves, any resulting fixes, final WIP cleanup, and PR publication remain.
+The feature is implemented and verified. One waveform-facade policy emits at most five deterministic, copyable candidates or a concrete absent-from-dump explanation across direct, expression, payload, protocol, VCD/FST, and FSDB lookups. Backend ambiguity and unsupported encodings remain their original errors, expression diagnostics retain their envelope, and machine failures retain exit code 1 with empty stdout before streaming begins.
+
+Luna Max reviewed correctness/tests, docs/contracts, architecture/KISS, and performance in parallel; Terra High repeated the same four lanes after fixes; Sol High performed the independent control review and targeted confirmations. Their substantive findings were fixed and covered by focused tests. Final `./dev just ci` passed: 666 library tests, all CLI suites, 22 FSDB CLI tests, docs checks, and 93.22% average source coverage. Only branch-local plan cleanup, push, and PR publication remain.
 
 ## Context and Orientation
 
@@ -198,4 +200,4 @@ No dependency will be added. `src/waveform/mod.rs` will own candidate ranking an
 
 `WaveformExprHost` will carry only the fixed optional scope for one command execution; this is not configurable policy or a new abstraction. Existing raw `resolve_signals` and `resolve_expr_signal` methods remain the low-level backend operations used for candidate validation and internal callers that do not represent user query boundaries.
 
-Revision note (2026-08-14 05:49Z): Recorded Sol High control findings, the payload-order and backend-specific event fixes, and focused cross-backend evidence before the control-fix commit and final quality gate.
+Revision note (2026-08-14 05:51Z): Recorded the passing final quality gate and completed outcome after all review fixes; only required WIP cleanup and PR publication remain.
