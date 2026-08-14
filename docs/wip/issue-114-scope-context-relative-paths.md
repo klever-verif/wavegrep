@@ -22,7 +22,7 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 - [x] (2026-08-14 14:31Z) Add focused contract and CLI coverage, update packaged machine-output documentation, and pass 129 focused CLI tests plus the JSON/JSONL parity test.
 - [x] (2026-08-14 14:36Z) Commit the implementation as `43a4023` after `./dev just ci` passed, including 22 FSDB integration tests and all pre-commit hooks.
 - [x] (2026-08-14 14:53Z) Run four parallel Luna Max lanes with KISS/YAGNI and ponytail-review; correctness was clean, docs/parity/allowlist/human-allocation findings were fixed, focused CLI tests and 665 library tests passed, and all three impacted lanes rechecked clean.
-- [ ] Run parallel Terra High reviews over the same four areas and principles; fix findings and revalidate.
+- [x] (2026-08-14 14:59Z) Run four parallel Terra High lanes with the same KISS/YAGNI and ponytail-review principles; three lanes were clean, unscoped generic parity was added, focused tests passed, and the impacted contract lane rechecked clean.
 - [ ] Run one independent Sol High control review, fix substantive findings, and run the final quality gate.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR against `dev3` that closes issue #114.
 
@@ -174,3 +174,5 @@ Revision note (2026-08-14 14:34Z): Recorded the FSDB expectation discovery and s
 Revision note (2026-08-14 14:52Z): Recorded Luna Max findings, fixes, focused validation, machine-only allocation decision, and shared allowlist decision.
 
 Revision note (2026-08-14 14:53Z): Recorded clean Luna impacted-lane rechecks.
+
+Revision note (2026-08-14 14:59Z): Recorded Terra High results, unscoped generic parity fix, focused validation, and clean impacted-lane recheck.

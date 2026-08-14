@@ -152,6 +152,18 @@ fn every_command_has_matching_json_and_jsonl_payloads() {
             "--payload",
             "data",
         ],
+        vec![
+            "extract",
+            "generic",
+            "--waves",
+            &m2,
+            "--on",
+            "posedge top.clk",
+            "--when",
+            "1",
+            "--payload",
+            "top.data",
+        ],
     ];
     for args in cases {
         assert_json_jsonl_parity(&args.into_iter().map(String::from).collect::<Vec<_>>());
