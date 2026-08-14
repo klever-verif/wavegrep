@@ -117,7 +117,9 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
             signals_abs: args.abs,
         },
         scope: args.scope,
+        summary_only: false,
         data: CommandData::Value(snapshots),
+        summary: None,
         diagnostics: Vec::new(),
     })
 }

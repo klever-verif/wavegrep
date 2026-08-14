@@ -17,7 +17,7 @@ use crate::engine::extract::{initial_diagnostics, max_entries, parse_bound_time}
 use crate::engine::signal_mapping;
 use crate::engine::time::{format_raw_timestamp, parse_dump_time_context};
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, EventEvalFrame};
 use crate::waveform::{
@@ -336,6 +336,7 @@ struct BuiltAhb {
 struct AhbOutcome {
     context: AhbContext,
     diagnostics: Vec<Diagnostic>,
+    summary: ResultSummary,
 }
 
 trait AhbEventSink {
@@ -771,6 +772,7 @@ impl Walker {
 pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingAhbSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -782,6 +784,7 @@ pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
             signals_abs,
         },
         scope: None,
+        summary_only,
         data: CommandData::ExtractAhb(AhbData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -793,6 +796,7 @@ pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             events: sink.events,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -801,6 +805,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: AhbArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlAhbSink { writer };
         run_with_sink(args, &mut sink)?
@@ -808,7 +813,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end()
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: AhbEventSink + ?Sized>(
@@ -953,6 +958,7 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
     Ok(AhbOutcome {
         context,
         diagnostics,
+        summary: ResultSummary::from_run(emitted, max, truncated),
     })
 }
 

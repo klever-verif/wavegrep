@@ -20,7 +20,7 @@ use crate::engine::time::{
 };
 use crate::engine::value_format::format_verilog_literal;
 use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, scoped_signal_path,
+    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary, scoped_signal_path,
 };
 use crate::error::WavepeekError;
 use crate::expr::{
@@ -105,6 +105,7 @@ struct ChangeRunStats {
 struct ChangeCommandOutcome {
     human_options: HumanRenderOptions,
     diagnostics: Vec<Diagnostic>,
+    summary: ResultSummary,
 }
 
 trait ChangeSnapshotSink {
@@ -265,6 +266,7 @@ fn indexed_timestamps(waveform: &Waveform) -> Result<&[u64], WavepeekError> {
 pub fn run(args: ChangeArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let scope = args.scope.clone();
+    let summary_only = args.summary;
     let mut sink = CollectingChangeSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -273,7 +275,9 @@ pub fn run(args: ChangeArgs) -> Result<CommandResult, WavepeekError> {
         output_mode,
         human_options: outcome.human_options,
         scope,
+        summary_only,
         data: CommandData::Change(sink.snapshots),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -282,6 +286,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: ChangeArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlChangeSink { writer };
         run_with_sink(args, &mut sink)?
@@ -290,7 +295,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end()
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
@@ -583,6 +588,7 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
             signals_abs: args.abs,
         },
         diagnostics,
+        summary: ResultSummary::from_run(stats.emitted, max_entries, stats.truncated),
     })
 }
 
@@ -2099,6 +2105,7 @@ mod tests {
             max: LimitArg::Numeric(5),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2456,6 +2463,7 @@ mod tests {
             max: LimitArg::Unlimited,
             abs: false,
             json: true,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2489,6 +2497,7 @@ mod tests {
             max: LimitArg::Numeric(0),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2514,6 +2523,7 @@ mod tests {
             max: LimitArg::Numeric(5),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2541,6 +2551,7 @@ mod tests {
                 row_values: RowValues::Full,
                 max: LimitArg::Unlimited,
                 abs: false,
+                summary: false,
                 json: false,
                 jsonl: true,
                 tune_engine: TuneChangeEngineMode::Baseline,
@@ -2571,6 +2582,7 @@ mod tests {
             max: LimitArg::Numeric(5),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Baseline,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2608,6 +2620,7 @@ mod tests {
             max: LimitArg::Numeric(1),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Baseline,
             tune_candidates: TuneChangeCandidateMode::Auto,

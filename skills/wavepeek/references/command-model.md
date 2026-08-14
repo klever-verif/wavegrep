@@ -67,6 +67,10 @@ wavepeek is designed to avoid flooding terminals and LLM context windows. Comman
 
 When a command truncates output because of an active limit, it emits a warning diagnostic. `change`, `property`, and `extract` use `--max` for event-row limits and default to 50 rows. When a command supports disabling a limit explicitly, that opt-out also emits a warning diagnostic so automation can tell the boundedness contract changed on purpose. List and search-style commands also emit an empty-result diagnostic when a valid query produces no rows; diagnostics do not change the successful exit code.
 
+Every successful command with numeric or unlimited `--max` reports `complete`, `returned`, `limit`, and `total` in machine output. A numeric result becomes incomplete only after the command finds another matching public item beyond the limit. Reaching the selected result-set end makes `total` exact; otherwise `total` remains unknown unless the command already collected the full selected set. `--max unlimited` completes the scan and reports an exact total. Depth options such as `--max-depth` define the selected set and do not count as incomplete results.
+
+Pass `--summary` when only completeness metadata, optional command context, and diagnostics are needed. The command performs the same selection, filtering, limit checks, and early termination but suppresses result rows. Human mode prints the four summary fields; JSON omits `data`; JSONL emits no `data` records and places the summary in its terminal `end` record.
+
 `change` applies its `--max` limit after row-mode filtering. Dense mode counts every selected event that can be sampled; sparse mode counts only selected samples whose requested values changed from the previous selected sample.
 
 ## 7. Deterministic Ordering

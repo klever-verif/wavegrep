@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::diagnostic::Diagnostic;
-use crate::engine::{CommandData, CommandName, CommandResult};
+use crate::engine::{CommandData, CommandName, CommandResult, ResultSummary};
 use crate::error::WavepeekError;
 
 use super::common::{
@@ -18,7 +18,10 @@ pub struct OutputEnvelope<'a> {
     command: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     context: Option<OutputContextData<'a>>,
-    data: OutputData<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<OutputData<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    summary: Option<&'a ResultSummary>,
     diagnostics: Vec<ContractDiagnostic<'a>>,
 }
 
@@ -28,7 +31,10 @@ impl<'a> OutputEnvelope<'a> {
             result_type: "result",
             command: result.command.as_str(),
             context: OutputContextData::from_result(result)?,
-            data: OutputData::from_command_data(result.command, &result.data)?,
+            data: (!result.summary_only)
+                .then(|| OutputData::from_command_data(result.command, &result.data))
+                .transpose()?,
+            summary: result.summary.as_ref(),
             diagnostics: diagnostics(&result.diagnostics)?,
         })
     }
@@ -875,6 +881,7 @@ mod tests {
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
             scope: Some("top".to_string()),
+            summary_only: false,
             data: CommandData::Value(vec![crate::engine::value::ValueSnapshot {
                 time: "5ns".to_string(),
                 signals: vec![crate::engine::value::ValueSignalValue {
@@ -884,6 +891,7 @@ mod tests {
                     value: "1'h1".to_string(),
                 }],
             }]),
+            summary: None,
             diagnostics: Vec::new(),
         };
 

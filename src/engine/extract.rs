@@ -22,7 +22,7 @@ use crate::engine::time::{
 };
 use crate::engine::value_format::format_verilog_literal;
 use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, scoped_signal_path,
+    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary, scoped_signal_path,
 };
 use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, BoundLogicalExpr, EventEvalFrame};
@@ -183,6 +183,7 @@ struct EventGroupCandidateTimes {
 pub(crate) struct ExtractCommandOutcome {
     pub(crate) source_count: usize,
     pub(crate) diagnostics: Vec<Diagnostic>,
+    pub(crate) summary: ResultSummary,
 }
 
 pub(crate) trait ExtractRowSink {
@@ -241,6 +242,7 @@ pub fn run(args: GenericArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
     let scope = args.scope.clone();
+    let summary_only = args.summary;
     let mut sink = CollectingExtractSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -252,10 +254,12 @@ pub fn run(args: GenericArgs) -> Result<CommandResult, WavepeekError> {
             signals_abs,
         },
         scope,
+        summary_only,
         data: CommandData::ExtractGeneric(ExtractGenericData {
             source_count: outcome.source_count,
             rows: sink.rows,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -264,6 +268,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: GenericArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlExtractSink {
             writer,
@@ -275,7 +280,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end()
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: ExtractRowSink + ?Sized>(
@@ -513,6 +518,7 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
     Ok(ExtractCommandOutcome {
         source_count,
         diagnostics,
+        summary: ResultSummary::from_run(stats.emitted, max_entries, stats.truncated),
     })
 }
 
@@ -1183,6 +1189,7 @@ mod tests {
             max: LimitArg::Numeric(50),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect("plan should build");

@@ -217,6 +217,9 @@ pub struct AhbArgs {
     /// Maximum number of public AHB event rows (`unlimited` disables truncation, value must be > 0)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
     /// Print canonical mapping paths in human output
     #[arg(long, help_heading = "Output options")]
     pub abs: bool,
@@ -356,6 +359,9 @@ pub struct ApbArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -446,6 +452,9 @@ pub struct AtbArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -606,6 +615,9 @@ pub struct AxiArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Args)]
@@ -681,6 +693,9 @@ pub struct AxiStreamArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Args)]
@@ -726,6 +741,9 @@ pub struct GenericArgs {
     /// Maximum number of extracted rows across all sources (`unlimited` disables truncation, value must be > 0)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
     /// Print canonical payload paths in human output
     #[arg(long, help_heading = "Output options")]
     pub abs: bool,

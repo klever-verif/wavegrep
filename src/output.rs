@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::contract::{output::OutputEnvelope, stream};
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::output_mode::OutputMode;
 
@@ -14,6 +14,7 @@ pub struct JsonlWriter<W: Write> {
     next_seq: usize,
     data: usize,
     diagnostics: usize,
+    suppress_data: bool,
 }
 
 impl<W: Write> JsonlWriter<W> {
@@ -24,6 +25,7 @@ impl<W: Write> JsonlWriter<W> {
             next_seq: 0,
             data: 0,
             diagnostics: 0,
+            suppress_data: false,
         }
     }
 
@@ -45,10 +47,17 @@ impl<W: Write> JsonlWriter<W> {
         self.write_record(&record)
     }
 
+    pub const fn suppress_data(&mut self, suppress: bool) {
+        self.suppress_data = suppress;
+    }
+
     pub fn data<T: stream::StreamDataRow + ?Sized>(
         &mut self,
         data: &T,
     ) -> Result<(), WavepeekError> {
+        if self.suppress_data {
+            return Ok(());
+        }
         let record = stream::DataRecord::new(self.next_seq, self.command, data)?;
         self.write_record(&record)?;
         self.data += 1;
@@ -63,8 +72,21 @@ impl<W: Write> JsonlWriter<W> {
     }
 
     pub fn end(&mut self) -> Result<(), WavepeekError> {
-        let record =
-            stream::EndRecord::new(self.next_seq, self.command, self.data, self.diagnostics)?;
+        self.write_end(None)
+    }
+
+    pub fn end_summary(&mut self, summary: &ResultSummary) -> Result<(), WavepeekError> {
+        self.write_end(Some(summary))
+    }
+
+    fn write_end(&mut self, summary: Option<&ResultSummary>) -> Result<(), WavepeekError> {
+        let record = stream::EndRecord::new(
+            self.next_seq,
+            self.command,
+            self.data,
+            self.diagnostics,
+            summary,
+        )?;
         self.write_record(&record)
     }
 
@@ -94,7 +116,16 @@ impl<W: Write> JsonlWriter<W> {
 pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
     match result.output_mode {
         OutputMode::Human => {
-            let output = render_human(&result.data, result.human_options);
+            let mut output =
+                render_human_with_data(&result.data, result.human_options, !result.summary_only);
+            if result.summary_only
+                && let Some(summary) = result.summary
+            {
+                if !output.is_empty() {
+                    output.push('\n');
+                }
+                output.push_str(render_summary(summary).as_str());
+            }
             if !output.is_empty() {
                 write_stdout(output.as_str())?;
             }
@@ -124,6 +155,7 @@ pub fn write_jsonl_result<W: Write>(
             writer.command().as_str()
         )));
     }
+    writer.suppress_data(result.summary_only);
     if !matches!(
         &result.data,
         CommandData::ExtractAhb(_)
@@ -209,7 +241,10 @@ pub fn write_jsonl_result<W: Write>(
     for diagnostic in &result.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end()
+    match &result.summary {
+        Some(summary) => writer.end_summary(summary),
+        None => writer.end(),
+    }
 }
 
 fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
@@ -234,7 +269,42 @@ fn render_json(result: CommandResult) -> Result<String, WavepeekError> {
         .map_err(|error| WavepeekError::Internal(format!("failed to serialize output: {error}")))
 }
 
+fn render_summary(summary: ResultSummary) -> String {
+    let limit = summary
+        .limit
+        .map_or_else(|| "null".to_string(), |value| value.to_string());
+    let total = summary
+        .total
+        .map_or_else(|| "null".to_string(), |value| value.to_string());
+    format!(
+        "complete: {}\nreturned: {}\nlimit: {limit}\ntotal: {total}",
+        summary.complete, summary.returned
+    )
+}
+
+#[cfg(test)]
 fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
+    render_human_with_data(data, options, true)
+}
+
+fn render_human_with_data(
+    data: &CommandData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
+    if !include_data
+        && !matches!(
+            data,
+            CommandData::ExtractAhb(_)
+                | CommandData::ExtractApb(_)
+                | CommandData::ExtractAtb(_)
+                | CommandData::ExtractAxi(_)
+                | CommandData::ExtractAxiStream(_)
+        )
+    {
+        return String::new();
+    }
+
     match data {
         CommandData::Text(text) => text.clone(),
         CommandData::Info(info) => {
@@ -321,11 +391,11 @@ fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
             })
             .collect::<Vec<_>>()
             .join("\n"),
-        CommandData::ExtractAhb(data) => render_ahb_human(data, options),
-        CommandData::ExtractApb(data) => render_apb_human(data, options),
-        CommandData::ExtractAtb(data) => render_atb_human(data, options),
-        CommandData::ExtractAxi(data) => render_axi_human(data, options),
-        CommandData::ExtractAxiStream(data) => render_axistream_human(data, options),
+        CommandData::ExtractAhb(data) => render_ahb_human(data, options, include_data),
+        CommandData::ExtractApb(data) => render_apb_human(data, options, include_data),
+        CommandData::ExtractAtb(data) => render_atb_human(data, options, include_data),
+        CommandData::ExtractAxi(data) => render_axi_human(data, options, include_data),
+        CommandData::ExtractAxiStream(data) => render_axistream_human(data, options, include_data),
         CommandData::ExtractGeneric(data) => data
             .rows
             .iter()
@@ -351,7 +421,11 @@ fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
     }
 }
 
-fn render_ahb_human(data: &crate::engine::ahb::AhbData, options: HumanRenderOptions) -> String {
+fn render_ahb_human(
+    data: &crate::engine::ahb::AhbData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -371,6 +445,9 @@ fn render_ahb_human(data: &crate::engine::ahb::AhbData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("events:".to_string());
     for event in &data.events {
@@ -400,7 +477,11 @@ fn render_ahb_human(data: &crate::engine::ahb::AhbData, options: HumanRenderOpti
     lines.join("\n")
 }
 
-fn render_apb_human(data: &crate::engine::apb::ApbData, options: HumanRenderOptions) -> String {
+fn render_apb_human(
+    data: &crate::engine::apb::ApbData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -415,6 +496,9 @@ fn render_apb_human(data: &crate::engine::apb::ApbData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("events:".to_string());
     for event in &data.events {
@@ -435,7 +519,11 @@ fn render_apb_human(data: &crate::engine::apb::ApbData, options: HumanRenderOpti
     lines.join("\n")
 }
 
-fn render_atb_human(data: &crate::engine::atb::AtbData, options: HumanRenderOptions) -> String {
+fn render_atb_human(
+    data: &crate::engine::atb::AtbData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -448,6 +536,9 @@ fn render_atb_human(data: &crate::engine::atb::AtbData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("events:".to_string());
     for event in &data.events {
@@ -468,7 +559,11 @@ fn render_atb_human(data: &crate::engine::atb::AtbData, options: HumanRenderOpti
     lines.join("\n")
 }
 
-fn render_axi_human(data: &crate::engine::axi::AxiData, options: HumanRenderOptions) -> String {
+fn render_axi_human(
+    data: &crate::engine::axi::AxiData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -481,6 +576,9 @@ fn render_axi_human(data: &crate::engine::axi::AxiData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("transfers:".to_string());
     for transfer in &data.transfers {
@@ -504,6 +602,7 @@ fn render_axi_human(data: &crate::engine::axi::AxiData, options: HumanRenderOpti
 fn render_axistream_human(
     data: &crate::engine::axistream::AxiStreamData,
     options: HumanRenderOptions,
+    include_data: bool,
 ) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
@@ -518,6 +617,9 @@ fn render_axistream_human(
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("transfers:".to_string());
     for transfer in &data.transfers {
@@ -652,11 +754,13 @@ mod tests {
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
             scope: None,
+            summary_only: false,
             data: CommandData::Info(crate::engine::info::InfoData {
                 time_unit: "1ns".to_string(),
                 time_start: "0ns".to_string(),
                 time_end: "10ns".to_string(),
             }),
+            summary: None,
             diagnostics: vec![],
         };
 
@@ -678,11 +782,13 @@ mod tests {
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
             scope: None,
+            summary_only: false,
             data: CommandData::Scope(vec![crate::engine::scope::ScopeEntry {
                 path: "top.cpu".to_string(),
                 depth: 1,
                 kind: "module".to_string(),
             }]),
+            summary: None,
             diagnostics: vec![Diagnostic::warning(
                 WarningDiagnosticCode::OutputTruncated,
                 "truncated to 1 entries",
@@ -803,7 +909,9 @@ mod tests {
             output_mode: OutputMode::Jsonl,
             human_options: HumanRenderOptions::default(),
             scope: None,
+            summary_only: false,
             data: CommandData::Scope(Vec::new()),
+            summary: None,
             diagnostics: Vec::new(),
         };
         let mut writer = JsonlWriter::new(Vec::new(), CommandName::Signal);
@@ -823,11 +931,13 @@ mod tests {
             output_mode: OutputMode::Jsonl,
             human_options: HumanRenderOptions::default(),
             scope: None,
+            summary_only: false,
             data: CommandData::Scope(vec![crate::engine::scope::ScopeEntry {
                 path: "top".to_string(),
                 depth: 0,
                 kind: "module".to_string(),
             }]),
+            summary: None,
             diagnostics: vec![Diagnostic::warning(
                 WarningDiagnosticCode::OutputTruncated,
                 "truncated output to 1 entries",
@@ -1054,7 +1164,9 @@ mod tests {
             output_mode: OutputMode::Human,
             human_options: HumanRenderOptions::default(),
             scope: None,
+            summary_only: false,
             data: CommandData::Text("already-newline\n".to_string()),
+            summary: None,
             diagnostics: Vec::new(),
         })
         .expect("newline-terminated human output should not add a second newline");

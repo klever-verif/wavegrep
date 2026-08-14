@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::diagnostic::Diagnostic;
-use crate::engine::CommandName;
+use crate::engine::{CommandName, ResultSummary};
 use crate::error::WavepeekError;
 
 use super::common::ContractDiagnostic;
@@ -117,25 +117,29 @@ impl<'a> DiagnosticRecord<'a> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct EndRecord {
+pub struct EndRecord<'a> {
     #[serde(rename = "type")]
     record_type: &'static str,
     seq: usize,
     records: RecordCounts,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    summary: Option<&'a ResultSummary>,
 }
 
-impl EndRecord {
+impl<'a> EndRecord<'a> {
     pub fn new(
         seq: usize,
         command: CommandName,
         data: usize,
         diagnostics: usize,
+        summary: Option<&'a ResultSummary>,
     ) -> Result<Self, WavepeekError> {
         require_stream_command(command)?;
         Ok(Self {
             record_type: "end",
             seq,
             records: RecordCounts { data, diagnostics },
+            summary,
         })
     }
 }

@@ -310,8 +310,10 @@ Add `--abs` to print canonical payload paths in human output.
 
 `extract generic --json` emits the standard envelope with `command: "extract generic"` and an array of rows. With `--scope top`, the envelope contains `context: {"scope":"top"}` and each payload value contains canonical `path` plus scope-relative `relative_path`. Without `--scope`, `context` and `relative_path` are omitted while `path` remains canonical. `extract generic --jsonl` puts the same scope context in `begin` and streams `data`, `diagnostic`, and `end` records; each data row has `time`, `sample_time`, `source`, and ordered `payload` values.
 
-Repeated events are preserved even when payload values do not change. `extract` is not a delta command.
+Repeated events are preserved even when payload values do not change. `extract` is not a delta command. Add `--summary` to suppress event or transfer rows while retaining protocol context when present, completeness metadata, and diagnostics.
 
 ## Limits and diagnostics
 
 For `extract generic`, `--max` limits emitted rows across all sources after sorting by event time and source declaration order. For `extract ahb`, it limits public event rows after warm-up and completion-before-address ordering. For `extract axi`, it limits ready/valid transfer rows. `--max unlimited` disables truncation and emits a warning diagnostic. Empty results and truncation use the same coded diagnostic model as other waveform commands.
+
+Machine output includes `complete`, `returned`, `limit`, and `total` in the result summary. A bounded scan becomes incomplete only after another matching public event is found beyond the limit. Because truncated event scans stop early, their exact total is normally unknown.

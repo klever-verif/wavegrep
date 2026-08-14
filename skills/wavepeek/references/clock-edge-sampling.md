@@ -124,6 +124,7 @@ $ wavepeek property --waves path/to/dump.vcd --scope top \
     {"time":"100ns","sample_time":"99999ps","kind":"match"},
     {"time":"110ns","sample_time":"109999ps","kind":"match"}
   ],
+  "summary": {"complete":true,"returned":2,"limit":50,"total":2},
   "diagnostics": []
 }
 ```

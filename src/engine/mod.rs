@@ -163,6 +163,25 @@ pub enum CommandData {
     ExtractGeneric(extract::ExtractGenericData),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ResultSummary {
+    pub complete: bool,
+    pub returned: usize,
+    pub limit: Option<usize>,
+    pub total: Option<usize>,
+}
+
+impl ResultSummary {
+    pub const fn from_run(returned: usize, limit: Option<usize>, truncated: bool) -> Self {
+        Self {
+            complete: !truncated,
+            returned,
+            limit,
+            total: if truncated { None } else { Some(returned) },
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct CommandResult {
     #[serde(skip)]
@@ -173,7 +192,11 @@ pub struct CommandResult {
     pub human_options: HumanRenderOptions,
     #[serde(skip)]
     pub scope: Option<String>,
+    #[serde(skip)]
+    pub summary_only: bool,
     pub data: CommandData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<ResultSummary>,
     pub diagnostics: Vec<Diagnostic>,
 }
 

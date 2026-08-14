@@ -2,7 +2,7 @@ use crate::cli::limits::LimitArg;
 use crate::cli::signal::SignalArgs;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
-use crate::engine::{CommandData, CommandName, CommandResult};
+use crate::engine::{CommandData, CommandName, CommandResult, ResultSummary};
 use crate::error::WavepeekError;
 use crate::waveform::{Waveform, display_signal_path};
 use regex::Regex;
@@ -27,6 +27,7 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         recursive,
         max_depth,
         abs,
+        summary,
         json,
         jsonl,
     } = args;
@@ -107,6 +108,7 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         || serde_json::json!({"signals": entries.len()}),
     );
 
+    let total = entries.len();
     if let Some(max_entries) = max.numeric()
         && entries.len() > max_entries
     {
@@ -132,6 +134,13 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
             signals_abs: abs,
         },
         scope: Some(scope),
+        summary_only: summary,
+        summary: Some(ResultSummary {
+            complete: entries.len() == total,
+            returned: entries.len(),
+            limit: max.numeric(),
+            total: Some(total),
+        }),
         data: CommandData::Signal(entries),
         diagnostics,
     })

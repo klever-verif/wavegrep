@@ -25,14 +25,14 @@ Read [Command overview](references/overview.md) for command selection and [Help 
 ## Safety and query discipline
 
 - Do not read `.fst` or `.fsdb` with generic text or binary tools. Avoid raw `.vcd` reads too; dumps can be large and timing-sensitive.
-- Keep output bounded with filters, focused signal lists, explicit time windows, and row limits.
+- Keep output bounded with filters, focused signal lists, explicit time windows, and row limits. Use `--summary` when you need completeness metadata without result rows.
 - For `value`, `change`, `property`, and `extract generic`, use canonical paths without `--scope`; with `--scope`, relative and in-scope canonical names may be mixed. Protocol extract mappings remain scope-relative.
 - Time tokens require explicit units. Use `info` to learn dump bounds and precision.
 - Write hexadecimal expression literals in SystemVerilog form, such as `64'h10` or `128'h0011...`; `0x...` and `64h10` are invalid.
 - For synchronous RTL, separate the sampling event from the tested condition: use `--on 'posedge <clock>'` and put the condition in `--eval` or `--when`.
 - Edge-triggered queries commonly evaluate pre-edge values. Use each row's `sample_time` for follow-up sampling unless same-edge dump state is intentional.
 - For repeated event counts with raw signal payloads, use dense `change`; for derived conditions use `property --capture match`, and for protocol semantics use `extract`.
-- For every JSON result, inspect the top-level `diagnostics` before using counts or conclusions.
+- For JSON results from commands with `--max`, inspect both top-level `summary` and `diagnostics` before using counts or conclusions. `complete: false` means the returned rows do not cover the selected result set.
 
 ## References
 
@@ -49,7 +49,7 @@ Read only the references needed for the current task:
 Before reporting a result:
 
 - confirm the queried interval covers the requested range;
-- confirm no truncation or other diagnostic was ignored;
+- when `summary` is present, confirm `summary.complete` is true before claiming exhaustive coverage, and do not ignore truncation or other diagnostics;
 - use `sample_time` consistently when correlating rows;
 - state the scope and clock when they affect the conclusion;
 - for protocol completion claims, identify the channel or event that proves completion.
