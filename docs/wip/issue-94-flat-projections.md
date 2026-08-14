@@ -25,7 +25,7 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 - [x] (2026-08-14 18:10Z) Run focused tests, VCD/FST parity, FSDB tests, `just ci`, and `just check`; all passed.
 - [x] (2026-08-14 18:33Z) Run Luna Max correctness/tests, architecture/performance, and docs/contracts review lanes; fix the fused first-timestamp wildcard bug, reduce hot-loop cloning/tracking, expand optimized-engine projection tests, and correct docs/help findings.
 - [x] (2026-08-14 18:41Z) Run Terra High over the same three lanes; correctness was clean, while architecture/docs findings removed fused full-width projection clones and completed change one-bit help.
-- [ ] Run independent Sol High control review, apply any final findings, and rerun gates.
+- [x] (2026-08-14 18:48Z) Run independent Sol High control review; it reported no substantive findings. Final `just ci` and `just check` both passed afterward.
 - [ ] Remove this WIP plan, commit the reviewed result, push the branch, and open a pull request closing issue #94.
 
 ## Surprises & Discoveries
@@ -79,7 +79,7 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 
 ## Outcomes & Retrospective
 
-Implementation and user documentation are complete. One shared engine module resolves and slices selections, all three command surfaces preserve duplicate positions, and projected wildcard comparison is covered in baseline, fused, VCD/FST, and FSDB tests. `just ci` passes, including 665 unit tests, integration suites, 22 FSDB CLI tests, documentation publishing checks, and coverage above 92%. Reviews, `just check`, plan cleanup, and the pull request remain.
+Implementation and user documentation are complete. One shared engine module resolves and slices selections, all three command surfaces preserve duplicate positions, and projected comparison is covered across baseline, pre-edge, edge-fast, fused, VCD/FST, and FSDB paths. Duplicate payloads work in CLI and source-file mode. Final `just ci` passes, including 665 unit tests, integration suites, 22 FSDB CLI tests, documentation publishing, and coverage above 92%; final `just check` also passes. Luna Max and Terra High completed focused correctness/tests, architecture/performance, and docs/contracts waves, and Sol High's independent control pass reported no substantive findings. Only plan cleanup, push, and pull-request creation remain.
 
 ## Context and Orientation
 
@@ -196,3 +196,5 @@ Plan revision note (2026-08-14 18:08Z): Recorded completed implementation, docs,
 Plan revision note (2026-08-14 18:33Z): Recorded passing `just check`, Luna Max review findings, the fused wildcard fix, lean performance changes, expanded engine coverage, and rejected speculative optimizations.
 
 Plan revision note (2026-08-14 18:41Z): Recorded clean Terra correctness review, borrowed fused projection, final one-bit help wording, and focused verification.
+
+Plan revision note (2026-08-14 18:48Z): Recorded clean Sol High control review, final passing `just ci` and `just check`, complete acceptance evidence, and only handoff tasks remaining.
