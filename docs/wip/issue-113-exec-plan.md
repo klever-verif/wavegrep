@@ -23,7 +23,7 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
 - [x] (2026-08-14 14:24Z) Update the packaged command-model contract.
 - [x] (2026-08-14 14:28Z) Run focused tests and `./dev just ci`, then commit the implementation (focused result: 52 change, 14 extract-generic, and 28 value tests passed; full gate passed with 93.20% average source coverage and all available FSDB gates).
 - [x] (2026-08-14 14:46Z) Run first-wave focused reviews with Luna Max, strengthen all three command tests for multi-component `--scope top.cpu`, revalidate 94 focused tests, and pass `./dev just ci` again.
-- [ ] Run second-wave focused reviews with Terra High over the same lanes, fix findings, and revalidate.
+- [x] (2026-08-14 14:51Z) Run second-wave focused reviews with Terra High over the same lanes, remove the redundant extract payload diagnostic-name clone, pass the focused extract tests, and pass `./dev just ci`.
 - [ ] Run an independent Sol High control review, fix findings, and revalidate.
 - [ ] Record the outcome, remove this branch-local plan, commit cleanup, push, and open a pull request closing issue #113.
 
@@ -56,6 +56,9 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
   Date/Author: 2026-08-14 / pi
 - Decision: Apply Luna Max's medium test finding by reusing `signal_recursive_depth.vcd`; do not add a separate generic no-scope test or allocation micro-optimizations.
   Rationale: Multi-component scope behavior is explicit acceptance coverage. No-scope canonical behavior already follows the unchanged helper fallback and broader command coverage, while recycling setup strings or precomputing value labels would add mutation or coupling without removing required per-output owned strings.
+  Date/Author: 2026-08-14 / pi
+- Decision: Apply Terra High's extract simplicity finding by passing the borrowed payload tokens directly as diagnostic query names.
+  Rationale: `resolve_payload_signals` already receives `&[String]`; cloning it into an identical vector had no ownership or contract purpose. Removing the clone shortens the function and preserves user-authored diagnostics.
   Date/Author: 2026-08-14 / pi
 
 ## Outcomes & Retrospective
@@ -176,3 +179,5 @@ Revision note (2026-08-14 14:28Z): Recorded the passing full CI gate, including 
 Revision note (2026-08-14 14:42Z): Recorded the Luna Max review wave, the accepted nested-scope test finding, focused revalidation, and disposition of low-value findings.
 
 Revision note (2026-08-14 14:46Z): Recorded the post-review full CI pass.
+
+Revision note (2026-08-14 14:51Z): Recorded the Terra High wave, its accepted extract allocation simplification, and passing focused and full validation.
