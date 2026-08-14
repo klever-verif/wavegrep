@@ -143,6 +143,7 @@ fn signal_json_paths_are_relative_to_exact_nested_scope() {
     assert!(output.status.success());
     let value: Value =
         serde_json::from_slice(&output.stdout).expect("signal output should be json");
+    assert_eq!(value["context"]["scope"], "top.cpu");
     assert_eq!(
         value["data"],
         json!([
@@ -805,6 +806,7 @@ fn signal_recursive_filter_matches_name_not_relative_path() {
     let value: Value =
         serde_json::from_slice(&json_output.stdout).expect("signal output should be valid json");
 
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"], Value::Array(vec![]));
     assert_eq!(
         value["diagnostics"],

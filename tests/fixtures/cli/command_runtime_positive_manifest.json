@@ -25,10 +25,12 @@
           "signals": [
             {
               "path": "top.data",
+              "relative_path": "data",
               "value": "8'h00"
             },
             {
               "path": "top.clk",
+              "relative_path": "clk",
               "value": "1'h1"
             }
           ]

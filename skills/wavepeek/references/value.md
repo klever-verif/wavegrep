@@ -82,7 +82,7 @@ Use this for spot checks between edges or between visible value changes.
 
 ```text
 $ wavepeek value --waves path/to/dump.vcd --at 5ns,10ns --scope top --signals clk,data --json
-{"type":"result","command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"},{"path":"top.data","value":"8'h00"}]},{"time":"10ns","signals":[{"path":"top.clk","value":"1'h1"},{"path":"top.data","value":"8'h0f"}]}],"diagnostics":[]}
+{"type":"result","command":"value","context":{"scope":"top"},"data":[{"time":"5ns","signals":[{"path":"top.clk","relative_path":"clk","value":"1'h1"},{"path":"top.data","relative_path":"data","value":"8'h00"}]},{"time":"10ns","signals":[{"path":"top.clk","relative_path":"clk","value":"1'h1"},{"path":"top.data","relative_path":"data","value":"8'h0f"}]}],"diagnostics":[]}
 ```
 
 Use this when another tool needs deterministic parsing instead of human formatting.
@@ -92,8 +92,8 @@ Use this when another tool needs deterministic parsing instead of human formatti
 - `--at` accepts one time token or a comma-separated list in one argument.
 - `--at` order is preserved exactly, including duplicates.
 - `--signals` order is preserved exactly, including duplicates.
-- Without `--scope`, names in `--signals` are treated as canonical full paths.
-- With `--scope`, names in `--signals` may be relative or canonical paths inside the scope, and both forms may be mixed.
+- Without `--scope`, names in `--signals` are treated as canonical full paths, and machine output omits `context` and `relative_path`.
+- With `--scope`, names in `--signals` may be relative or canonical paths inside the scope, and both forms may be mixed. Machine output includes the exact scope in `context.scope` and adds `relative_path` beside each canonical `path`.
 - `--abs` affects only human output. With `--json`, canonical paths are emitted either way.
 - `--at` accepts dump start and dump end; both bounds are inclusive.
 - Time tokens must be integer plus unit. `10ns` is valid; `10` and `1.5ns` are errors.

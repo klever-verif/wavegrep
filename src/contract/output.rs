@@ -27,7 +27,7 @@ impl<'a> OutputEnvelope<'a> {
         Ok(Self {
             result_type: "result",
             command: result.command.as_str(),
-            context: OutputContextData::from_command_data(result.command, &result.data)?,
+            context: OutputContextData::from_result(result)?,
             data: OutputData::from_command_data(result.command, &result.data)?,
             diagnostics: diagnostics(&result.diagnostics)?,
         })
@@ -44,6 +44,7 @@ fn diagnostics(diagnostics: &[Diagnostic]) -> Result<Vec<ContractDiagnostic<'_>>
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum OutputContextData<'a> {
+    Scope(ScopeContext<'a>),
     Ahb(ExtractAhbContext<'a>),
     Apb(ExtractApbContext<'a>),
     Atb(ExtractAtbContext<'a>),
@@ -52,11 +53,18 @@ pub enum OutputContextData<'a> {
 }
 
 impl<'a> OutputContextData<'a> {
-    fn from_command_data(
-        command: CommandName,
-        data: &'a CommandData,
-    ) -> Result<Option<Self>, WavepeekError> {
-        match (command, data) {
+    fn from_result(result: &'a CommandResult) -> Result<Option<Self>, WavepeekError> {
+        if let Some(scope) = result.scope.as_deref() {
+            if result.command.supports_scope_context() {
+                return Ok(Some(Self::Scope(ScopeContext::new(scope))));
+            }
+            return Err(WavepeekError::Internal(format!(
+                "command {} cannot be serialized with scope context",
+                result.command.as_str()
+            )));
+        }
+
+        match (result.command, &result.data) {
             (CommandName::ExtractAhb, CommandData::ExtractAhb(data)) => {
                 Ok(Some(Self::Ahb(ExtractAhbContext::from(data))))
             }
@@ -81,8 +89,21 @@ impl<'a> OutputContextData<'a> {
             | (CommandName::ExtractGeneric, CommandData::ExtractGeneric(_)) => Ok(None),
             _ => Err(WavepeekError::Internal(format!(
                 "command {} cannot be serialized as a JSON contract context",
-                command.as_str()
+                result.command.as_str()
             ))),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ScopeContext<'a> {
+    scope: CanonicalPath<'a>,
+}
+
+impl<'a> ScopeContext<'a> {
+    pub fn new(scope: &'a str) -> Self {
+        Self {
+            scope: CanonicalPath::new(scope),
         }
     }
 }
@@ -229,6 +250,8 @@ impl<'a> TryFrom<&'a crate::engine::signal::SignalEntry> for SignalEntry<'a> {
 #[derive(Debug, Serialize)]
 pub struct SampledSignalValue<'a> {
     path: CanonicalPath<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    relative_path: Option<&'a str>,
     value: SampledValue<'a>,
 }
 
@@ -236,6 +259,7 @@ impl<'a> From<&'a crate::engine::value::ValueSignalValue> for SampledSignalValue
     fn from(signal: &'a crate::engine::value::ValueSignalValue) -> Self {
         Self {
             path: CanonicalPath::new(signal.path.as_str()),
+            relative_path: signal.relative_path.as_deref(),
             value: SampledValue::new(signal.value.as_str()),
         }
     }
@@ -244,6 +268,8 @@ impl<'a> From<&'a crate::engine::value::ValueSignalValue> for SampledSignalValue
 #[derive(Debug, Serialize)]
 pub struct ChangeSignalValue<'a> {
     path: CanonicalPath<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    relative_path: Option<&'a str>,
     value: SampledValue<'a>,
 }
 
@@ -251,6 +277,7 @@ impl<'a> From<&'a crate::engine::change::ChangeSignalValue> for ChangeSignalValu
     fn from(signal: &'a crate::engine::change::ChangeSignalValue) -> Self {
         Self {
             path: CanonicalPath::new(signal.path.as_str()),
+            relative_path: signal.relative_path.as_deref(),
             value: SampledValue::new(signal.value.as_str()),
         }
     }
@@ -334,6 +361,8 @@ impl<'a> From<&'a crate::engine::property::PropertyCaptureRow> for PropertyRow<'
 #[derive(Debug, Serialize)]
 pub struct ExtractPayloadValue<'a> {
     path: CanonicalPath<'a>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    relative_path: Option<&'a str>,
     value: SampledValue<'a>,
 }
 
@@ -341,6 +370,7 @@ impl<'a> From<&'a crate::engine::extract::ExtractPayloadValue> for ExtractPayloa
     fn from(value: &'a crate::engine::extract::ExtractPayloadValue) -> Self {
         Self {
             path: CanonicalPath::new(value.path.as_str()),
+            relative_path: value.relative_path.as_deref(),
             value: SampledValue::new(value.value.as_str()),
         }
     }
@@ -844,11 +874,13 @@ mod tests {
             command: CommandName::Value,
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
+            scope: Some("top".to_string()),
             data: CommandData::Value(vec![crate::engine::value::ValueSnapshot {
                 time: "5ns".to_string(),
                 signals: vec![crate::engine::value::ValueSignalValue {
                     display: "sig".to_string(),
                     path: "top.sig".to_string(),
+                    relative_path: Some("sig".to_string()),
                     value: "1'h1".to_string(),
                 }],
             }]),
@@ -859,7 +891,9 @@ mod tests {
             OutputEnvelope::from_result(&result).expect("result should convert to contract"),
         )
         .expect("contract envelope should serialize");
+        assert_eq!(value["context"]["scope"], "top");
         assert_eq!(value["data"][0]["signals"][0]["path"], "top.sig");
+        assert_eq!(value["data"][0]["signals"][0]["relative_path"], "sig");
         assert!(value["data"][0]["signals"][0].get("display").is_none());
     }
 }

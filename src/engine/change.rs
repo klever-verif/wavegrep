@@ -52,6 +52,8 @@ pub struct ChangeSignalValue {
     #[serde(skip_serializing)]
     pub display: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relative_path: Option<String>,
     pub value: String,
 }
 
@@ -66,6 +68,7 @@ pub struct ChangeSnapshot {
 struct RequestedSignal {
     display: String,
     path: String,
+    relative_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,7 +108,7 @@ struct ChangeCommandOutcome {
 }
 
 trait ChangeSnapshotSink {
-    fn start(&mut self) -> Result<(), WavepeekError> {
+    fn start(&mut self, _scope: Option<&str>) -> Result<(), WavepeekError> {
         Ok(())
     }
 
@@ -129,8 +132,11 @@ struct JsonlChangeSink<'a, W: std::io::Write> {
 }
 
 impl<W: std::io::Write> ChangeSnapshotSink for JsonlChangeSink<'_, W> {
-    fn start(&mut self) -> Result<(), WavepeekError> {
-        self.writer.begin()
+    fn start(&mut self, scope: Option<&str>) -> Result<(), WavepeekError> {
+        match scope {
+            Some(scope) => self.writer.begin_scope(scope),
+            None => self.writer.begin(),
+        }
     }
 
     fn emit(&mut self, snapshot: ChangeSnapshot) -> Result<(), WavepeekError> {
@@ -258,6 +264,7 @@ fn indexed_timestamps(waveform: &Waveform) -> Result<&[u64], WavepeekError> {
 
 pub fn run(args: ChangeArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
+    let scope = args.scope.clone();
     let mut sink = CollectingChangeSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -265,6 +272,7 @@ pub fn run(args: ChangeArgs) -> Result<CommandResult, WavepeekError> {
         command: CommandName::Change,
         output_mode,
         human_options: outcome.human_options,
+        scope,
         data: CommandData::Change(sink.snapshots),
         diagnostics: outcome.diagnostics,
     })
@@ -377,8 +385,14 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
         args.scope.as_deref(),
     )?;
     for (requested, resolved) in requested_signals.iter_mut().zip(&requested_resolved) {
-        requested.display =
+        let display =
             display_signal_path(resolved.path.as_str(), args.scope.as_deref()).to_string();
+        requested.relative_path = if (args.json || args.jsonl) && args.scope.is_some() {
+            Some(display.clone())
+        } else {
+            None
+        };
+        requested.display = display;
     }
     let requested_expr_sources = waveform.borrow().resolve_expr_signals_with_diagnostics(
         &requested_paths_owned,
@@ -449,7 +463,7 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
         "change.run.start",
         || serde_json::json!({"selected_engine": selected_engine_name}),
     );
-    sink.start()?;
+    sink.start(args.scope.as_deref())?;
     let stats = if args.sample_mode == SampleMode::PreEdge {
         run_pre_edge_emit(
             &waveform,
@@ -1654,6 +1668,7 @@ fn build_snapshot(
             Ok(ChangeSignalValue {
                 display: requested.display.clone(),
                 path: requested.path.clone(),
+                relative_path: requested.relative_path.clone(),
                 value: format_verilog_literal(sampled.width, bits.as_str()),
             })
         })
@@ -1724,6 +1739,7 @@ fn resolve_requested_signals(
         resolved.push(RequestedSignal {
             display: display.to_string(),
             path,
+            relative_path: None,
         });
     }
 
@@ -1892,6 +1908,7 @@ mod change_inline_derive_tests {
         let signal = ChangeSignalValue {
             display: "sig".to_string(),
             path: "top.sig".to_string(),
+            relative_path: Some("sig".to_string()),
             value: "1'b1".to_string(),
         };
         assert_eq!(signal.clone(), signal);
@@ -2096,6 +2113,7 @@ mod tests {
             &[RequestedSignal {
                 display: "sig".to_string(),
                 path: "top.sig".to_string(),
+                relative_path: Some("sig".to_string()),
             }],
             &[SampledSignalState {
                 path: "top.sig".to_string(),
@@ -2119,6 +2137,7 @@ mod tests {
             &[RequestedSignal {
                 display: "sig".to_string(),
                 path: "top.sig".to_string(),
+                relative_path: Some("sig".to_string()),
             }],
             &[SampledSignalState {
                 path: "top.sig".to_string(),
@@ -2638,6 +2657,7 @@ mod tests {
         let requested_signals = vec![RequestedSignal {
             display: "sig".to_string(),
             path: "top.sig".to_string(),
+            relative_path: Some("sig".to_string()),
         }];
         let requested_resolved = waveform
             .borrow()

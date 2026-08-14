@@ -781,6 +781,7 @@ pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
         data: CommandData::ExtractAhb(AhbData {
             name: outcome.context.name,
             profile: outcome.context.profile,

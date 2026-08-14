@@ -21,13 +21,13 @@ A successful `--json` command emits `type`, `command`, optional `context`, `data
 ```
 
 ```json
-{"type":"result","command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}],"diagnostics":[]}
+{"type":"result","command":"value","context":{"scope":"top"},"data":[{"time":"5ns","signals":[{"path":"top.clk","relative_path":"clk","value":"1'h1"}]}],"diagnostics":[]}
 ```
 
 A `signal` row contains the leaf `name`, canonical `path`, path relative to the exact selected scope in `relative_path`, normalized `kind`, and optional `width`. Immediate children use their basename as `relative_path`; descendants retain the child scope path:
 
 ```json
-{"type":"result","command":"signal","data":[{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1}],"diagnostics":[]}
+{"type":"result","command":"signal","context":{"scope":"top"},"data":[{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1}],"diagnostics":[]}
 ```
 
 Protocol extractors put command-wide metadata in `context` and rows directly in `data`:
@@ -36,7 +36,7 @@ Protocol extractors put command-wide metadata in `context` and rows directly in 
 {"type":"result","command":"extract apb","context":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}}},"data":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}],"diagnostics":[]}
 ```
 
-Machine-readable `path` fields are canonical; `signal` rows also include scope-relative `relative_path`. Protocol context fields are documented in [Extract command](extract.md); row fields remain command-specific. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
+Machine-readable `path` fields are canonical. Scoped `signal`, `value`, `change`, and `extract generic` results include the exact selected scope in `context.scope`, including when `data` is empty. Their signal or payload rows also include `relative_path`; immediate children use a basename and descendants retain their child scope components. Without `--scope`, `value`, `change`, and `extract generic` omit both `context` and `relative_path` in JSON; their JSONL `begin` records also omit `context`. Protocol context fields are documented in [Extract command](extract.md); row fields remain command-specific. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
 
 A diagnostic has `kind`, `message`, and, for warnings and errors, a stable `code`:
 
@@ -51,8 +51,8 @@ A diagnostic has `kind`, `message`, and, for warnings and errors, a stable `code
 Waveform commands support `--jsonl` for incremental consumption. Each stdout line is an independent JSON object:
 
 ```jsonl
-{"type":"begin","seq":0,"command":"change"}
-{"type":"data","seq":1,"data":{"time":"5ns","sample_time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}}
+{"type":"begin","seq":0,"command":"change","context":{"scope":"top"}}
+{"type":"data","seq":1,"data":{"time":"5ns","sample_time":"5ns","signals":[{"path":"top.clk","relative_path":"clk","value":"1'h1"}]}}
 {"type":"diagnostic","seq":2,"diagnostic":{"kind":"warning","code":"WPK-W0002","message":"truncated output to 1 entries (use --max to increase limit)"}}
 {"type":"end","seq":3,"records":{"data":1,"diagnostics":1}}
 ```
@@ -61,6 +61,7 @@ A successful stream obeys these rules:
 
 - `begin` is first with `seq: 0`; it is the only record containing `command`.
 - `seq` increases by one for every record.
+- Scoped `signal`, `value`, `change`, and `extract generic` `begin` records include `context.scope` identical to the JSON result context.
 - Protocol extractor `begin` records include `context` identical to the JSON result context.
 - Each `data.data` is identical to one element of the JSON result `data` array, including the single `info` row.
 - `diagnostic.diagnostic` has the same shape as one JSON result diagnostic and may appear between data records.

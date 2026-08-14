@@ -308,7 +308,7 @@ For multi-source output, the source name appears after `sample@...`:
 
 Add `--abs` to print canonical payload paths in human output.
 
-`extract generic --json` emits the standard envelope with `command: "extract generic"` and an array of rows. `extract generic --jsonl` streams `begin`, `data`, `diagnostic`, and `end` records; each data row has `time`, `sample_time`, `source`, and ordered `payload` values.
+`extract generic --json` emits the standard envelope with `command: "extract generic"` and an array of rows. With `--scope top`, the envelope contains `context: {"scope":"top"}` and each payload value contains canonical `path` plus scope-relative `relative_path`. Without `--scope`, `context` and `relative_path` are omitted while `path` remains canonical. `extract generic --jsonl` puts the same scope context in `begin` and streams `data`, `diagnostic`, and `end` records; each data row has `time`, `sample_time`, `source`, and ordered `payload` values.
 
 Repeated events are preserved even when payload values do not change. `extract` is not a delta command.
 

@@ -138,7 +138,7 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
     --signals cpu_state,mem_valid,mem_ready,trap \
     --from 1010000ps --to 1040000ps \
     --on '*' --sample-mode native --json
-{"type":"result","command":"change","data":[{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1030000ps","sample_time":"1030000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h1"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]}],"diagnostics":[]}
+{"type":"result","command":"change","context":{"scope":"testbench.uut"},"data":[{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","relative_path":"cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","relative_path":"mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","relative_path":"mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","relative_path":"trap","value":"1'h0"}]},{"time":"1030000ps","sample_time":"1030000ps","signals":[{"path":"testbench.uut.cpu_state","relative_path":"cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","relative_path":"mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","relative_path":"mem_ready","value":"1'h1"},{"path":"testbench.uut.trap","relative_path":"trap","value":"1'h0"}]},{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","relative_path":"cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","relative_path":"mem_valid","value":"1'h0"},{"path":"testbench.uut.mem_ready","relative_path":"mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","relative_path":"trap","value":"1'h0"}]}],"diagnostics":[]}
 ```
 
 ## Use JSONL for large ranges and incremental consumers
@@ -151,9 +151,9 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
     --signals cpu_state,mem_valid \
     --from 1010000ps --to 1040000ps \
     --on '*' --sample-mode native --jsonl
-{"type":"begin","seq":0,"command":"change"}
-{"type":"data","seq":1,"data":{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"}]}}
-{"type":"data","seq":2,"data":{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"}]}}
+{"type":"begin","seq":0,"command":"change","context":{"scope":"testbench.uut"}}
+{"type":"data","seq":1,"data":{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","relative_path":"cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","relative_path":"mem_valid","value":"1'h1"}]}}
+{"type":"data","seq":2,"data":{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","relative_path":"cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","relative_path":"mem_valid","value":"1'h0"}]}}
 {"type":"end","seq":3,"records":{"data":2,"diagnostics":0}}
 ```
 

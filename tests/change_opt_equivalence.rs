@@ -342,6 +342,7 @@ fn change_typed_iff_matches_between_modes() {
         ],
     );
 
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
         value["data"],
@@ -350,8 +351,8 @@ fn change_typed_iff_matches_between_modes() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h00"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])

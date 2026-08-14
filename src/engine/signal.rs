@@ -4,7 +4,7 @@ use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::{CommandData, CommandName, CommandResult};
 use crate::error::WavepeekError;
-use crate::waveform::Waveform;
+use crate::waveform::{Waveform, display_signal_path};
 use regex::Regex;
 use serde::Serialize;
 
@@ -62,7 +62,6 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         LimitArg::Numeric(value) => Some(value),
         LimitArg::Unlimited => None,
     };
-    let scope_prefix = format!("{scope}.");
 
     let debug = DebugTrace::for_command(CommandName::Signal);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -92,11 +91,8 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         .into_iter()
         .filter(|entry| filter.is_match(entry.name.as_str()))
         .map(|entry| {
-            let relative_path = entry
-                .path
-                .strip_prefix(scope_prefix.as_str())
-                .unwrap_or(entry.name.as_str())
-                .to_string();
+            let relative_path =
+                display_signal_path(entry.path.as_str(), Some(scope.as_str())).to_string();
             SignalEntry {
                 name: entry.name,
                 path: entry.path,
@@ -135,6 +131,7 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs: abs,
         },
+        scope: Some(scope),
         data: CommandData::Signal(entries),
         diagnostics,
     })

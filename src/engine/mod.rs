@@ -112,6 +112,13 @@ impl Command {
 }
 
 impl CommandName {
+    pub const fn supports_scope_context(self) -> bool {
+        matches!(
+            self,
+            Self::Signal | Self::Value | Self::Change | Self::ExtractGeneric
+        )
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Info => "info",
@@ -164,6 +171,8 @@ pub struct CommandResult {
     pub output_mode: OutputMode,
     #[serde(skip)]
     pub human_options: HumanRenderOptions,
+    #[serde(skip)]
+    pub scope: Option<String>,
     pub data: CommandData,
     pub diagnostics: Vec<Diagnostic>,
 }

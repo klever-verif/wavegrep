@@ -1231,6 +1231,7 @@ pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
         data: CommandData::ExtractAxi(AxiData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -1283,6 +1284,7 @@ fn run_with_sink<S: AxiTransferSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,

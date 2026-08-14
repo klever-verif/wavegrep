@@ -115,6 +115,7 @@ fn change_jsonl_streams_data_with_stable_record_order() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout, "change");
+    assert!(records[0].get("context").is_none());
     let items = records
         .iter()
         .filter(|record| record["type"] == "data")
@@ -197,6 +198,7 @@ fn change_jsonl_reports_empty_result_before_end() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout, "change");
+    assert_eq!(records[0]["context"]["scope"], "top");
     assert_eq!(
         records
             .iter()
@@ -238,12 +240,15 @@ fn extract_generic_jsonl_streams_rows_with_stable_record_order() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout, "extract generic");
+    assert_eq!(records[0]["context"]["scope"], "top");
     let items = records
         .iter()
         .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["data"]["source"], "transfer");
+    assert_eq!(items[0]["data"]["payload"][0]["path"], "top.data");
+    assert_eq!(items[0]["data"]["payload"][0]["relative_path"], "data");
 }
 
 #[test]
@@ -365,6 +370,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
         .expect("signal --jsonl should execute");
     assert!(signal.status.success());
     let signal_records = parse_stream(&signal.stdout, "signal");
+    assert_eq!(signal_records[0]["context"]["scope"], "top.cpu");
     assert!(signal_records.iter().any(|record| {
         record["type"] == "data"
             && record["data"]["path"] == "top.cpu.core.execute"
@@ -386,6 +392,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
         .expect("value --jsonl should execute");
     assert!(value.status.success());
     let value_records = parse_stream(&value.stdout, "value");
+    assert!(value_records[0].get("context").is_none());
     assert_eq!(value_records[1]["data"]["time"], "5ns");
     assert_eq!(
         value_records[1]["data"]["signals"]

@@ -401,6 +401,7 @@ pub fn run(args: ApbArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
         data: CommandData::ExtractApb(ApbData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -455,6 +456,7 @@ fn run_with_sink<S: ApbEventSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,

@@ -8,6 +8,7 @@ pub fn run(args: SkillArgs) -> Result<CommandResult, WavepeekError> {
         command: CommandName::Skill,
         output_mode: crate::output_mode::OutputMode::Human,
         human_options: HumanRenderOptions::default(),
+        scope: None,
         data: CommandData::Text(format!(
             "Extracted wavepeek skill to {}\n",
             args.directory.display()
