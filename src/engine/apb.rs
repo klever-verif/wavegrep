@@ -456,6 +456,7 @@ fn run_with_sink<S: ApbEventSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,

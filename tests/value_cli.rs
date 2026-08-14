@@ -251,6 +251,7 @@ fn value_without_scope_treats_signals_as_canonical_paths() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("value output should be valid json");
 
+    assert!(value.get("context").is_none());
     assert_eq!(
         value["data"][0]["signals"],
         json!([

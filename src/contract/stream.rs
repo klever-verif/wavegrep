@@ -41,13 +41,7 @@ impl<'a> BeginRecord<'a> {
         scope: &'a str,
     ) -> Result<Self, WavepeekError> {
         require_stream_command(command)?;
-        if !matches!(
-            command,
-            CommandName::Signal
-                | CommandName::Value
-                | CommandName::Change
-                | CommandName::ExtractGeneric
-        ) {
+        if !command.supports_scope_context() {
             return Err(WavepeekError::Internal(format!(
                 "command {} cannot begin with scope context",
                 command.as_str()

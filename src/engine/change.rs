@@ -387,7 +387,11 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     for (requested, resolved) in requested_signals.iter_mut().zip(&requested_resolved) {
         let display =
             display_signal_path(resolved.path.as_str(), args.scope.as_deref()).to_string();
-        requested.relative_path = args.scope.as_ref().map(|_| display.clone());
+        requested.relative_path = if (args.json || args.jsonl) && args.scope.is_some() {
+            Some(display.clone())
+        } else {
+            None
+        };
         requested.display = display;
     }
     let requested_expr_sources = waveform.borrow().resolve_expr_signals_with_diagnostics(

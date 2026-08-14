@@ -65,7 +65,9 @@ fn change_row_mode_and_values_matrix() {
             .output()
             .expect("change should execute");
         assert!(output.status.success());
-        parse_json(&output.stdout)["data"].clone()
+        let value = parse_json(&output.stdout);
+        assert!(value.get("context").is_none());
+        value["data"].clone()
     };
 
     assert_eq!(

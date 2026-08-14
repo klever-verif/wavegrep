@@ -55,16 +55,13 @@ pub enum OutputContextData<'a> {
 impl<'a> OutputContextData<'a> {
     fn from_result(result: &'a CommandResult) -> Result<Option<Self>, WavepeekError> {
         if let Some(scope) = result.scope.as_deref() {
-            return match result.command {
-                CommandName::Signal
-                | CommandName::Value
-                | CommandName::Change
-                | CommandName::ExtractGeneric => Ok(Some(Self::Scope(ScopeContext::new(scope)))),
-                _ => Err(WavepeekError::Internal(format!(
-                    "command {} cannot be serialized with scope context",
-                    result.command.as_str()
-                ))),
-            };
+            if result.command.supports_scope_context() {
+                return Ok(Some(Self::Scope(ScopeContext::new(scope))));
+            }
+            return Err(WavepeekError::Internal(format!(
+                "command {} cannot be serialized with scope context",
+                result.command.as_str()
+            )));
         }
 
         match (result.command, &result.data) {

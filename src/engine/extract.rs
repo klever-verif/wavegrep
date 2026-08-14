@@ -145,6 +145,7 @@ pub(crate) struct ExtractRunArgs {
     pub(crate) to: Option<String>,
     pub(crate) scope: Option<String>,
     pub(crate) max: LimitArg,
+    pub(crate) include_relative_paths: bool,
 }
 
 struct ExtractEmitContext<'a> {
@@ -291,6 +292,7 @@ fn run_with_sink<S: ExtractRowSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: args.json || args.jsonl,
         },
         plan,
         sink,
@@ -393,7 +395,12 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
         })
     });
 
-    let bound_sources = bind_extract_sources(&waveform, args.scope.as_deref(), plan.sources)?;
+    let bound_sources = bind_extract_sources(
+        &waveform,
+        args.scope.as_deref(),
+        args.include_relative_paths,
+        plan.sources,
+    )?;
     let event_groups = build_event_groups(&bound_sources)?;
     let event_group_candidate_sources = event_groups
         .iter()
@@ -664,6 +671,7 @@ fn require_unique_payloads(payload: &[String]) -> Result<(), WavepeekError> {
 fn bind_extract_sources(
     waveform: &SharedWaveform,
     scope: Option<&str>,
+    include_relative_paths: bool,
     sources: Vec<ExtractSource>,
 ) -> Result<Vec<BoundExtractSource>, WavepeekError> {
     if let Some(scope) = scope {
@@ -688,7 +696,12 @@ fn bind_extract_sources(
         waveform
             .borrow()
             .validate_expr_values_supported(eval_sources.as_slice())?;
-        let payload = resolve_payload_signals(waveform, scope, source.payload.as_slice())?;
+        let payload = resolve_payload_signals(
+            waveform,
+            scope,
+            include_relative_paths,
+            source.payload.as_slice(),
+        )?;
         bound_sources.push(BoundExtractSource {
             declaration_index: source.declaration_index,
             name: source.name,
@@ -707,6 +720,7 @@ fn bind_extract_sources(
 fn resolve_payload_signals(
     waveform: &SharedWaveform,
     scope: Option<&str>,
+    include_relative_paths: bool,
     payload: &[String],
 ) -> Result<Vec<PayloadSignal>, WavepeekError> {
     let canonical_paths = payload
@@ -732,10 +746,15 @@ fn resolve_payload_signals(
         .into_iter()
         .map(|resolved| {
             let display = display_signal_path(resolved.path.as_str(), scope).to_string();
+            let relative_path = if include_relative_paths && scope.is_some() {
+                Some(display.clone())
+            } else {
+                None
+            };
             PayloadSignal {
-                relative_path: scope.map(|_| display.clone()),
                 display,
                 path: resolved.path.clone(),
+                relative_path,
                 resolved,
             }
         })

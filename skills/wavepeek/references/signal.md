@@ -86,7 +86,7 @@ Without `--abs`, recursive output is easier to read. With `--abs`, it is easier 
 
 ```text
 $ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --json --max 10
-{"type":"result","command":"signal","data":[{"name":"cfg","path":"top.cfg","relative_path":"cfg","kind":"parameter","width":8},{"name":"clk","path":"top.clk","relative_path":"clk","kind":"wire","width":1},{"name":"data","path":"top.data","relative_path":"data","kind":"reg","width":8},{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1},{"name":"ready","path":"top.mem.ready","relative_path":"mem.ready","kind":"wire","width":1}],"diagnostics":[]}
+{"type":"result","command":"signal","context":{"scope":"top"},"data":[{"name":"cfg","path":"top.cfg","relative_path":"cfg","kind":"parameter","width":8},{"name":"clk","path":"top.clk","relative_path":"clk","kind":"wire","width":1},{"name":"data","path":"top.data","relative_path":"data","kind":"reg","width":8},{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1},{"name":"ready","path":"top.mem.ready","relative_path":"mem.ready","kind":"wire","width":1}],"diagnostics":[]}
 ```
 
 Use this in scripts and agents when human formatting is not reliable enough.

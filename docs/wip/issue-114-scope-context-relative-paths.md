@@ -20,8 +20,8 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 - [x] (2026-08-14 14:15Z) Choose the smallest design: one optional scope on command results, one boundary-safe relative-path helper, and direct JSONL scope begin support.
 - [x] (2026-08-14 14:31Z) Implement scoped context and relative paths for `signal`, `value`, `change`, and `extract generic` in JSON and JSONL.
 - [x] (2026-08-14 14:31Z) Add focused contract and CLI coverage, update packaged machine-output documentation, and pass 129 focused CLI tests plus the JSON/JSONL parity test.
-- [ ] Commit the implementation and run `./dev just ci` (completed: full CI gate, including 22 FSDB integration tests; remaining: implementation commit).
-- [ ] Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance, all including KISS/YAGNI and ponytail-review; fix findings and revalidate.
+- [x] (2026-08-14 14:36Z) Commit the implementation as `43a4023` after `./dev just ci` passed, including 22 FSDB integration tests and all pre-commit hooks.
+- [x] (2026-08-14 14:53Z) Run four parallel Luna Max lanes with KISS/YAGNI and ponytail-review; correctness was clean, docs/parity/allowlist/human-allocation findings were fixed, focused CLI tests and 665 library tests passed, and all three impacted lanes rechecked clean.
 - [ ] Run parallel Terra High reviews over the same four areas and principles; fix findings and revalidate.
 - [ ] Run one independent Sol High control review, fix substantive findings, and run the final quality gate.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR against `dev3` that closes issue #114.
@@ -43,6 +43,9 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 - Observation: the full CI gate includes enabled FSDB integration tests whose exact scoped JSON expectations must evolve with the public contract.
   Evidence: the first full gate exposed five stale FSDB expectations; after adding scope-relative fields, `./dev just test-fsdb` passed all 22 tests and the repeated full `./dev just ci` passed.
 
+- Observation: relative paths are a machine-only contract for `value`, `change`, and `extract generic`; human rendering uses display labels and `--abs` instead.
+  Evidence: Luna performance review found avoidable per-row allocations in human mode. Gating relative-path construction on JSON/JSONL preserves output and avoids those allocations.
+
 ## Decision Log
 
 - Decision: Treat a successfully validated `--scope` token as the canonical selected scope.
@@ -59,6 +62,10 @@ This work does not add CLI flags, scope aliases, backend normalization, new depe
 
 - Decision: Omit both scope context and row `relative_path` when no `--scope` was supplied.
   Rationale: Issue #114 explicitly preserves unscoped behavior and avoids a breaking schema expansion where no relative namespace exists.
+  Date/Author: 2026-08-14, coding agent.
+
+- Decision: Keep the scope-capable command allowlist in `CommandName::supports_scope_context` and reuse it in both JSON and JSONL contracts.
+  Rationale: Luna architecture review found duplicated match lists that could drift; one small predicate is the shared source without adding a layer.
   Date/Author: 2026-08-14, coding agent.
 
 ## Outcomes & Retrospective
@@ -163,3 +170,7 @@ Revision note (2026-08-14 14:15Z): Initial plan created after issue and reposito
 Revision note (2026-08-14 14:31Z): Recorded implementation, focused-test evidence, manual output evidence, and the decision to avoid changing the shared protocol sink trait.
 
 Revision note (2026-08-14 14:34Z): Recorded the FSDB expectation discovery and successful full CI evidence.
+
+Revision note (2026-08-14 14:52Z): Recorded Luna Max findings, fixes, focused validation, machine-only allocation decision, and shared allowlist decision.
+
+Revision note (2026-08-14 14:53Z): Recorded clean Luna impacted-lane rechecks.

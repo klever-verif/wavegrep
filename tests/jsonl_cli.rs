@@ -115,6 +115,7 @@ fn change_jsonl_streams_data_with_stable_record_order() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout, "change");
+    assert!(records[0].get("context").is_none());
     let items = records
         .iter()
         .filter(|record| record["type"] == "data")
@@ -369,6 +370,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
         .expect("signal --jsonl should execute");
     assert!(signal.status.success());
     let signal_records = parse_stream(&signal.stdout, "signal");
+    assert_eq!(signal_records[0]["context"]["scope"], "top.cpu");
     assert!(signal_records.iter().any(|record| {
         record["type"] == "data"
             && record["data"]["path"] == "top.cpu.core.execute"
@@ -390,6 +392,7 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
         .expect("value --jsonl should execute");
     assert!(value.status.success());
     let value_records = parse_stream(&value.stdout, "value");
+    assert!(value_records[0].get("context").is_none());
     assert_eq!(value_records[1]["data"]["time"], "5ns");
     assert_eq!(
         value_records[1]["data"]["signals"]

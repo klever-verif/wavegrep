@@ -83,10 +83,15 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
             .map(|sampled| {
                 let display =
                     display_signal_path(sampled.path.as_str(), args.scope.as_deref()).to_string();
+                let relative_path = if (args.json || args.jsonl) && args.scope.is_some() {
+                    Some(display.clone())
+                } else {
+                    None
+                };
                 ValueSignalValue {
-                    relative_path: args.scope.as_ref().map(|_| display.clone()),
                     display,
                     path: sampled.path,
+                    relative_path,
                     value: format_verilog_literal(sampled.width, sampled.bits.as_str()),
                 }
             })

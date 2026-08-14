@@ -112,6 +112,13 @@ impl Command {
 }
 
 impl CommandName {
+    pub const fn supports_scope_context(self) -> bool {
+        matches!(
+            self,
+            Self::Signal | Self::Value | Self::Change | Self::ExtractGeneric
+        )
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Info => "info",
