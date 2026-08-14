@@ -41,6 +41,16 @@ fn assert_json_jsonl_parity(args: &[String]) {
 
     assert_eq!(json.get("context"), records[0].get("context"));
     assert_eq!(json.get("summary"), records.last().unwrap().get("summary"));
+    let bounded = !matches!(json["command"].as_str(), Some("info" | "value"));
+    assert_eq!(json.get("summary").is_some(), bounded);
+    if let Some(summary) = json.get("summary") {
+        let summary = summary.as_object().expect("summary object");
+        assert_eq!(summary.len(), 4);
+        assert!(summary["complete"].is_boolean());
+        assert!(summary["returned"].is_u64());
+        assert!(summary["limit"].is_u64() || summary["limit"].is_null());
+        assert!(summary["total"].is_u64() || summary["total"].is_null());
+    }
     let data = records
         .iter()
         .filter(|record| record["type"] == "data")
@@ -52,6 +62,9 @@ fn assert_json_jsonl_parity(args: &[String]) {
         .map(|record| record["diagnostic"].clone())
         .collect::<Vec<_>>();
     assert_eq!(json["data"], Value::Array(data.clone()));
+    if bounded {
+        assert_eq!(json["summary"]["returned"], data.len());
+    }
     assert_eq!(json["diagnostics"], Value::Array(diagnostics.clone()));
     assert_eq!(records.last().unwrap()["records"]["data"], data.len());
     assert_eq!(

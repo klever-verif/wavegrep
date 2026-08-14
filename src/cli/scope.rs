@@ -21,7 +21,7 @@ pub struct ScopeArgs {
     /// Render hierarchy as an indented tree
     #[arg(long, help_heading = "Output options")]
     pub tree: bool,
-    /// Suppress result rows and print only completeness metadata
+    /// Suppress result rows while retaining context and completeness metadata
     #[arg(long, help_heading = "Output options")]
     pub summary: bool,
     /// Machine-readable JSON output

@@ -32,7 +32,7 @@ pub struct SignalArgs {
     /// Show canonical signal paths
     #[arg(long, help_heading = "Output options")]
     pub abs: bool,
-    /// Suppress result rows and print only completeness metadata
+    /// Suppress result rows while retaining context and completeness metadata
     #[arg(long, help_heading = "Output options")]
     pub summary: bool,
     /// Machine-readable JSON output

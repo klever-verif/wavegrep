@@ -32,7 +32,7 @@ Read [Command overview](references/overview.md) for command selection and [Help 
 - For synchronous RTL, separate the sampling event from the tested condition: use `--on 'posedge <clock>'` and put the condition in `--eval` or `--when`.
 - Edge-triggered queries commonly evaluate pre-edge values. Use each row's `sample_time` for follow-up sampling unless same-edge dump state is intentional.
 - For repeated event counts with raw signal payloads, use dense `change`; for derived conditions use `property --capture match`, and for protocol semantics use `extract`.
-- For every bounded JSON result, inspect both top-level `summary` and `diagnostics` before using counts or conclusions. `complete: false` means the returned rows do not cover the selected result set.
+- For JSON results from commands with `--max`, inspect both top-level `summary` and `diagnostics` before using counts or conclusions. `complete: false` means the returned rows do not cover the selected result set.
 
 ## References
 
@@ -49,7 +49,7 @@ Read only the references needed for the current task:
 Before reporting a result:
 
 - confirm the queried interval covers the requested range;
-- confirm `summary.complete` is true when claiming exhaustive coverage, and that no truncation or other diagnostic was ignored;
+- when `summary` is present, confirm `summary.complete` is true before claiming exhaustive coverage, and do not ignore truncation or other diagnostics;
 - use `sample_time` consistently when correlating rows;
 - state the scope and clock when they affect the conclusion;
 - for protocol completion claims, identify the channel or event that proves completion.

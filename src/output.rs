@@ -292,15 +292,17 @@ fn render_human_with_data(
     options: HumanRenderOptions,
     include_data: bool,
 ) -> String {
-    if !include_data {
-        return match data {
-            CommandData::ExtractAhb(data) => render_ahb_human(data, options, false),
-            CommandData::ExtractApb(data) => render_apb_human(data, options, false),
-            CommandData::ExtractAtb(data) => render_atb_human(data, options, false),
-            CommandData::ExtractAxi(data) => render_axi_human(data, options, false),
-            CommandData::ExtractAxiStream(data) => render_axistream_human(data, options, false),
-            _ => String::new(),
-        };
+    if !include_data
+        && !matches!(
+            data,
+            CommandData::ExtractAhb(_)
+                | CommandData::ExtractApb(_)
+                | CommandData::ExtractAtb(_)
+                | CommandData::ExtractAxi(_)
+                | CommandData::ExtractAxiStream(_)
+        )
+    {
+        return String::new();
     }
 
     match data {
@@ -389,11 +391,11 @@ fn render_human_with_data(
             })
             .collect::<Vec<_>>()
             .join("\n"),
-        CommandData::ExtractAhb(data) => render_ahb_human(data, options, true),
-        CommandData::ExtractApb(data) => render_apb_human(data, options, true),
-        CommandData::ExtractAtb(data) => render_atb_human(data, options, true),
-        CommandData::ExtractAxi(data) => render_axi_human(data, options, true),
-        CommandData::ExtractAxiStream(data) => render_axistream_human(data, options, true),
+        CommandData::ExtractAhb(data) => render_ahb_human(data, options, include_data),
+        CommandData::ExtractApb(data) => render_apb_human(data, options, include_data),
+        CommandData::ExtractAtb(data) => render_atb_human(data, options, include_data),
+        CommandData::ExtractAxi(data) => render_axi_human(data, options, include_data),
+        CommandData::ExtractAxiStream(data) => render_axistream_human(data, options, include_data),
         CommandData::ExtractGeneric(data) => data
             .rows
             .iter()

@@ -25,7 +25,8 @@ This work does not add or change fatal JSONL records. It does not make a second 
 - [x] (2026-08-14 14:51Z) Update packaged machine-output, command-model, command references, and bundled skill guidance.
 - [x] (2026-08-14 14:54Z) Run focused tests, `./dev just ci`, and `./dev just check`; all pass, including default/FSDB tests, clippy, docs generation, actionlint, and FSDB smoke checks.
 - [x] (2026-08-14 14:51Z) Commit implementation milestones with conventional commits.
-- [ ] Run Luna Max focused review wave, fix findings, then Terra High focused review wave over the same lanes and fix findings.
+- [x] (2026-08-14 15:14Z) Run Luna Max focused review wave across correctness/tests, contracts/docs/context, and architecture/performance/KISS; resolve all seven low-severity findings.
+- [ ] Run Terra High focused review wave over the same three lanes and resolve findings.
 - [ ] Run independent Sol High control review, resolve findings, rerun gates, remove this WIP plan, and commit cleanup.
 - [ ] Push the branch and open a pull request against `dev3`.
 
@@ -39,6 +40,9 @@ This work does not add or change fatal JSONL records. It does not make a second 
 
 - Observation: `./dev --start` is not a supported no-command option, but invoking it started the worktree container before reporting an argument execution error.
   Evidence: devcontainer CLI reported container `c64fe2ce6d99f4a2631cfe67d3332d257310d8c0e0dc343f5a121ec58794ec41` started, followed by `No such file or directory: '--start'`; subsequent work should use `./dev --exec-only` or ordinary `./dev just ...` commands.
+
+- Observation: First-wave reviewers found no correctness defect above low severity; their actionable findings were broader summary-presence/suppression coverage, one stale JSON example, precise skill/help wording, and two local duplication reductions.
+  Evidence: Luna Max reviewers returned two test findings, three contract/docs findings, and two shrink findings; focused tests, docs generation, and default/FSDB clippy pass after all fixes.
 
 ## Decision Log
 
@@ -177,3 +181,5 @@ Plan revision note, 2026-08-14 14:45Z: recorded completion of the implementation
 Plan revision note, 2026-08-14 14:51Z: recorded completion of packaged documentation and skill guidance; docs-site generation and focused skill/runtime tests pass.
 
 Plan revision note, 2026-08-14 14:54Z: recorded successful `./dev just ci` and `./dev just check` pre-review gates.
+
+Plan revision note, 2026-08-14 15:14Z: recorded completion of the Luna Max review wave and fixes: stronger all-command summary assertions, broader summary-only adapters, corrected docs/help wording, single protocol render dispatch, and one property summary conversion.

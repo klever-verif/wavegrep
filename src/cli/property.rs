@@ -56,7 +56,7 @@ pub struct PropertyArgs {
     /// Maximum number of property rows (`unlimited` disables truncation, value must be > 0)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
-    /// Suppress result rows and print only completeness metadata
+    /// Suppress result rows while retaining context and completeness metadata
     #[arg(long, help_heading = "Output options")]
     pub summary: bool,
     /// Machine-readable JSON output

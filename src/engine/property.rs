@@ -49,16 +49,10 @@ pub struct PropertyCaptureRow {
     pub kind: PropertyResultKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct PropertyRunStats {
-    emitted: usize,
-    truncated: bool,
-}
-
 #[derive(Debug)]
 struct PropertyCommandOutcome {
     diagnostics: Vec<Diagnostic>,
-    stats: PropertyRunStats,
+    summary: ResultSummary,
 }
 
 trait PropertyRowSink {
@@ -98,7 +92,6 @@ impl<W: std::io::Write> PropertyRowSink for JsonlPropertySink<'_, W> {
 pub fn run(args: PropertyArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let summary_only = args.summary;
-    let limit = args.max.numeric();
     let mut sink = CollectingPropertySink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -109,11 +102,7 @@ pub fn run(args: PropertyArgs) -> Result<CommandResult, WavepeekError> {
         scope: None,
         summary_only,
         data: CommandData::Property(sink.rows),
-        summary: Some(ResultSummary::from_run(
-            outcome.stats.emitted,
-            limit,
-            outcome.stats.truncated,
-        )),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -123,7 +112,6 @@ pub fn run_jsonl<W: std::io::Write>(
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
     writer.suppress_data(args.summary);
-    let limit = args.max.numeric();
     let outcome = {
         let mut sink = JsonlPropertySink { writer };
         run_with_sink(args, &mut sink)?
@@ -132,11 +120,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end_summary(&ResultSummary::from_run(
-        outcome.stats.emitted,
-        limit,
-        outcome.stats.truncated,
-    ))
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: PropertyRowSink + ?Sized>(
@@ -406,7 +390,7 @@ fn run_with_sink<S: PropertyRowSink + ?Sized>(
 
     Ok(PropertyCommandOutcome {
         diagnostics,
-        stats: PropertyRunStats { emitted, truncated },
+        summary: ResultSummary::from_run(emitted, max_entries, truncated),
     })
 }
 

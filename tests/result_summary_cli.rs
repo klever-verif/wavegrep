@@ -206,6 +206,9 @@ fn summary_only_suppresses_data_but_preserves_query_results() {
     let ahb = fixture_path("extract_ahb_lite.vcd")
         .to_string_lossy()
         .into_owned();
+    let apb = fixture_path("extract_apb3.vcd")
+        .to_string_lossy()
+        .into_owned();
     let cases = vec![
         vec!["scope", "--waves", &m2, "--max", "1"],
         vec![
@@ -226,6 +229,39 @@ fn summary_only_suppresses_data_but_preserves_query_results() {
             "1",
         ],
         vec![
+            "property",
+            "--waves",
+            &m2,
+            "--scope",
+            "top",
+            "--on",
+            "*",
+            "--sample-mode",
+            "native",
+            "--eval",
+            "data == 8'h0f",
+            "--capture",
+            "match",
+            "--max",
+            "1",
+        ],
+        vec![
+            "extract",
+            "generic",
+            "--waves",
+            &m2,
+            "--scope",
+            "top",
+            "--on",
+            "posedge clk",
+            "--when",
+            "1",
+            "--payload",
+            "data",
+            "--max",
+            "1",
+        ],
+        vec![
             "extract",
             "ahb",
             "--waves",
@@ -236,6 +272,20 @@ fn summary_only_suppresses_data_but_preserves_query_results() {
             "hclk=clk",
             "--include",
             "^ahb_lite_.*",
+            "--max",
+            "1",
+        ],
+        vec![
+            "extract",
+            "apb",
+            "--waves",
+            &apb,
+            "--scope",
+            "top",
+            "--profile",
+            "apb3",
+            "--include",
+            "^apb3_",
             "--max",
             "1",
         ],
