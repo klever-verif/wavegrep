@@ -745,25 +745,29 @@ fn fsdb_change_json_matches_vcd_contracts() {
         ])
     );
 
-    let delta_args = [
-        "change",
-        "--scope",
-        "top",
-        "--signals",
-        "valid,ready,data",
-        "--from",
-        "0ns",
-        "--to",
-        "35ns",
-        "--on",
-        "posedge clk",
-        "--row-values",
-        "delta",
-        "--json",
-    ];
-    let fsdb_delta = run_json_success_with_waves(fsdb_fixture.as_str(), &delta_args);
-    let vcd_delta = run_json_success_with_waves(vcd_fixture.as_str(), &delta_args);
-    assert_eq!(fsdb_delta["data"], vcd_delta["data"]);
+    for (row_mode, row_values) in [("dense", "delta"), ("sparse", "full"), ("sparse", "delta")] {
+        let mode_args = [
+            "change",
+            "--scope",
+            "top",
+            "--signals",
+            "valid,ready,data",
+            "--from",
+            "0ns",
+            "--to",
+            "35ns",
+            "--on",
+            "posedge clk",
+            "--row-mode",
+            row_mode,
+            "--row-values",
+            row_values,
+            "--json",
+        ];
+        let fsdb_mode = run_json_success_with_waves(fsdb_fixture.as_str(), &mode_args);
+        let vcd_mode = run_json_success_with_waves(vcd_fixture.as_str(), &mode_args);
+        assert_eq!(fsdb_mode["data"], vcd_mode["data"]);
+    }
 
     let wildcard_args = [
         "change",

@@ -425,7 +425,7 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
 
     for fragment in [
         "Prints requested signal values for each event selected by required `--on`",
-        "`--row-mode dense|sparse` controls whether every selected event or only changed samples become rows",
+        "`--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows",
         "`--row-values full|delta` controls whether rows contain all requested signals or only changed signals",
         "Range boundaries are inclusive",
     ] {
@@ -455,7 +455,9 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
                 "Comma-separated canonical paths, or relative names resolved under --scope"
             )
         );
-        assert!(help.contains("Select whether every event or only changed samples become rows"));
+        assert!(
+            help.contains("Select whether every sampled event or only changed samples become rows")
+        );
         assert!(help.contains("[default: dense]"));
         assert!(help.contains("[possible values: dense, sparse]"));
         assert!(help.contains("Select whether rows contain all values or only changed values"));

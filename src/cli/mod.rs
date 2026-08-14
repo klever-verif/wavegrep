@@ -126,7 +126,8 @@ Use this command for deterministic spot checks at specific timestamps."#
 
 Behavior:
 - Prints requested signal values for each event selected by required `--on`.
-- `--row-mode dense|sparse` controls whether every selected event or only changed samples become rows; the default is `dense`.
+- `--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows; the default is `dense`.
+- Pre-edge events without a representable earlier sample point are skipped.
 - `--row-values full|delta` controls whether rows contain all requested signals or only changed signals; the default is `full`, and the first delta row is always full.
 - Range boundaries are inclusive. Dense mode can emit a matching event at `--from`; sparse mode uses `--from` only as its comparison baseline.
 - Value sampling defaults to pre-edge sampling: displayed values are sampled just before edge-only triggers while row timestamps stay at the trigger edge.

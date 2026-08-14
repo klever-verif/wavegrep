@@ -2,7 +2,7 @@
 
 Use `change` when explicit point snapshots are not enough and you need an event-aligned table or a compact transition log.
 
-`change` scans an inclusive time window and samples `--signals` at timestamps selected by the required `--on` event expression. By default, every selected event produces a row containing every requested signal.
+`change` scans an inclusive time window and samples `--signals` at timestamps selected by the required `--on` event expression. By default, every selected event that can be sampled produces a row containing every requested signal.
 
 Two independent options control the table:
 
@@ -25,13 +25,13 @@ For exact syntax and flags, run `wavepeek help change`.
 
 ## Migrating from wavepeek 2
 
-wavepeek 2 emitted sparse, full rows. To preserve that behavior, add:
+wavepeek 2 emitted sparse, full rows. To restore that row shape, add:
 
 ```text
 --row-mode sparse --row-values full
 ```
 
-The version 3 default is `--row-mode dense --row-values full`, so clock-triggered queries can produce more rows than before.
+The version 3 default is `--row-mode dense --row-values full`, so clock-triggered queries can produce more rows than before. Sparse comparisons also use the previous selected sample; version 2 compared with the preceding dump timestamp, so gated triggers can differ even with the version 2 row shape.
 
 ## Start with a short window and a focused signal list
 

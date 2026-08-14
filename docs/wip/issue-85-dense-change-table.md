@@ -23,7 +23,7 @@ This work does not add a separate `sample` command, change event-expression synt
 - [x] (2026-08-14 05:04Z) Add and update unit and integration tests across output formats, engines, sampling modes, and waveform backends.
 - [x] (2026-08-14 05:04Z) Update CLI help, bundled skill references, README, changelog, and migration guidance.
 - [x] (2026-08-14 05:06Z) Run focused tests and `./dev just ci`, update this plan with evidence, and commit the implementation (commit remains the immediate next command).
-- [ ] Run Luna Max focused review wave, fix findings, test, and commit.
+- [x] (2026-08-14 05:42Z) Run Luna Max focused review wave and apply findings (completed: correctness, docs, architecture, and performance reviews; migration/help qualification, bounded edge-fast decode cache, centralized row emission, full FSDB mode parity, and full FST stream-mode parity; focused tests and 20 FSDB tests pass; review-fix commit is next).
 - [ ] Run Terra High focused review wave over the same areas, fix findings, test, and commit.
 - [ ] Run the independent Sol High control review, fix any findings, and run `./dev just check`.
 - [ ] Remove this branch-local plan if required by repository policy, commit final cleanup, push, and open the pull request.
@@ -42,6 +42,12 @@ This work does not add a separate `sample` command, change event-expression synt
 - Observation: changing the default exposed a stale FSDB test expectation: VCD and FSDB both emitted the newly required dense row at 35ns, while the version 2 expected array ended at 15ns.
   Evidence: the first `./dev just ci` run passed 19 of 20 FSDB integration tests and failed only the literal expected array in `fsdb_change_json_matches_vcd_contracts`; the preceding VCD/FSDB parity assertion passed. Updating the expected dense row made `./dev just test-fsdb` pass all 20 tests.
 
+- Observation: Luna performance review found that `IndexDecodeCache` became effectively unbounded under dense edge-fast scans because every selected event decoded requested values.
+  Evidence: the cache key contains signal ID and candidate index; clearing it at the start of each candidate preserves within-candidate reuse while bounding retained entries. Focused engine-equivalence and backend tests pass after the change.
+
+- Observation: Luna correctness review treated a representable pre-edge sample point with a requested signal lacking prior data as the same case as no representable pre-edge point.
+  Evidence: `pre_edge_sample_time` already skips the maintainer-decided no-point case before sampling. `build_snapshot` has historically returned a signal error when an emit-eligible mixed sample lacks a value; changing all emitters to silently skip incomplete rows would broaden behavior beyond issue #85, so that suggestion was not applied.
+
 ## Decision Log
 
 - Decision: Keep the existing `ChangeSnapshot` output type and renderers; project the signal vector before constructing a snapshot.
@@ -59,6 +65,14 @@ This work does not add a separate `sample` command, change event-expression synt
 - Decision: Put migration guidance in `skills/wavepeek/references/change.md` and `CHANGELOG.md`, not a new standalone migration file.
   Rationale: The repository has no separate migration-document pattern; keeping the note next to the command contract is the smallest discoverable solution.
   Date/Author: 2026-08-14 / coding agent
+
+- Decision: Describe `--row-mode sparse --row-values full` as restoring the version 2 row shape, not exact version 2 behavior.
+  Rationale: Version 3 intentionally compares sparse samples with the previous selected sample, while version 2 used the preceding dump timestamp. Luna docs review correctly identified that gated triggers can therefore differ.
+  Date/Author: 2026-08-14 / Luna review and coding agent
+
+- Decision: Centralize row filtering, truncation, projection, and sink emission in one private `emit_row` helper.
+  Rationale: Four engine-specific copies carried the public row contract and could drift. One direct helper fixes the shared source without adding a trait, strategy, module, or dependency.
+  Date/Author: 2026-08-14 / Luna architecture review and coding agent
 
 ## Outcomes & Retrospective
 
@@ -190,3 +204,5 @@ Revision note (2026-08-14): Initial self-contained plan created after repository
 Revision note (2026-08-14 05:04Z): Recorded completed implementation, tests, docs, focused validation, and the stale FSDB expected-output discovery before the final CI rerun.
 
 Revision note (2026-08-14 05:06Z): Recorded the successful full CI rerun and exact validation evidence.
+
+Revision note (2026-08-14 05:42Z): Recorded all Luna Max review findings, accepted fixes, one rejected out-of-scope behavior change, and focused post-fix validation.

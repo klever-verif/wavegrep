@@ -75,7 +75,7 @@ pub struct ChangeArgs {
         help_heading = "Selection options"
     )]
     pub sample_mode: SampleMode,
-    /// Select whether every event or only changed samples become rows
+    /// Select whether every sampled event or only changed samples become rows
     #[arg(
         long,
         value_enum,

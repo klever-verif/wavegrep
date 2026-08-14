@@ -164,47 +164,36 @@ fn change_vcd_and_fst_payloads_match_for_typed_iff_trigger() {
 }
 
 #[test]
-fn change_fst_stream_candidate_path_matches_random_access_path() {
+fn change_fst_stream_candidate_path_matches_random_access_for_all_row_modes() {
     let fst_fixture = fixture_path("m2_core.fst");
     let fst_fixture = fst_fixture.to_string_lossy().into_owned();
 
-    let args = [
-        "--from",
-        "1ns",
-        "--to",
-        "10ns",
-        "--signals",
-        "top.clk,top.data",
-    ];
+    for engine in ["baseline", "fused"] {
+        for (row_mode, row_values) in [
+            ("dense", "full"),
+            ("dense", "delta"),
+            ("sparse", "full"),
+            ("sparse", "delta"),
+        ] {
+            let args = [
+                "--from",
+                "1ns",
+                "--to",
+                "10ns",
+                "--signals",
+                "top.clk,top.data",
+                "--row-mode",
+                row_mode,
+                "--row-values",
+                row_values,
+            ];
+            let random =
+                run_change_json_with_tune_modes(fst_fixture.as_str(), &args, engine, "random");
+            let stream =
+                run_change_json_with_tune_modes(fst_fixture.as_str(), &args, engine, "stream");
 
-    let random_access =
-        run_change_json_with_tune_modes(fst_fixture.as_str(), &args, "baseline", "random");
-    let forced_stream =
-        run_change_json_with_tune_modes(fst_fixture.as_str(), &args, "baseline", "stream");
-
-    assert_eq!(random_access["data"], forced_stream["data"]);
-    assert_eq!(random_access["diagnostics"], forced_stream["diagnostics"]);
-}
-
-#[test]
-fn change_fst_fused_stream_candidate_path_matches_fused_random_access_path() {
-    let fst_fixture = fixture_path("m2_core.fst");
-    let fst_fixture = fst_fixture.to_string_lossy().into_owned();
-
-    let args = [
-        "--from",
-        "1ns",
-        "--to",
-        "10ns",
-        "--signals",
-        "top.clk,top.data",
-    ];
-
-    let fused_random =
-        run_change_json_with_tune_modes(fst_fixture.as_str(), &args, "fused", "random");
-    let fused_stream =
-        run_change_json_with_tune_modes(fst_fixture.as_str(), &args, "fused", "stream");
-
-    assert_eq!(fused_random["data"], fused_stream["data"]);
-    assert_eq!(fused_random["diagnostics"], fused_stream["diagnostics"]);
+            assert_eq!(random["data"], stream["data"]);
+            assert_eq!(random["diagnostics"], stream["diagnostics"]);
+        }
+    }
 }

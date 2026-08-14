@@ -745,30 +745,24 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
 
         let current_samples =
             sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
-        let changed = changed_values_and_update(&mut previous_values, &current_samples);
-        if row_mode == RowMode::Sparse && !changed.iter().any(|changed| *changed) {
-            sample_cache.retain_only(timestamp);
-            continue;
-        }
-
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        let changed = (row_values == RowValues::Delta && emitted > 0).then_some(changed.as_slice());
-        sink.emit(build_snapshot(
+        let stop = emit_row(
             requested_signals,
-            current_samples.as_slice(),
-            changed,
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             timestamp,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )?;
         sample_cache.retain_only(timestamp);
+        if stop {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -831,28 +825,22 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
 
         let current_samples =
             sample_cache.sample_requested_batch(waveform, requested_resolved, sample_time)?;
-        let changed = changed_values_and_update(&mut previous_values, &current_samples);
-        if row_mode == RowMode::Sparse && !changed.iter().any(|changed| *changed) {
-            continue;
-        }
-
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        let changed = (row_values == RowValues::Delta && emitted > 0).then_some(changed.as_slice());
-        sink.emit(build_snapshot(
+        if emit_row(
             requested_signals,
-            current_samples.as_slice(),
-            changed,
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             sample_time,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )? {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -1105,6 +1093,7 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
     let mut truncated = false;
 
     for (candidate_index, timestamp) in candidate_indices.into_iter().zip(candidate_times) {
+        decode_cache.entries.clear();
         let candidate_index_u32 = u32::try_from(candidate_index).map_err(|_| {
             WavepeekError::Internal("time table index exceeds u32 range".to_string())
         })?;
@@ -1154,28 +1143,22 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
                 })
             })
             .collect::<Result<Vec<_>, WavepeekError>>()?;
-        let changed = changed_values_and_update(&mut previous_values, &current_samples);
-        if row_mode == RowMode::Sparse && !changed.iter().any(|changed| *changed) {
-            continue;
-        }
-
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        let changed = (row_values == RowValues::Delta && emitted > 0).then_some(changed.as_slice());
-        sink.emit(build_snapshot(
+        if emit_row(
             requested_signals,
-            current_samples.as_slice(),
-            changed,
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             timestamp,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )? {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -1507,28 +1490,22 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
                 bits: rolling[*tracked_index].bits.clone(),
             })
             .collect::<Vec<_>>();
-        let changed = changed_values_and_update(&mut previous_values, &current_samples);
-        if row_mode == RowMode::Sparse && !changed.iter().any(|changed| *changed) {
-            continue;
-        }
-
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        let changed = (row_values == RowValues::Delta && emitted > 0).then_some(changed.as_slice());
-        sink.emit(build_snapshot(
+        if emit_row(
             requested_signals,
-            current_samples.as_slice(),
-            changed,
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             timestamp,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )? {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -1540,6 +1517,50 @@ fn should_use_stream_candidates_in_fused(mode: ChangeCandidateCollectionMode) ->
         ChangeCandidateCollectionMode::Stream => true,
         ChangeCandidateCollectionMode::Auto => false,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_row<S: ChangeSnapshotSink + ?Sized>(
+    requested_signals: &[RequestedSignal],
+    current_samples: &[SampledSignalState],
+    previous_values: &mut [Option<String>],
+    row_mode: RowMode,
+    row_values: RowValues,
+    max_entries: Option<usize>,
+    emitted: &mut usize,
+    timestamp: u64,
+    sample_time: u64,
+    dump_tick: ParsedTime,
+    sink: &mut S,
+) -> Result<bool, WavepeekError> {
+    let changed = (row_mode == RowMode::Sparse || row_values == RowValues::Delta)
+        .then(|| changed_values_and_update(previous_values, current_samples));
+    if row_mode == RowMode::Sparse
+        && !changed
+            .as_ref()
+            .is_some_and(|changed| changed.iter().any(|changed| *changed))
+    {
+        return Ok(false);
+    }
+    if max_entries == Some(*emitted) {
+        return Ok(true);
+    }
+
+    let changed = if row_values == RowValues::Delta && *emitted > 0 {
+        changed.as_deref()
+    } else {
+        None
+    };
+    sink.emit(build_snapshot(
+        requested_signals,
+        current_samples,
+        changed,
+        timestamp,
+        sample_time,
+        dump_tick,
+    )?)?;
+    *emitted += 1;
+    Ok(false)
 }
 
 fn sample_values(samples: &[SampledSignalState]) -> Vec<Option<String>> {
