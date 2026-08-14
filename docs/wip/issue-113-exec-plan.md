@@ -24,8 +24,8 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
 - [x] (2026-08-14 14:28Z) Run focused tests and `./dev just ci`, then commit the implementation (focused result: 52 change, 14 extract-generic, and 28 value tests passed; full gate passed with 93.20% average source coverage and all available FSDB gates).
 - [x] (2026-08-14 14:46Z) Run first-wave focused reviews with Luna Max, strengthen all three command tests for multi-component `--scope top.cpu`, revalidate 94 focused tests, and pass `./dev just ci` again.
 - [x] (2026-08-14 14:51Z) Run second-wave focused reviews with Terra High over the same lanes, remove the redundant extract payload diagnostic-name clone, pass the focused extract tests, and pass `./dev just ci`.
-- [ ] Run an independent Sol High control review, fix findings, and revalidate.
-- [ ] Record the outcome, remove this branch-local plan, commit cleanup, push, and open a pull request closing issue #113.
+- [x] (2026-08-14 14:54Z) Run an independent Sol High consolidated control review; result: `No substantive findings. Lean already. Ship.`
+- [ ] Record the outcome, remove this branch-local plan, commit cleanup, push, and open a pull request closing issue #113 (outcome recorded; cleanup and publication remain).
 
 ## Surprises & Discoveries
 
@@ -63,7 +63,9 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
 
 ## Outcomes & Retrospective
 
-Implementation and validation are complete. Completion still requires two focused review waves, one independent control review, cleanup of this plan, and an opened pull request.
+Issue #113 is implemented with one shared helper and no renderer, schema, protocol, or dependency changes. Default human output now normalizes relative and canonical input spellings under a scope, including nested paths below `top.cpu`; `--abs` and JSON/JSONL remain canonical. Focused tests passed 52 change, 14 extract-generic, and 28 value cases, and the full `just ci` gate passed after implementation and both review-fix waves with 93.20% average source coverage and available FSDB validation.
+
+The Luna Max wave returned a clean correctness lane, found one medium test-coverage gap in the contract lane, and raised only low allocation/no-scope suggestions elsewhere. The accepted gap produced stronger multi-component scope tests. The Terra High wave returned clean correctness and contract lanes and one low simplicity finding; removing the redundant extract payload clone shortened the implementation. The independent Sol High consolidated control review returned no substantive findings. Only WIP cleanup, push, and PR creation remain.
 
 ## Context and Orientation
 
@@ -181,3 +183,5 @@ Revision note (2026-08-14 14:42Z): Recorded the Luna Max review wave, the accept
 Revision note (2026-08-14 14:46Z): Recorded the post-review full CI pass.
 
 Revision note (2026-08-14 14:51Z): Recorded the Terra High wave, its accepted extract allocation simplification, and passing focused and full validation.
+
+Revision note (2026-08-14 14:54Z): Recorded the clean Sol High control review and final implementation, validation, and review outcomes before WIP cleanup and publication.
