@@ -23,16 +23,6 @@ Use `--on '*' --sample-mode native` when you want any change in the tracked sign
 
 For exact syntax and flags, run `wavepeek help change`.
 
-## Migrating from wavepeek 2
-
-wavepeek 2 emitted sparse, full rows. To restore that row shape, add:
-
-```text
---row-mode sparse --row-values full
-```
-
-The version 3 default is `--row-mode dense --row-values full`, so clock-triggered queries can produce more rows than before. Sparse comparisons also use the previous selected sample; version 2 compared with the preceding dump timestamp, so gated triggers can differ even with the version 2 row shape.
-
 ## Start with a short window and a focused signal list
 
 This is the fastest way to answer "what changed here?":
