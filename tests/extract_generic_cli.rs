@@ -198,7 +198,7 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
 
 #[test]
 fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
-    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     let relative = wavepeek_cmd()
@@ -208,13 +208,13 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
             "--waves",
             fixture.as_str(),
             "--scope",
-            "top",
+            "top.cpu",
             "--on",
-            "posedge top.cpu.valid",
+            "posedge valid",
             "--when",
             "1",
             "--payload",
-            "top.clk,cpu.valid",
+            "top.cpu.valid,core.execute",
         ])
         .output()
         .expect("extract should execute");
@@ -225,13 +225,13 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
             "--waves",
             fixture.as_str(),
             "--scope",
-            "top",
+            "top.cpu",
             "--on",
-            "posedge top.cpu.valid",
+            "posedge valid",
             "--when",
             "1",
             "--payload",
-            "top.clk,cpu.valid",
+            "top.cpu.valid,core.execute",
             "--abs",
         ])
         .output()
@@ -241,11 +241,11 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
     assert!(absolute.status.success());
     assert_eq!(
         String::from_utf8(relative.stdout).expect("stdout should be UTF-8"),
-        "@5ns sample@4ns clk=1'h0 cpu.valid=1'h0\n"
+        "@5ns sample@4ns valid=1'h0 core.execute=1'h0\n"
     );
     assert_eq!(
         String::from_utf8(absolute.stdout).expect("stdout should be UTF-8"),
-        "@5ns sample@4ns top.clk=1'h0 top.cpu.valid=1'h0\n"
+        "@5ns sample@4ns top.cpu.valid=1'h0 top.cpu.core.execute=1'h0\n"
     );
 }
 

@@ -1527,7 +1527,7 @@ fn change_truncation_warning_matches_between_json_and_human_modes() {
 
 #[test]
 fn change_abs_only_affects_human_labels_not_json_payload() {
-    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     let json_default = wavepeek_cmd()
@@ -1544,9 +1544,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "clk,cpu.valid,top.clk,top.cpu.valid",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--json",
         ])
         .output()
@@ -1565,9 +1565,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "clk,cpu.valid,top.clk,top.cpu.valid",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--json",
             "--abs",
         ])
@@ -1592,9 +1592,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "clk,cpu.valid,top.clk,top.cpu.valid",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
         ])
         .output()
         .expect("human default run should execute");
@@ -1612,9 +1612,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "clk,cpu.valid,top.clk,top.cpu.valid",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--abs",
         ])
         .output()
@@ -1631,11 +1631,11 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             .lines()
             .next()
             .expect("first line should exist"),
-        "@5ns clk=1'h1 cpu.valid=1'h1 clk=1'h1 cpu.valid=1'h1"
+        "@5ns valid=1'h1 core.execute=1'h1 valid=1'h1 core.execute=1'h1"
     );
     assert_eq!(
         abs_lines.lines().next().expect("first line should exist"),
-        "@5ns top.clk=1'h1 top.cpu.valid=1'h1 top.clk=1'h1 top.cpu.valid=1'h1"
+        "@5ns top.cpu.valid=1'h1 top.cpu.core.execute=1'h1 top.cpu.valid=1'h1 top.cpu.core.execute=1'h1"
     );
 }
 

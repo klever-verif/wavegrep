@@ -22,7 +22,7 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
 - [x] (2026-08-14 14:24Z) Reuse the existing canonical-to-relative helper in the three generic command engines.
 - [x] (2026-08-14 14:24Z) Update the packaged command-model contract.
 - [x] (2026-08-14 14:28Z) Run focused tests and `./dev just ci`, then commit the implementation (focused result: 52 change, 14 extract-generic, and 28 value tests passed; full gate passed with 93.20% average source coverage and all available FSDB gates).
-- [ ] Run first-wave focused reviews with Luna Max, fix findings, and revalidate.
+- [x] (2026-08-14 14:46Z) Run first-wave focused reviews with Luna Max, strengthen all three command tests for multi-component `--scope top.cpu`, revalidate 94 focused tests, and pass `./dev just ci` again.
 - [ ] Run second-wave focused reviews with Terra High over the same lanes, fix findings, and revalidate.
 - [ ] Run an independent Sol High control review, fix findings, and revalidate.
 - [ ] Record the outcome, remove this branch-local plan, commit cleanup, push, and open a pull request closing issue #113.
@@ -37,6 +37,8 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
   Evidence: `value` and `change` preserve requested entries, while `extract generic` calls `require_unique_payloads` on canonical paths and rejects duplicates.
 - Observation: The new human-output assertion failed on the unmodified implementation exactly at mixed canonical input spelling.
   Evidence: Before the engine edits, `change_abs_only_affects_human_labels_not_json_payload` produced `top.clk` and `top.cpu.valid` in default output where the test expected `clk` and `cpu.valid`; after the edits all 94 focused integration tests passed.
+- Observation: Luna Max's contract lane found that single-component `--scope top` did not prove preservation below a multi-component scope.
+  Evidence: The three human tests now use `--scope top.cpu` and assert both direct `valid` and nested `core.execute` labels in default and `--abs` output.
 
 ## Decision Log
 
@@ -51,6 +53,9 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
   Date/Author: 2026-08-14 / pi
 - Decision: Keep each command's current ordering and duplicate semantics.
   Rationale: Issue #113 explicitly preserves these contracts; normalization changes presentation only.
+  Date/Author: 2026-08-14 / pi
+- Decision: Apply Luna Max's medium test finding by reusing `signal_recursive_depth.vcd`; do not add a separate generic no-scope test or allocation micro-optimizations.
+  Rationale: Multi-component scope behavior is explicit acceptance coverage. No-scope canonical behavior already follows the unchanged helper fallback and broader command coverage, while recycling setup strings or precomputing value labels would add mutation or coupling without removing required per-output owned strings.
   Date/Author: 2026-08-14 / pi
 
 ## Outcomes & Retrospective
@@ -167,3 +172,7 @@ Revision note (2026-08-14): Created the self-contained implementation and review
 Revision note (2026-08-14 14:24Z): Recorded the completed implementation slice, focused red/green test evidence, and the remaining full quality gate.
 
 Revision note (2026-08-14 14:28Z): Recorded the passing full CI gate, including source coverage and FSDB validation.
+
+Revision note (2026-08-14 14:42Z): Recorded the Luna Max review wave, the accepted nested-scope test finding, focused revalidation, and disposition of low-value findings.
+
+Revision note (2026-08-14 14:46Z): Recorded the post-review full CI pass.
