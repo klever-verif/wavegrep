@@ -23,7 +23,7 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 - [x] (2026-08-14 05:02Z) Update packaged command and machine-output contracts, correct the empty-result guide, and add the changelog entry.
 - [x] (2026-08-14 05:02Z) Run focused tests and `./dev just ci`; all mandatory, coverage, docs, and FSDB gates passed. Implementation commit remains.
 - [x] (2026-08-14 05:24Z) Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance; fix the substantive candidate-validity, bounded-work, documentation, JSONL, and repeated protocol adapter findings; focused VCD/FST/FSDB tests pass.
-- [ ] Run parallel Terra High reviews over the same four areas; fix findings and revalidate.
+- [x] (2026-08-14 05:31Z) Run parallel Terra High reviews over the same four areas; fix unscoped protocol candidate filtering, protocol documentation/error wording, and avoidable edit-distance allocation; focused protocol tests pass.
 - [ ] Run one independent Sol High control review, fix any substantive findings, and run the final quality gate.
 - [ ] Remove this branch-local plan, commit cleanup, push the branch, and open a PR that closes issue #84.
 
@@ -49,6 +49,12 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 
 - Observation: sorting every matching hierarchy entry made the output bound independent from the work bound.
   Evidence: Luna Max performance review identified O(K log K) memory/time for K common-basename matches. Candidate selection now keeps only the best five while scanning and uses thresholded edit distance with length and row-minimum exits.
+
+- Observation: protocol candidate locality applies only when a scope is selected.
+  Evidence: Terra High correctness review found that the local-only resolver also removed every dotted canonical candidate from unscoped mappings. The filter now rejects dots only with `--scope`, and the APB test proves an unscoped typo suggests `top.uart_apb_p_addr_o`.
+
+- Observation: protocol docs and errors previously used “scope-relative” for a stricter direct-member rule.
+  Evidence: Terra High documentation review identified ambiguous wording in `extract.md` and all five protocol engines. They now distinguish direct local explicit mappings from scope-relative include candidates.
 
 ## Decision Log
 
@@ -181,4 +187,4 @@ No dependency will be added. `src/waveform/mod.rs` will own candidate ranking an
 
 `WaveformExprHost` will carry only the fixed optional scope for one command execution; this is not configurable policy or a new abstraction. Existing raw `resolve_signals` and `resolve_expr_signal` methods remain the low-level backend operations used for candidate validation and internal callers that do not represent user query boundaries.
 
-Revision note (2026-08-14 05:24Z): Recorded all four Luna Max review lanes, the applied validity/performance/KISS/docs/test fixes, and focused revalidation before the review-fix commit.
+Revision note (2026-08-14 05:31Z): Recorded all four Terra High review lanes, applied unscoped protocol correctness, documentation/error, and allocation fixes, and captured focused protocol test evidence before the second-wave fix commit.

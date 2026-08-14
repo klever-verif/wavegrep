@@ -42,7 +42,7 @@ events:
 
 The required standard mappings are `hclk`, `htrans`, `hready`, and `hwrite`. Optional AHB-Lite mappings are `hresetn`, `haddr`, `hburst`, `hmastlock`, `hprot`, `hsize`, `hauser`, `hwdata`, `hwstrb`, `hwuser`, `hrdata`, `hruser`, `hbuser`, and `hresp`. AHB5 additionally accepts `hnonsec`, `hexcl`, `hmaster`, and `hexokay`. Standard keys are lowercase.
 
-Map signals explicitly with repeated `--map standard=waveform` options, auto-map candidates selected by repeated `--include REGEX`, or combine both. Explicit mappings override auto-mapping. Normalized full-suffix matching accepts common forms such as `haddr`, `h_addr`, `ahb_haddr_i`, and `ahb_h_addr_i`. It does not map `hreadyout` to `hready`, and it ignores parity/check lookalikes. With `--scope`, mapped waveform names and include regexes are scope-relative.
+Map signals explicitly with repeated `--map standard=waveform` options, auto-map candidates selected by repeated `--include REGEX`, or combine both. Explicit mappings override auto-mapping. Normalized full-suffix matching accepts common forms such as `haddr`, `h_addr`, `ahb_haddr_i`, and `ahb_h_addr_i`. It does not map `hreadyout` to `hready`, and it ignores parity/check lookalikes. With `--scope`, explicit mappings name signals declared directly in the selected scope; include regexes select scope-relative candidates.
 
 The command uses the manager-facing selected `HREADY`. It does not accept subordinate-local `HREADYOUT`, `HSELx`, or parity/check signals as standard mappings. It also does not reconstruct bursts, join address and data rows, assign transaction IDs, count stalls, mask byte lanes, validate protocol rules, or infer completions hidden by unknown history.
 
@@ -62,7 +62,7 @@ Machine-readable AHB output is typed by profile and event. JSON uses `command: "
 
 Mapped mode is the default and requires `pready`. Implicit-HIGH mode forbids both a `pready` mapping and `--include-wait`. Unknown `psel`, `penable`, `pready`, or mapped `presetn` values do not classify as true. Setup classification does not depend on `pready`. The command preserves repeated events and does not require or remember a preceding Setup phase.
 
-Map lowercase standard names explicitly, select candidates with include regexes, or combine both. Explicit maps win. Auto-mapping requires a complete normalized signal-name suffix, so forms such as `paddr`, `p_addr`, `apb_paddr_i`, and `apb_p_addr_i` match `paddr`, while `paddrchk`, `psel0`, and `pselx` do not. Map one concrete Completer select such as `uart_psel` to canonical `psel`; indexed selects are not discovered as one combined bus.
+Map lowercase standard names explicitly, select candidates with include regexes, or combine both. Explicit maps win. Auto-mapping requires a complete normalized signal-name suffix, so forms such as `paddr`, `p_addr`, `apb_paddr_i`, and `apb_p_addr_i` match `paddr`, while `paddrchk`, `psel0`, and `pselx` do not. Map one concrete Completer select such as `uart_psel` to canonical `psel`; indexed selects are not discovered as one combined bus. With `--scope`, explicit mappings name signals declared directly in the selected scope; include regexes select scope-relative candidates.
 
 All profiles require `pclk`, `psel`, `penable`, and `pwrite`. APB3 accepts the base APB3 signals. APB4 adds `pprot` and `pstrb`. APB5 adds `pnse`, request/data/response user signals, and the APB4 set. `pwakeup` and APB5 check/parity signals are outside extraction. Widths, sparse-write meaning, user-field meaning, and APB protocol conformance are not validated.
 
@@ -108,7 +108,7 @@ Transfer payload mappings are optional and stay raw. A transfer row can include 
 
 The extraction profiles deliberately exclude `atclken` and `atwakeup`. ATB-A also excludes `syncreq`; ATB-B and ATB-C accept it. The initial ATB-B and ATB-C extraction signal sets are otherwise identical.
 
-Map signals explicitly or select automatic candidates with include regexes. Matching is case-insensitive after separator normalization, accepts leading interface prefixes and common direction suffixes, and requires a complete standard-signal suffix. Explicit mappings win. With `--scope`, waveform mapping names and include candidates are relative to that scope.
+Map signals explicitly or select automatic candidates with include regexes. Matching is case-insensitive after separator normalization, accepts leading interface prefixes and common direction suffixes, and requires a complete standard-signal suffix. Explicit mappings win. With `--scope`, explicit mappings name signals declared directly in the selected scope; include regexes select scope-relative candidates.
 
 ```text
 $ wavepeek extract atb --waves path/to/dump.vcd \
@@ -152,7 +152,7 @@ Arm IHI 0032C sections 3.1-3.2 define ATB transfer sampling and the `ATVALID`/`A
 
 The CLI and source parser accept `ace5_lite` for ACE5-Lite. ACE5-LiteDVM additionally accepts `ace5-litedvm`, `ace5_litedvm`, and `ace5_lite_dvm`; ACE5-LiteACP additionally accepts `ace5-liteacp`, `ace5_liteacp`, and `ace5_lite_acp`. Source files also accept the documented aliases.
 
-Map signals explicitly with repeated `--map standard=waveform` options, auto-map candidates selected by repeated `--include REGEX`, or combine both. Standard signal names are lowercase AXI names such as `awvalid`, `awready`, `wdata`, `rresp`, and `acvalid`; explicit mappings override auto-mapping for the same standard signal. With `--scope`, mapped waveform names and include regexes are scope-relative.
+Map signals explicitly with repeated `--map standard=waveform` options, auto-map candidates selected by repeated `--include REGEX`, or combine both. Standard signal names are lowercase AXI names such as `awvalid`, `awready`, `wdata`, `rresp`, and `acvalid`; explicit mappings override auto-mapping for the same standard signal. With `--scope`, explicit mappings name signals declared directly in the selected scope; include regexes select scope-relative candidates.
 
 AXI5 and ACE5-LiteDVM add the `ac` and `cr` DVM channels after the base `aw`, `w`, `b`, `ar`, and `r` channels when those signals are mapped; neither adds a `cd` channel. AXI5-Lite, ACE5-Lite, and ACE5-LiteACP use only the five base channels. ACE and ACE5 add the `ac`, `cr`, and `cd` coherency channels. ACE-Lite uses only the five base channels and accepts its read/write address additions, including optional `awunique`. ACE5 does not accept the removed `awbar` or `arbar` signals. Optional and conditional payload signals are extracted when mapped and are not required.
 
@@ -186,7 +186,7 @@ Machine-readable AXI output is typed by profile and channel. JSON `data` rows an
 
 `extract axistream` emits one row per completed transfer on one mapped stream interface. Its profiles are `axi4-stream` and `axi5-stream`; both use Arm IHI 0051B Issue B and the default is `axi4-stream`. The CLI and source parser accept profile names case-insensitively and accept the underscore aliases `axi4_stream` and `axi5_stream`. Source files also accept the documented aliases.
 
-Map `aclk`, optional `aresetn`, handshake signals, and any payload signals with `--map`, `--include`, or both. Accepted payload standard names are `tdata`, `tstrb`, `tkeep`, `tlast`, `tid`, `tdest`, and `tuser`. Payload signals are optional and omitted from mappings and rows when unmapped. `twakeup` and check/parity signals are not part of transfer extraction.
+Map `aclk`, optional `aresetn`, handshake signals, and any payload signals with `--map`, `--include`, or both. Accepted payload standard names are `tdata`, `tstrb`, `tkeep`, `tlast`, `tid`, `tdest`, and `tuser`. Payload signals are optional and omitted from mappings and rows when unmapped. `twakeup` and check/parity signals are not part of transfer extraction. With `--scope`, explicit mappings name signals declared directly in the selected scope; include regexes select scope-relative candidates.
 
 The default `--tready-mode mapped` requires a `tready` mapping and recognizes a transfer when `tvalid && tready` is true at the pre-edge sample point for `posedge aclk`. Use `--tready-mode implicit-high` only when the physical interface omits `TREADY`; this mode forbids a `tready` mapping and recognizes transfers from `tvalid`. If `aresetn` is mapped, it gates either predicate. `aclk` and `tvalid` are always required.
 

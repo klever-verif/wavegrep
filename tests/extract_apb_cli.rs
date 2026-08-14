@@ -827,6 +827,22 @@ fn extract_apb_mapping_validation_is_deterministic() {
             "no dumped signal with basename 'missing_paddr'; the RTL declaration may be optimized, aliased, or not dumped",
         ));
 
+    let unscoped_fixture = fixture("extract_apb4.vcd");
+    wavepeek_cmd()
+        .args([
+            "extract",
+            "apb",
+            "--waves",
+            unscoped_fixture.as_str(),
+            "--map",
+            "paddr=wrong.uart_apb_p_addr_o",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "closest query names:\n  top.uart_apb_p_addr_o",
+        ));
+
     let mut duplicate = base_apb4_args();
     duplicate.extend(apb4_explicit_maps(true, true));
     duplicate.extend(["--map".to_string(), "PWRITE=uart_apb_pwrite_o".to_string()]);

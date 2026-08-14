@@ -415,7 +415,7 @@ impl Waveform {
                 continue;
             };
             let display = display_signal_path(entry.path.as_str(), scope);
-            if (!recursive && display.contains('.'))
+            if (!recursive && scope.is_some() && display.contains('.'))
                 || !self.signal_candidate_is_resolvable(&entry.path, kind)
             {
                 continue;
@@ -736,10 +736,11 @@ fn display_signal_path<'a>(canonical_path: &'a str, scope: Option<&str>) -> &'a 
 }
 
 fn levenshtein_with_limit(left: &[char], right: &str, limit: usize) -> Option<usize> {
-    let right = right.chars().collect::<Vec<_>>();
-    if left.len().abs_diff(right.len()) > limit {
+    let right_len = right.chars().count();
+    if left.len().abs_diff(right_len) > limit {
         return None;
     }
+    let right = right.chars().collect::<Vec<_>>();
 
     let mut previous = (0..=right.len()).collect::<Vec<_>>();
     let mut current = vec![0; right.len() + 1];
