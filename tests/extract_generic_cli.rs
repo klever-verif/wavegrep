@@ -760,7 +760,10 @@ fn extract_generic_rejects_bad_sources_and_paths_outside_scope() {
         ])
         .assert()
         .failure()
-        .stderr(predicate::str::starts_with("fatal: signal:"));
+        .stderr(predicate::str::starts_with("fatal: signal:"))
+        .stderr(predicate::str::contains(
+            "signal 'top.clk' not found under scope 'top.top'\nclosest query names:\n  clk",
+        ));
 }
 
 #[test]

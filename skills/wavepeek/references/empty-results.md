@@ -40,8 +40,7 @@ Common causes:
 - the selected time window is too narrow,
 - the trigger never fires in that window,
 - sparse mode selected events, but the printed signals did not change,
-- sparse mode sampled a correct signal list whose values were already stable,
-- a signal spelling does not resolve inside the selected scope.
+- sparse mode sampled a correct signal list whose values were already stable.
 
 If `change` finds no qualifying rows, it emits a mode-specific diagnostic instead of failing:
 

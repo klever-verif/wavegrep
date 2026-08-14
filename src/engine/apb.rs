@@ -791,7 +791,11 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
+        let mut resolved = waveform.borrow().resolve_local_signals_with_diagnostics(
+            &[query_path],
+            std::slice::from_ref(waves),
+            scope,
+        )?;
         let resolved = resolved.remove(0);
         result.insert(
             standard.clone(),

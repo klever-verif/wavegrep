@@ -2329,7 +2329,7 @@ fn change_invalid_when_signal_fails_even_without_in_range_timestamps() {
             "--signals",
             "clk",
             "--on",
-            "posedge nope",
+            "posedge vlaid",
             "--sample-mode",
             "native",
         ])
@@ -2338,7 +2338,10 @@ fn change_invalid_when_signal_fails_even_without_in_range_timestamps() {
         .code(1)
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::starts_with("fatal: expr:"))
-        .stderr(predicate::str::contains("unknown signal 'nope'"));
+        .stderr(predicate::str::contains("unknown signal 'vlaid'"))
+        .stderr(predicate::str::contains(
+            "signal 'vlaid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
 }
 
 #[test]

@@ -18,10 +18,10 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 
 - [x] (2026-08-14 04:48Z) Read issue #84, related issue #80, the linked practical-usage report, repository guidance, architecture, lookup implementations, and relevant test contracts.
 - [x] (2026-08-14 04:48Z) Confirm product choices with the maintainer: at most five suggestions ranked by exact basename, edit distance, and lexical order; expression failures retain the existing `fatal: expr` presentation.
-- [ ] Implement one backend-neutral missing-signal diagnostic and route direct, expression, payload, and protocol mapping lookups through it.
-- [ ] Add focused unit and CLI tests for exact basename, close spelling, absent signals, naming mode, ambiguity exclusion, and VCD/FST parity; add optional FSDB coverage where the existing fixture permits it.
-- [ ] Update packaged command and machine-output contracts and the changelog.
-- [ ] Run focused tests and `./dev just ci`, then commit the implementation milestones.
+- [x] (2026-08-14 05:02Z) Implement one backend-neutral missing-signal diagnostic and route direct, expression, payload, and protocol mapping lookups through it.
+- [x] (2026-08-14 05:02Z) Add focused CLI tests for exact basename, close spelling, absent signals, naming mode, bounded ordering, VCD/FST parity, expression envelopes, payloads, protocol mappings, and FSDB parity; preserve ambiguity through existing FSDB quarantine coverage.
+- [x] (2026-08-14 05:02Z) Update packaged command and machine-output contracts, correct the empty-result guide, and add the changelog entry.
+- [x] (2026-08-14 05:02Z) Run focused tests and `./dev just ci`; all mandatory, coverage, docs, and FSDB gates passed. Implementation commit remains.
 - [ ] Run parallel Luna Max reviews for correctness/tests, documentation/contracts, architecture/KISS, and performance; fix findings and revalidate.
 - [ ] Run parallel Terra High reviews over the same four areas; fix findings and revalidate.
 - [ ] Run one independent Sol High control review, fix any substantive findings, and run the final quality gate.
@@ -37,6 +37,12 @@ This work does not add automatic signal selection, fuzzy success, configurable m
 
 - Observation: `value` defers resolution until sampling, after its original scoped display names have been separated from canonical paths.
   Evidence: `src/engine/value.rs::resolve_requested_signals` only constructs names, and `Waveform::sample_signals_at_time` later calls raw `resolve_signals`.
+
+- Observation: protocol mappings with `--scope` currently accept only local leaf names, unlike recursive generic scoped lookups.
+  Evidence: each protocol `explicit_mappings` function rejects names containing `.`. The contextual protocol resolver therefore searches only the selected scope so every suggestion is accepted by the current mapping parser.
+
+- Observation: the full quality gate can exercise the optional backend in this environment.
+  Evidence: `./dev just ci` reported `ok: fsdb: Verdi FSDB Reader SDK found`, passed 666 library tests, 20 FSDB CLI tests, documentation checks, and 92.77% minimum source coverage before the focused FSDB suggestion test was added.
 
 ## Decision Log
 
@@ -56,9 +62,13 @@ This work does not add automatic signal selection, fuzzy success, configurable m
   Rationale: The standard library has no edit-distance function, but the required bounded comparison is small and only runs after a failed lookup; a dependency would exceed the need.
   Date/Author: 2026-08-14, coding agent.
 
+- Decision: Limit scoped protocol mapping candidates to direct members of the selected scope.
+  Rationale: Protocol mapping validation currently rejects dotted relative names. Suggesting recursive descendants would violate the issue requirement that every suggestion be valid in the active naming mode; generic and expression lookups remain recursive.
+  Date/Author: 2026-08-14, coding agent.
+
 ## Outcomes & Retrospective
 
-Implementation has not started. The intended outcome is one shared diagnostic policy with thin adaptations for direct and expression resolution, public documentation, focused parity tests, two model-specific review waves, and a clean independent control review.
+The implementation and first complete quality gate are finished. One shared waveform-facade policy now produces bounded candidates for direct and expression resolution, with thin engine call-site changes and documented fatal-output behavior. Review waves, any resulting fixes, final WIP cleanup, and PR publication remain.
 
 ## Context and Orientation
 
@@ -161,4 +171,4 @@ No dependency will be added. `src/waveform/mod.rs` will own candidate ranking an
 
 `WaveformExprHost` will carry only the fixed optional scope for one command execution; this is not configurable policy or a new abstraction. Existing raw `resolve_signals` and `resolve_expr_signal` methods remain the low-level backend operations used for candidate validation and internal callers that do not represent user query boundaries.
 
-Revision note (2026-08-14): Initial plan created after repository investigation and maintainer decisions; no implementation exists yet.
+Revision note (2026-08-14 05:02Z): Recorded completed implementation, tests, documentation, full quality evidence, the discovered protocol-local naming constraint, and its candidate-depth decision before the first implementation commit.

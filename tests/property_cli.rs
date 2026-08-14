@@ -67,6 +67,36 @@ fn many_property_matches_vcd(edge_count: u32) -> String {
 }
 
 #[test]
+fn property_signal_typo_keeps_expression_diagnostic_and_suggests_path() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "property",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge clk",
+            "--eval",
+            "vlaid",
+            "--capture",
+            "assert",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("fatal: expr:"))
+        .stderr(predicate::str::contains("unknown signal 'vlaid'"))
+        .stderr(predicate::str::contains(
+            "signal 'vlaid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
+}
+
+#[test]
 fn property_sample_mode_pre_edge_samples_before_trigger_edge() {
     let fixture = write_fixture(RTL_SAMPLING_VCD, "property-rtl-sampling.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();

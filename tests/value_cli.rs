@@ -1,6 +1,9 @@
+use std::fs;
+
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 use serde_json::{Value, json};
+use tempfile::NamedTempFile;
 
 mod common;
 use common::{fixture_path, wavepeek_cmd};
@@ -408,8 +411,7 @@ fn value_missing_signal_is_signal_error_and_fails_fast() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    let mut command = wavepeek_cmd();
-    command
+    wavepeek_cmd()
         .args([
             "value",
             "--waves",
@@ -418,12 +420,129 @@ fn value_missing_signal_is_signal_error_and_fails_fast() {
             "10ns",
             "--signals",
             "top.nope,top.clk",
+            "--json",
         ])
         .assert()
         .failure()
         .code(1)
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"));
+        .stderr(predicate::str::starts_with("fatal: signal:"))
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'nope'; the RTL declaration may be optimized, aliased, or not dumped",
+        ));
+}
+
+#[test]
+fn value_missing_path_suggests_copyable_names_in_current_naming_mode() {
+    for fixture_name in ["m2_core.vcd", "m2_core.fst"] {
+        let fixture = fixture_path(fixture_name);
+        let fixture = fixture.to_string_lossy().into_owned();
+
+        wavepeek_cmd()
+            .args([
+                "value",
+                "--waves",
+                fixture.as_str(),
+                "--at",
+                "10ns",
+                "--scope",
+                "top",
+                "--signals",
+                "valid",
+            ])
+            .assert()
+            .failure()
+            .code(1)
+            .stdout(predicate::str::is_empty())
+            .stderr(predicate::str::contains(
+                "signal 'valid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+            ));
+
+        wavepeek_cmd()
+            .args([
+                "value",
+                "--waves",
+                fixture.as_str(),
+                "--at",
+                "10ns",
+                "--signals",
+                "wrong.valid",
+            ])
+            .assert()
+            .failure()
+            .code(1)
+            .stdout(predicate::str::is_empty())
+            .stderr(predicate::str::contains(
+                "signal 'wrong.valid' not found in dump\nclosest query names:\n  top.cpu.valid",
+            ));
+    }
+}
+
+#[test]
+fn value_signal_typo_suggests_close_basename() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "10ns",
+            "--scope",
+            "top",
+            "--signals",
+            "vlaid",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "closest query names:\n  cpu.valid",
+        ));
+}
+
+#[test]
+fn value_signal_suggestions_are_sorted_and_bounded() {
+    let fixture = NamedTempFile::with_suffix(".vcd").expect("fixture should create");
+    let scopes = ["foxtrot", "echo", "delta", "charlie", "bravo", "alpha"];
+    let mut vcd = String::from(
+        "$date\n  today\n$end\n$version\n  suggestions\n$end\n$timescale 1ns $end\n$scope module top $end\n",
+    );
+    for (index, scope) in scopes.iter().enumerate() {
+        vcd.push_str(&format!(
+            "$scope module {scope} $end\n$var wire 1 s{index} valid $end\n$upscope $end\n"
+        ));
+    }
+    vcd.push_str("$upscope $end\n$enddefinitions $end\n#0\n");
+    for index in 0..scopes.len() {
+        vcd.push_str(&format!("0s{index}\n"));
+    }
+    fs::write(fixture.path(), vcd).expect("fixture should write");
+    let fixture = fixture.path().to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "0ns",
+            "--scope",
+            "top",
+            "--signals",
+            "valid",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "closest query names:\n  alpha.valid\n  bravo.valid\n  charlie.valid\n  delta.valid\n  echo.valid",
+        ))
+        .stderr(predicate::str::contains("foxtrot.valid").not());
 }
 
 #[test]

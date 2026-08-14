@@ -63,6 +63,15 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
         .iter()
         .map(|signal| signal.path.clone())
         .collect::<Vec<_>>();
+    let query_names = requested_signals
+        .iter()
+        .map(|signal| signal.display.clone())
+        .collect::<Vec<_>>();
+    waveform.resolve_signals_with_diagnostics(
+        &canonical_paths,
+        &query_names,
+        args.scope.as_deref(),
+    )?;
     let mut snapshots = Vec::with_capacity(query_times_raw.len());
 
     for query_time_raw in query_times_raw {

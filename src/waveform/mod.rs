@@ -46,6 +46,14 @@ enum Backend {
     Fsdb(Box<fsdb_backend::FsdbBackend>),
 }
 
+#[derive(Clone, Copy)]
+enum SignalLookupKind {
+    Direct,
+    Expression,
+}
+
+const MAX_SIGNAL_SUGGESTIONS: usize = 5;
+
 impl Waveform {
     pub fn open(path: &Path) -> Result<Self, WavepeekError> {
         #[cfg(feature = "fsdb")]
@@ -244,6 +252,59 @@ impl Waveform {
         }
     }
 
+    pub(crate) fn resolve_signals_with_diagnostics(
+        &self,
+        canonical_paths: &[String],
+        query_names: &[String],
+        scope: Option<&str>,
+    ) -> Result<Vec<ResolvedSignal>, WavepeekError> {
+        self.resolve_signals_with_diagnostic_depth(canonical_paths, query_names, scope, true)
+    }
+
+    pub(crate) fn resolve_local_signals_with_diagnostics(
+        &self,
+        canonical_paths: &[String],
+        query_names: &[String],
+        scope: Option<&str>,
+    ) -> Result<Vec<ResolvedSignal>, WavepeekError> {
+        self.resolve_signals_with_diagnostic_depth(canonical_paths, query_names, scope, false)
+    }
+
+    fn resolve_signals_with_diagnostic_depth(
+        &self,
+        canonical_paths: &[String],
+        query_names: &[String],
+        scope: Option<&str>,
+        recursive: bool,
+    ) -> Result<Vec<ResolvedSignal>, WavepeekError> {
+        if canonical_paths.len() != query_names.len() {
+            return Err(WavepeekError::Internal(
+                "signal query names do not match canonical paths".to_string(),
+            ));
+        }
+
+        match self.resolve_signals(canonical_paths) {
+            Ok(resolved) => Ok(resolved),
+            Err(_) => {
+                for (canonical_path, query_name) in canonical_paths.iter().zip(query_names) {
+                    if let Err(error) = self.resolve_signals(std::slice::from_ref(canonical_path)) {
+                        return Err(self.missing_signal_diagnostic(
+                            canonical_path,
+                            query_name,
+                            scope,
+                            SignalLookupKind::Direct,
+                            recursive,
+                            error,
+                        ));
+                    }
+                }
+                Err(WavepeekError::Internal(
+                    "bulk signal resolution failed after individual lookups succeeded".to_string(),
+                ))
+            }
+        }
+    }
+
     #[allow(dead_code)]
     pub(crate) fn resolve_expr_signal(
         &self,
@@ -265,6 +326,145 @@ impl Waveform {
             #[cfg(feature = "fsdb")]
             Backend::Fsdb(backend) => backend.resolve_expr_signals(canonical_paths),
         }
+    }
+
+    pub(crate) fn resolve_expr_signal_with_diagnostic(
+        &self,
+        canonical_path: &str,
+        query_name: &str,
+        scope: Option<&str>,
+    ) -> Result<ExprResolvedSignal, WavepeekError> {
+        self.resolve_expr_signal(canonical_path).map_err(|error| {
+            self.missing_signal_diagnostic(
+                canonical_path,
+                query_name,
+                scope,
+                SignalLookupKind::Expression,
+                true,
+                error,
+            )
+        })
+    }
+
+    pub(crate) fn resolve_expr_signals_with_diagnostics(
+        &self,
+        canonical_paths: &[String],
+        query_names: &[String],
+        scope: Option<&str>,
+    ) -> Result<Vec<ExprResolvedSignal>, WavepeekError> {
+        if canonical_paths.len() != query_names.len() {
+            return Err(WavepeekError::Internal(
+                "expression query names do not match canonical paths".to_string(),
+            ));
+        }
+
+        match self.resolve_expr_signals(canonical_paths) {
+            Ok(resolved) => Ok(resolved),
+            Err(_) => canonical_paths
+                .iter()
+                .zip(query_names)
+                .map(|(canonical_path, query_name)| {
+                    self.resolve_expr_signal_with_diagnostic(canonical_path, query_name, scope)
+                })
+                .collect(),
+        }
+    }
+
+    fn missing_signal_diagnostic(
+        &self,
+        canonical_path: &str,
+        query_name: &str,
+        scope: Option<&str>,
+        kind: SignalLookupKind,
+        recursive: bool,
+        original: WavepeekError,
+    ) -> WavepeekError {
+        let Ok(listing) = self.signal_candidates(scope, recursive) else {
+            return original;
+        };
+        if listing
+            .entries
+            .iter()
+            .any(|entry| entry.path == canonical_path)
+            || listing
+                .omitted_ambiguous_paths
+                .iter()
+                .any(|path| path == canonical_path)
+        {
+            return original;
+        }
+
+        let basename = query_name.rsplit('.').next().unwrap_or(query_name);
+        let max_distance = if basename.chars().count() <= 3 { 1 } else { 2 };
+        let mut candidates = listing
+            .entries
+            .into_iter()
+            .filter_map(|entry| {
+                let distance = levenshtein(basename, entry.name.as_str());
+                (distance <= max_distance).then(|| {
+                    let display = display_signal_path(entry.path.as_str(), scope);
+                    (distance, display, entry)
+                })
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+
+        let mut suggestions = Vec::new();
+        for (_, display, entry) in candidates {
+            let resolvable = match kind {
+                SignalLookupKind::Direct => self
+                    .resolve_signals(std::slice::from_ref(&entry.path))
+                    .is_ok(),
+                SignalLookupKind::Expression => self.resolve_expr_signal(&entry.path).is_ok(),
+            };
+            if resolvable {
+                suggestions.push(display);
+                suggestions.dedup();
+                if suggestions.len() == MAX_SIGNAL_SUGGESTIONS {
+                    break;
+                }
+            }
+        }
+
+        let location = match scope {
+            Some(scope) => format!("signal '{query_name}' not found under scope '{scope}'"),
+            None => format!("signal '{query_name}' not found in dump"),
+        };
+        let detail = if suggestions.is_empty() {
+            format!(
+                "no dumped signal with basename '{basename}'; the RTL declaration may be optimized, aliased, or not dumped"
+            )
+        } else {
+            format!("closest query names:\n  {}", suggestions.join("\n  "))
+        };
+        WavepeekError::Signal(format!("{location}\n{detail}"))
+    }
+
+    fn signal_candidates(
+        &self,
+        scope: Option<&str>,
+        recursive: bool,
+    ) -> Result<SignalListing, WavepeekError> {
+        if let Some(scope) = scope {
+            return if recursive {
+                self.signals_in_scope_recursive_report(scope, None)
+            } else {
+                self.signals_in_scope_report(scope)
+            };
+        }
+
+        let mut listing = SignalListing {
+            entries: Vec::new(),
+            omitted_ambiguous_paths: Vec::new(),
+        };
+        for root in self.scopes_depth_first(Some(0))? {
+            let root_listing = self.signals_in_scope_recursive_report(root.path.as_str(), None)?;
+            listing.entries.extend(root_listing.entries);
+            listing
+                .omitted_ambiguous_paths
+                .extend(root_listing.omitted_ambiguous_paths);
+        }
+        Ok(listing)
     }
 
     pub fn sample_resolved_optional(
@@ -497,6 +697,34 @@ fn is_fsdb_looking_path(path: &Path) -> bool {
     };
     let file_name = file_name.to_string_lossy().to_lowercase();
     file_name.ends_with(".fsdb") || file_name.ends_with(".fsdb.gz")
+}
+
+fn display_signal_path(canonical_path: &str, scope: Option<&str>) -> String {
+    scope
+        .and_then(|scope| canonical_path.strip_prefix(scope))
+        .and_then(|path| path.strip_prefix('.'))
+        .unwrap_or(canonical_path)
+        .to_string()
+}
+
+fn levenshtein(left: &str, right: &str) -> usize {
+    let right = right.chars().collect::<Vec<_>>();
+    let mut previous = (0..=right.len()).collect::<Vec<_>>();
+
+    for (left_index, left_char) in left.chars().enumerate() {
+        let mut current = Vec::with_capacity(right.len() + 1);
+        current.push(left_index + 1);
+        for (right_index, right_char) in right.iter().enumerate() {
+            current.push(
+                (previous[right_index + 1] + 1)
+                    .min(current[right_index] + 1)
+                    .min(previous[right_index] + usize::from(left_char != *right_char)),
+            );
+        }
+        previous = current;
+    }
+
+    previous[right.len()]
 }
 
 fn duplicate_preserving_projection(canonical_paths: &[String]) -> (Vec<String>, Vec<usize>) {

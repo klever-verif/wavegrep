@@ -596,6 +596,32 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
 }
 
 #[test]
+fn fsdb_missing_path_uses_backend_neutral_signal_suggestions() {
+    let fixtures = GeneratedFsdbFixtures::new();
+    let fixture = path_str(&fixtures.signal_recursive_depth());
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "10ns",
+            "--scope",
+            "top",
+            "--signals",
+            "valid",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "signal 'valid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
+}
+
+#[test]
 fn fsdb_value_preserves_scope_relative_human_output_and_abs() {
     let fixtures = GeneratedFsdbFixtures::new();
     let fixture = path_str(&fixtures.value_vectors());
