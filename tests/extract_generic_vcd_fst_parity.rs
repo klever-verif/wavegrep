@@ -32,7 +32,7 @@ fn extract_generic_vcd_and_fst_payloads_match() {
         "--when",
         "1",
         "--payload",
-        "data",
+        "data[7:4],data[7:4],data[5:2],data",
         "--max",
         "5",
     ];

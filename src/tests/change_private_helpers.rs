@@ -30,8 +30,12 @@ fn derives_private_state_and_mode_helpers() {
 
     let requested = RequestedSignal {
         display: "sig".to_string(),
-        path: "top.sig".to_string(),
         relative_path: Some("sig".to_string()),
+        selected: ProjectedSignal::unprojected(ResolvedSignal {
+            path: "top.sig".to_string(),
+            id: SignalId::from_test_index(1),
+            width: 1,
+        }),
     };
     assert_eq!(requested.clone(), requested);
     assert!(format!("{requested:?}").contains("top.sig"));

@@ -13,7 +13,7 @@ pub struct ValueArgs {
     /// Canonical scope path for relative or in-scope canonical signal names
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Comma-separated canonical paths, or relative names resolved under --scope
+    /// Comma-separated signal paths or flat [msb:lsb] projections
     #[arg(
         long,
         value_delimiter = ',',

@@ -13,6 +13,10 @@
       "reason": "Combines a VCD event variable with a scope named like the event's triggered suffix."
     },
     {
+      "path": "tests/fixtures/hand/projection_ambiguous_exact.vcd",
+      "reason": "Uses duplicate escaped range-looking signal names to verify FSDB exact-path ambiguity takes precedence over projection fallback."
+    },
+    {
       "path": "tests/fixtures/hand/same_time_updates.vcd",
       "reason": "Contains multiple value changes for the same signal at one timestamp to cover VCD event-order semantics."
     },

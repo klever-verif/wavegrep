@@ -1,0 +1,17 @@
+$date
+  wavepeek test fixture
+$end
+$version
+  wavepeek
+$end
+$timescale 1ns $end
+$scope module top $end
+$var wire 1 ! \flags[0:0]  $end
+$var wire 1 " \flags[0:0]  $end
+$var wire 8 # flags [7:0] $end
+$upscope $end
+$enddefinitions $end
+#0
+0!
+1"
+b10100101 #

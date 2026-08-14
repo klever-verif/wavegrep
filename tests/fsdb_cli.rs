@@ -410,7 +410,7 @@ fn fsdb_extract_generic_json_matches_vcd_sampling_contract() {
         "--when",
         "1",
         "--payload",
-        "data",
+        "data[7:4],data[7:4],data[5:2],data",
         "--max",
         "3",
         "--json",
@@ -434,7 +434,7 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
         "--scope",
         "top",
         "--signals",
-        "data,clk,data,nibble,status,asc",
+        "data[7:4],clk,data[0:0],nibble[3:2],status[1:0],asc[3:2]",
         "--at",
         "7ns",
         "--json",
@@ -449,14 +449,40 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
     assert_eq!(
         fsdb_value["data"][0]["signals"],
         json!([
-            {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+            {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
             {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
-            {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
-            {"path": "top.nibble", "relative_path": "nibble", "value": "4'hx"},
-            {"path": "top.status", "relative_path": "status", "value": "4'h3"},
-            {"path": "top.asc", "relative_path": "asc", "value": "4'h3"},
+            {"path": "top.data[0:0]", "relative_path": "data[0:0]", "value": "1'h1"},
+            {"path": "top.nibble[3:2]", "relative_path": "nibble[3:2]", "value": "2'h2"},
+            {"path": "top.status[1:0]", "relative_path": "status[1:0]", "value": "2'h3"},
+            {"path": "top.asc[3:2]", "relative_path": "asc[3:2]", "value": "2'h0"},
         ])
     );
+}
+
+#[test]
+fn fsdb_value_preserves_exact_projection_like_path_errors() {
+    let dir = tempfile::tempdir().expect("tempdir should be created");
+    let fixture = convert_vcd_fixture(dir.path(), "projection_ambiguous_exact.vcd");
+    let fixture = path_str(&fixture);
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "0ns",
+            "--signals",
+            "top.flags[0:0]",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "signal 'top.flags[0:0]' is ambiguous in FSDB hierarchy",
+        ))
+        .stderr(predicate::str::contains("no candidate was selected"));
 }
 
 #[test]
@@ -851,7 +877,7 @@ fn fsdb_change_json_matches_vcd_contracts() {
         "--scope",
         "top",
         "--signals",
-        "data",
+        "data[7:4]",
         "--from",
         "0ns",
         "--to",
@@ -870,9 +896,8 @@ fn fsdb_change_json_matches_vcd_contracts() {
     assert_eq!(
         fsdb_wildcard["data"],
         json!([
-            {"time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h0f"}]},
-            {"time": "7ns", "sample_time": "7ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h1f"}]},
-            {"time": "15ns", "sample_time": "15ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h2a"}]}
+            {"time": "7ns", "sample_time": "7ns", "signals": [{"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h1"}]},
+            {"time": "15ns", "sample_time": "15ns", "signals": [{"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h2"}]}
         ])
     );
 

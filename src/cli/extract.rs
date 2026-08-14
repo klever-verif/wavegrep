@@ -115,6 +115,8 @@ Use this command to inspect AXI-Stream transfers without writing a generic extra
 Behavior:
 - Selects edge-only event timestamps with --on.
 - Always samples --when and --payload at the pre-edge sample point.
+- Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.
+- Use [n:n] for one bit; exact waveform paths win and [n] remains path syntax.
 - In single-source mode, --on, --when, and --payload define one source named by --name or "transfer".
 - In source-file mode, --source provides one or more sources and conflicts with --name, --on, --when, and --payload.
 - Source-file fields and behavior are documented in the corresponding protocol topic.
@@ -729,7 +731,7 @@ pub struct GenericArgs {
     /// Logical predicate evaluated at the pre-edge sample point in single-source CLI mode
     #[arg(long, help_heading = "Selection options")]
     pub when: Option<String>,
-    /// Comma-separated payload signal names for single-source CLI mode
+    /// Comma-separated payload paths or flat [msb:lsb] projections
     #[arg(
         long,
         value_delimiter = ',',

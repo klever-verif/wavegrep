@@ -724,7 +724,7 @@ fn resolve_var_ref(
     canonical_path: &str,
 ) -> Result<wellen::VarRef, WavepeekError> {
     if canonical_path.is_empty() {
-        return Err(WavepeekError::Signal(format!(
+        return Err(WavepeekError::SignalNotFound(format!(
             "signal '{canonical_path}' not found in dump"
         )));
     }
@@ -734,7 +734,7 @@ fn resolve_var_ref(
             (scope_path.split('.').collect::<Vec<_>>(), signal_name)
         }
         Some(_) => {
-            return Err(WavepeekError::Signal(format!(
+            return Err(WavepeekError::SignalNotFound(format!(
                 "signal '{canonical_path}' not found in dump"
             )));
         }
@@ -744,7 +744,7 @@ fn resolve_var_ref(
     hierarchy
         .lookup_var(&scope_names, signal_name)
         .ok_or_else(|| {
-            WavepeekError::Signal(format!("signal '{canonical_path}' not found in dump"))
+            WavepeekError::SignalNotFound(format!("signal '{canonical_path}' not found in dump"))
         })
 }
 
@@ -1642,6 +1642,10 @@ mod tests {
             "fatal: signal: signal 'top.nope' not found in dump"
         );
         assert_eq!(error.exit_code(), 1);
+        assert!(matches!(
+            error,
+            crate::error::WavepeekError::SignalNotFound(_)
+        ));
     }
 
     #[test]

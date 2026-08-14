@@ -11,6 +11,7 @@ pub mod property;
 pub mod scope;
 pub mod signal;
 mod signal_mapping;
+mod signal_projection;
 pub mod skill;
 pub mod time;
 pub mod value;

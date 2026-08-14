@@ -108,6 +108,8 @@ Behavior:
 - By default, signal names are top-related canonical paths (e.g. `top.cpu.state`).
 - For deep hierarchies, set `--scope` once with a canonical scope path; signal references may be relative to it or canonical paths inside it.
 - Relative and canonical references inside the selected scope may be mixed in one request.
+- A trailing static `[msb:lsb]` projects a flat integral signal's normalized sampled value; use `[n:n]` for one bit.
+- Exact waveform paths win before projection parsing, and `[n]` remains ordinary waveform path syntax.
 - `--at` accepts one explicit time token or a comma-separated list in one argument.
 - Output preserves the input order from `--at` and `--signals`, including duplicates.
 - Human output emits one `@<time>` row per requested time with `display=value` fields, matching `change`.
@@ -126,6 +128,8 @@ Use this command for deterministic spot checks at specific timestamps."#
 
 Behavior:
 - Prints requested signal values for each event selected by required `--on`.
+- `--signals` accepts trailing static `[msb:lsb]` projections; sparse, delta, and wildcard comparisons use the projected values.
+- Exact waveform paths win before projection parsing; use `[n:n]` for one bit because `[n]` remains ordinary waveform path syntax.
 - `--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows; the default is `dense`.
 - Pre-edge events without a representable earlier sample point are skipped.
 - `--row-values full|delta` controls whether rows contain all requested signals or only changed signals; the default is `full`, and the first delta row is always full.

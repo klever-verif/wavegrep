@@ -11,7 +11,8 @@ use crate::expr::sema::{
 use crate::expr::{
     BoundEventExpr, BoundLogicalExpr, EventEvalFrame, ExprDiagnostic, ExprValuePayload,
     ExpressionHost, SampledValue, SignalHandle, bind_event_expr_ast, bind_logical_expr_ast,
-    eval_logical_expr_at, event_matches_at, parse_event_expr_ast, parse_logical_expr_ast,
+    eval_logical_expr_at, event_matches_at, event_matches_at_with_any_tracked,
+    parse_event_expr_ast, parse_logical_expr_ast,
 };
 use crate::waveform::{ExprResolvedSignal, Waveform, expr_host::WaveformExprHost};
 
@@ -102,6 +103,17 @@ pub(crate) fn event_expr_matches(
     frame: &EventEvalFrame<'_>,
 ) -> Result<bool, WavepeekError> {
     event_matches_at(expr, host, frame).map_err(|diagnostic| expr_diagnostic(source, diagnostic))
+}
+
+pub(crate) fn event_expr_matches_with_any_tracked(
+    source: &str,
+    expr: &BoundEventExpr,
+    host: &dyn ExpressionHost,
+    frame: &EventEvalFrame<'_>,
+    any_tracked: bool,
+) -> Result<bool, WavepeekError> {
+    event_matches_at_with_any_tracked(expr, host, frame, any_tracked)
+        .map_err(|diagnostic| expr_diagnostic(source, diagnostic))
 }
 
 pub(crate) fn expr_diagnostic(source: &str, diagnostic: ExprDiagnostic) -> WavepeekError {

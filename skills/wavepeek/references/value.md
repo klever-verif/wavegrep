@@ -48,6 +48,19 @@ $ wavepeek value --waves path/to/dump.vcd --at 10ns --scope top --signals clk,da
 
 This is usually the most convenient form for manual debugging.
 
+## Project a flat vector range
+
+Append a static `[msb:lsb]` to a flat integral signal to sample only that normalized value range:
+
+```text
+$ wavepeek value --waves path/to/dump.vcd --at 10ns --scope top --signals 'data[7:4],data[0:0]'
+@10ns data[7:4]=4'hf data[0:0]=1'h0
+```
+
+Bit zero is the rightmost bit of the normalized sampled value, independent of the declaration direction in the source HDL. Use `[n:n]` for one bit. `[n]` remains waveform path syntax because indexed scopes and signal names may contain brackets.
+
+WavePeek first resolves the complete token as a waveform path. Only an unresolved token with one trailing decimal `[msb:lsb]` is treated as a projection. Dynamic, negative, reversed, out-of-range, chained, and multidimensional ranges fail. Multiple, overlapping, full-signal, and duplicate entries remain separate and preserve request order.
+
 ## Keep short input names but print canonical paths
 
 Add `--abs` when you want scope-relative input but fully qualified output:
@@ -91,7 +104,7 @@ Use this when another tool needs deterministic parsing instead of human formatti
 
 - `--at` accepts one time token or a comma-separated list in one argument.
 - `--at` order is preserved exactly, including duplicates.
-- `--signals` order is preserved exactly, including duplicates.
+- `--signals` order is preserved exactly, including duplicate, overlapping, projected, and full-signal entries.
 - Without `--scope`, names in `--signals` are treated as canonical full paths, and machine output omits `context` and `relative_path`.
 - With `--scope`, names in `--signals` may be relative or canonical paths inside the scope, and both forms may be mixed. Machine output includes the exact scope in `context.scope` and adds `relative_path` beside each canonical `path`.
 - `--abs` affects only human output. With `--json`, canonical paths are emitted either way.
