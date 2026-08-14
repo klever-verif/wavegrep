@@ -27,7 +27,8 @@ This work does not add or change fatal JSONL records. It does not make a second 
 - [x] (2026-08-14 14:51Z) Commit implementation milestones with conventional commits.
 - [x] (2026-08-14 15:14Z) Run Luna Max focused review wave across correctness/tests, contracts/docs/context, and architecture/performance/KISS; resolve all seven low-severity findings.
 - [x] (2026-08-14 15:19Z) Run Terra High focused review wave over the same correctness/tests, contracts/docs/context, and architecture/performance/KISS lanes; all three report no substantive findings.
-- [ ] Run independent Sol High control review, resolve findings, rerun gates, remove this WIP plan, and commit cleanup.
+- [x] (2026-08-14 15:30Z) Run independent Sol High control review; fix its one low-severity documentation finding, rebase cleanly onto current `origin/dev3`, rerun `./dev just ci` and `./dev just check`, and receive a clean Sol follow-up review of the rebased diff.
+- [ ] Remove this WIP plan and commit cleanup.
 - [ ] Push the branch and open a pull request against `dev3`.
 
 ## Surprises & Discoveries
@@ -64,7 +65,9 @@ This work does not add or change fatal JSONL records. It does not make a second 
 
 ## Outcomes & Retrospective
 
-The implementation milestone now exposes summaries across all ten bounded commands without changing their existing limit walkers. A dedicated integration suite covers list, row, and event producers plus summary-only context and diagnostic retention; the full Rust test suite passes with 664 unit tests and all integration binaries, and both default and FSDB clippy passes are clean. Documentation, full repository gates, review waves, and PR creation remain.
+The branch exposes completeness summaries across all ten bounded commands without changing their existing limit walkers. JSON, JSONL, and human summary-only rendering preserve diagnostics and optional protocol context; JSONL remains streaming and distinguishes emitted record counts from accepted query rows. Integration coverage exercises list, row, event, exact-limit, truncation, unlimited, selector depth, all-command JSON/JSONL summaries, and representative summary-only adapters.
+
+Both `./dev just ci` and `./dev just check` pass before and after rebasing onto current `origin/dev3`. Luna Max reviewed three focused lanes and all seven low findings were fixed; Terra High repeated the lanes with no findings; Sol High found one stale schema sentence, which was fixed, then reported the rebased consolidated diff clean. Issue #114 remains open and unmerged; this implementation keeps context independent of row suppression so its future optional context can compose without summary-specific variants. Only WIP cleanup, push, and PR creation remain.
 
 ## Context and Orientation
 
@@ -185,3 +188,5 @@ Plan revision note, 2026-08-14 14:54Z: recorded successful `./dev just ci` and `
 Plan revision note, 2026-08-14 15:14Z: recorded completion of the Luna Max review wave and fixes: stronger all-command summary assertions, broader summary-only adapters, corrected docs/help wording, single protocol render dispatch, and one property summary conversion.
 
 Plan revision note, 2026-08-14 15:19Z: recorded a clean Terra High second wave across the same three review lanes.
+
+Plan revision note, 2026-08-14 15:30Z: recorded the Sol High control finding and fix, clean rebase onto `origin/dev3` 1d0be59, successful post-rebase full gates, clean Sol follow-up, and final outcomes before branch-local plan removal.
