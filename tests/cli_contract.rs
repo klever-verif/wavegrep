@@ -429,6 +429,7 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         "`--row-values full|delta` controls whether rows contain all requested signals or only changed signals",
         "Range boundaries are inclusive",
         "`--signals` accepts trailing static `[msb:lsb]` projections",
+        "use `[n:n]` for one bit because `[n]` remains ordinary waveform path syntax",
         "wildcard comparisons use the projected values",
     ] {
         assert!(

@@ -34,26 +34,9 @@ impl ProjectedSignal {
         &self,
         sample: SampledSignalState,
     ) -> Result<SampledSignalState, WavepeekError> {
-        let bits = match (sample.bits, self.range) {
-            (Some(bits), Some(range)) => {
-                let width = usize::try_from(self.source.width).map_err(|_| {
-                    WavepeekError::Internal("signal width exceeds platform limits".to_string())
-                })?;
-                let start = width - 1 - range.msb as usize;
-                let end = width - range.lsb as usize;
-                Some(
-                    bits.get(start..end)
-                        .ok_or_else(|| {
-                            WavepeekError::Internal(format!(
-                                "sampled width for signal '{}' does not match resolved width {}",
-                                self.source.path, self.source.width
-                            ))
-                        })?
-                        .to_string(),
-                )
-            }
-            (bits, None) => bits,
-            (None, Some(_)) => None,
+        let bits = match self.range {
+            Some(_) => self.project_bits(sample.bits.as_deref())?,
+            None => sample.bits,
         };
 
         Ok(SampledSignalState {
@@ -61,6 +44,30 @@ impl ProjectedSignal {
             width: self.width(),
             bits,
         })
+    }
+
+    pub(crate) fn project_bits(&self, bits: Option<&str>) -> Result<Option<String>, WavepeekError> {
+        let Some(bits) = bits else {
+            return Ok(None);
+        };
+        let Some(range) = self.range else {
+            return Ok(Some(bits.to_string()));
+        };
+        let width = usize::try_from(self.source.width).map_err(|_| {
+            WavepeekError::Internal("signal width exceeds platform limits".to_string())
+        })?;
+        let start = width - 1 - range.msb as usize;
+        let end = width - range.lsb as usize;
+        Ok(Some(
+            bits.get(start..end)
+                .ok_or_else(|| {
+                    WavepeekError::Internal(format!(
+                        "sampled width for signal '{}' does not match resolved width {}",
+                        self.source.path, self.source.width
+                    ))
+                })?
+                .to_string(),
+        ))
     }
 }
 

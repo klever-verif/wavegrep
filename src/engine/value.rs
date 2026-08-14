@@ -32,7 +32,6 @@ pub type ValueData = Vec<ValueSnapshot>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RequestedSignal {
-    display: String,
     selected: ProjectedSignal,
 }
 
@@ -170,7 +169,6 @@ fn resolve_requested_signals(
         }
 
         resolved.push(RequestedSignal {
-            display: display.to_string(),
             selected: resolve_projected_signal(waveform, display, scope)?,
         });
     }
@@ -252,7 +250,6 @@ mod tests {
             },
         )
         .expect("scoped signals should resolve");
-        assert_eq!(resolved[0].display, "sig");
         assert_eq!(resolved[0].selected.path, "top.sig");
         assert!(
             resolve_requested_signals(

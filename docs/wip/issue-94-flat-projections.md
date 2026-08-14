@@ -24,7 +24,7 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 - [x] (2026-08-14 18:08Z) Update CLI help, public packaged-skill references, and contract tests.
 - [x] (2026-08-14 18:10Z) Run focused tests, VCD/FST parity, FSDB tests, `just ci`, and `just check`; all passed.
 - [x] (2026-08-14 18:33Z) Run Luna Max correctness/tests, architecture/performance, and docs/contracts review lanes; fix the fused first-timestamp wildcard bug, reduce hot-loop cloning/tracking, expand optimized-engine projection tests, and correct docs/help findings.
-- [ ] Run Terra High focused review wave over the same areas, apply findings, and verify affected lanes.
+- [x] (2026-08-14 18:41Z) Run Terra High over the same three lanes; correctness was clean, while architecture/docs findings removed fused full-width projection clones and completed change one-bit help.
 - [ ] Run independent Sol High control review, apply any final findings, and rerun gates.
 - [ ] Remove this WIP plan, commit the reviewed result, push the branch, and open a pull request closing issue #94.
 
@@ -47,6 +47,9 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 
 - Observation: Luna Max found fused wildcard evaluation treated a first dump timestamp as a change even when no previous timestamp existed, unlike baseline evaluation.
   Evidence: gating the projected comparison on `previous_timestamp.is_some()` makes the forced fused and baseline dense wildcard regression emit only the real in-range change at 10ns.
+
+- Observation: Terra High found fused wildcard preparation still cloned complete rolling strings before narrow slicing.
+  Evidence: `project_rolling_samples` now borrows rolling source bits and allocates only the selected output; fused/baseline and optimized dispatch projection tests pass.
 
 ## Decision Log
 
@@ -191,3 +194,5 @@ Plan revision note (2026-08-14): Initial self-contained plan created after repos
 Plan revision note (2026-08-14 18:08Z): Recorded completed implementation, docs, cross-backend tests, wildcard behavior, and passing `just ci`; review and handoff work remains.
 
 Plan revision note (2026-08-14 18:33Z): Recorded passing `just check`, Luna Max review findings, the fused wildcard fix, lean performance changes, expanded engine coverage, and rejected speculative optimizations.
+
+Plan revision note (2026-08-14 18:41Z): Recorded clean Terra correctness review, borrowed fused projection, final one-bit help wording, and focused verification.

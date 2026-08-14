@@ -1572,28 +1572,18 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             previous_bits.as_slice(),
         );
         let (wildcard_changed, current_samples) = if has_wildcard {
-            let current = requested_tracked_indices
-                .iter()
-                .zip(requested_resolved.iter())
-                .map(|(tracked_index, resolved)| SampledSignalState {
-                    path: resolved.path.clone(),
-                    width: resolved.width,
-                    bits: rolling[*tracked_index].bits.clone(),
-                })
-                .collect::<Vec<_>>();
-            let previous = requested_tracked_indices
-                .iter()
-                .zip(requested_resolved.iter())
-                .map(|(tracked_index, resolved)| SampledSignalState {
-                    path: resolved.path.clone(),
-                    width: resolved.width,
-                    bits: previous_bits[*tracked_index]
-                        .clone()
-                        .unwrap_or_else(|| rolling[*tracked_index].bits.clone()),
-                })
-                .collect::<Vec<_>>();
-            let current = project_samples(requested_signals, current)?;
-            let previous = project_samples(requested_signals, previous)?;
+            let current = project_rolling_samples(
+                requested_signals,
+                &requested_tracked_indices,
+                &rolling,
+                None,
+            )?;
+            let previous = project_rolling_samples(
+                requested_signals,
+                &requested_tracked_indices,
+                &rolling,
+                Some(&previous_bits),
+            )?;
             (
                 Some(previous_timestamp.is_some() && selected_value_changed(&previous, &current)),
                 Some(current),
@@ -1622,18 +1612,12 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
 
         let current_samples = match current_samples {
             Some(samples) => samples,
-            None => {
-                let samples = requested_tracked_indices
-                    .iter()
-                    .zip(requested_resolved.iter())
-                    .map(|(tracked_index, resolved)| SampledSignalState {
-                        path: resolved.path.clone(),
-                        width: resolved.width,
-                        bits: rolling[*tracked_index].bits.clone(),
-                    })
-                    .collect::<Vec<_>>();
-                project_samples(requested_signals, samples)?
-            }
+            None => project_rolling_samples(
+                requested_signals,
+                &requested_tracked_indices,
+                &rolling,
+                None,
+            )?,
         };
         if emit_row(
             requested_signals,
@@ -1710,6 +1694,30 @@ fn emit_row<S: ChangeSnapshotSink + ?Sized>(
     )?)?;
     *emitted += 1;
     Ok(false)
+}
+
+fn project_rolling_samples(
+    requested_signals: &[RequestedSignal],
+    tracked_indices: &[usize],
+    rolling: &[RollingSignalState],
+    previous_bits: Option<&[Option<Option<String>>]>,
+) -> Result<Vec<SampledSignalState>, WavepeekError> {
+    requested_signals
+        .iter()
+        .zip(tracked_indices)
+        .map(|(requested, tracked_index)| {
+            let bits = previous_bits
+                .and_then(|previous| previous[*tracked_index].as_ref())
+                .map_or(rolling[*tracked_index].bits.as_deref(), |bits| {
+                    bits.as_deref()
+                });
+            Ok(SampledSignalState {
+                path: requested.selected.path.clone(),
+                width: requested.selected.width(),
+                bits: requested.selected.project_bits(bits)?,
+            })
+        })
+        .collect()
 }
 
 fn project_samples(
