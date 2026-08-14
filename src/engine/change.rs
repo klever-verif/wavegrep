@@ -100,7 +100,6 @@ struct ChangeRunStats {
 struct ChangeCommandOutcome {
     human_options: HumanRenderOptions,
     diagnostics: Vec<Diagnostic>,
-    stats: ChangeRunStats,
 }
 
 trait ChangeSnapshotSink {
@@ -133,7 +132,7 @@ impl<W: std::io::Write> ChangeSnapshotSink for JsonlChangeSink<'_, W> {
     }
 
     fn emit(&mut self, snapshot: ChangeSnapshot) -> Result<(), WavepeekError> {
-        self.writer.item(&snapshot)
+        self.writer.data(&snapshot)
     }
 }
 
@@ -281,7 +280,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end()
 }
 
 fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
@@ -542,7 +541,6 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
             signals_abs: args.abs,
         },
         diagnostics,
-        stats,
     })
 }
 

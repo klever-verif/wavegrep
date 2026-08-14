@@ -72,9 +72,9 @@ fn fsdb_info_json_matches_vcd_derived_fixture() {
 
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], json!([]));
-    assert_eq!(value["data"]["time_unit"], "1ns");
-    assert_eq!(value["data"]["time_start"], "0ns");
-    assert_eq!(value["data"]["time_end"], "10ns");
+    assert_eq!(value["data"][0]["time_unit"], "1ns");
+    assert_eq!(value["data"][0]["time_start"], "0ns");
+    assert_eq!(value["data"][0]["time_end"], "10ns");
 }
 
 #[test]
@@ -231,13 +231,13 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
     assert_eq!(info["diagnostics"], json!([]));
     for field in ["time_unit", "time_start", "time_end"] {
         assert!(
-            info["data"][field]
+            info["data"][0][field]
                 .as_str()
                 .is_some_and(|value| !value.is_empty()),
             "{field} should be a non-empty string"
         );
     }
-    assert!(info["data"].get("time_precision").is_none());
+    assert!(info["data"][0].get("time_precision").is_none());
 
     let scopes = run_json_success(&[
         "scope",
@@ -336,7 +336,7 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
     }
 
     let sample_path = discover_bundled_signal_path(&fixture);
-    let sample_time = info["data"]["time_start"]
+    let sample_time = info["data"][0]["time_start"]
         .as_str()
         .expect("bundled info should expose time_start");
     let sampled = run_json_success(&[

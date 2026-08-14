@@ -93,7 +93,7 @@ src/
 ├── contract/            # Runtime JSON and JSONL data transfer objects
 │   ├── common.rs        # Shared diagnostics, paths, times, values, and kind aliases
 │   ├── output.rs        # JSON envelope and command payload structures
-│   └── stream.rs        # JSONL begin/item/diagnostic/end structures
+│   └── stream.rs        # JSONL begin/data/diagnostic/end structures
 ├── expr/                # Expression engine shared by `change`, `property`, and `extract`
 │   ├── mod.rs           # Public typed facade for parsing/binding/evaluation
 │   ├── ast.rs           # Spanned expression AST types

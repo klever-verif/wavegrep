@@ -179,7 +179,6 @@ struct EventGroupCandidateTimes {
 pub(crate) struct ExtractCommandOutcome {
     pub(crate) source_count: usize,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    pub(crate) stats: ExtractRunStats,
 }
 
 pub(crate) trait ExtractRowSink {
@@ -212,7 +211,7 @@ impl<W: std::io::Write> ExtractRowSink for JsonlExtractSink<'_, W> {
     }
 
     fn emit(&mut self, row: ExtractGenericRow) -> Result<(), WavepeekError> {
-        self.writer.item(&row)
+        self.writer.data(&row)
     }
 }
 
@@ -263,7 +262,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end()
 }
 
 fn run_with_sink<S: ExtractRowSink + ?Sized>(
@@ -495,7 +494,6 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
     Ok(ExtractCommandOutcome {
         source_count,
         diagnostics,
-        stats,
     })
 }
 

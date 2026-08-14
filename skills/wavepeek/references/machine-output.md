@@ -14,33 +14,23 @@ If a downstream consumer intentionally closes stdout early, `wavepeek` stops wri
 
 ## 2. JSON envelopes
 
-A successful `--json` command emits `command`, `data`, and `diagnostics`. `data` may be an object or a list.
-
-Object payload (`info`):
+A successful `--json` command emits `type`, `command`, optional `context`, `data`, and `diagnostics`. `type` is `result`. `data` and `diagnostics` are always arrays. `info` returns one metadata row; an empty query returns `data: []`.
 
 ```json
-{"command":"info","data":{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"},"diagnostics":[]}
+{"type":"result","command":"info","data":[{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"}],"diagnostics":[]}
 ```
-
-List payload (`value`):
 
 ```json
-{"command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}],"diagnostics":[]}
+{"type":"result","command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}],"diagnostics":[]}
 ```
 
-Event payload (`extract apb`):
+Protocol extractors put command-wide metadata in `context` and rows directly in `data`:
 
 ```json
-{"command":"extract apb","data":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}},"events":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}]},"diagnostics":[]}
+{"type":"result","command":"extract apb","context":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}}},"data":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}],"diagnostics":[]}
 ```
 
-Transfer payload (`extract axi`):
-
-```json
-{"command":"extract axi","data":{"name":"axi","profile":"axi4-lite","issue":"H.c","mappings":{"aclk":{"path":"top.clk"},"awready":{"path":"top.axi_aw_ready_i"},"awvalid":{"path":"top.axi_aw_valid_o"}},"transfers":[{"time":"5ns","sample_time":"4ns","profile":"axi4-lite","channel":"aw","payload":{}}]},"diagnostics":[]}
-```
-
-Machine-readable paths are canonical. Protocol extraction payloads retain the context fields documented in [Extract command](extract.md); rows contain only mapped observations. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
+Machine-readable paths are canonical. Protocol context fields are documented in [Extract command](extract.md); row fields remain command-specific. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
 
 A diagnostic has `kind`, `message`, and, for warnings and errors, a stable `code`:
 
@@ -56,19 +46,19 @@ Waveform commands support `--jsonl` for incremental consumption. Each stdout lin
 
 ```jsonl
 {"type":"begin","seq":0,"command":"change"}
-{"type":"item","seq":1,"command":"change","item":{"time":"5ns","sample_time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}}
-{"type":"diagnostic","seq":2,"command":"change","diagnostic":{"kind":"warning","code":"WPK-W0002","message":"truncated output to 1 entries (use --max to increase limit)"}}
-{"type":"end","seq":3,"command":"change","summary":{"status":"ok","items":1,"diagnostics":1,"truncated":true}}
+{"type":"data","seq":1,"data":{"time":"5ns","sample_time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}}
+{"type":"diagnostic","seq":2,"diagnostic":{"kind":"warning","code":"WPK-W0002","message":"truncated output to 1 entries (use --max to increase limit)"}}
+{"type":"end","seq":3,"records":{"data":1,"diagnostics":1}}
 ```
 
 A successful stream obeys these rules:
 
-- `begin` is first with `seq: 0`.
-- `seq` increases by one for every record and `command` stays constant.
-- Protocol extractor `begin` records include the matching protocol context.
-- `item` carries the corresponding JSON row, event, transfer, or `info` object.
-- `diagnostic` carries the same diagnostic shape used by `--json`.
-- `end` is last and reports status, item count, diagnostic count, and truncation.
+- `begin` is first with `seq: 0`; it is the only record containing `command`.
+- `seq` increases by one for every record.
+- Protocol extractor `begin` records include `context` identical to the JSON result context.
+- Each `data.data` is identical to one element of the JSON result `data` array, including the single `info` row.
+- `diagnostic.diagnostic` has the same shape as one JSON result diagnostic and may appear between data records.
+- `end` is last and its required `records` object counts emitted data and diagnostic records.
 
 `change`, `property`, and extraction rows use `time` for the selected event and `sample_time` for the sampled values. Protocol rows repeat `profile`; it must match the begin context. If the process exits non-zero or no final `end` appears, treat the stream as incomplete.
 

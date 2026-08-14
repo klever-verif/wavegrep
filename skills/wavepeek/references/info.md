@@ -29,7 +29,7 @@ Add `--json`:
 
 ```text
 $ wavepeek info --waves path/to/dump.vcd --json
-{"command":"info","data":{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"},"diagnostics":[]}
+{"type":"result","command":"info","data":[{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"}],"diagnostics":[]}
 ```
 
 Use this in scripts and agents. The JSON shape is explained in [Machine output](machine-output.md).

@@ -10,8 +10,7 @@ use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
 use crate::engine::extract::{
-    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractRunStats,
-    ExtractSource,
+    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
 use crate::engine::signal_mapping::candidate_matching_standards;
 use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
@@ -81,7 +80,6 @@ impl AxiData {
 struct AxiOutcome {
     context: AxiContext,
     diagnostics: Vec<Diagnostic>,
-    stats: ExtractRunStats,
 }
 
 trait AxiTransferSink {
@@ -114,7 +112,7 @@ impl<W: std::io::Write> AxiTransferSink for JsonlAxiSink<'_, W> {
     }
 
     fn emit(&mut self, transfer: AxiTransfer) -> Result<(), WavepeekError> {
-        self.writer.item(&transfer)
+        self.writer.data(&transfer)
     }
 }
 
@@ -1256,7 +1254,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end()
 }
 
 fn run_with_sink<S: AxiTransferSink + ?Sized>(
@@ -1297,7 +1295,6 @@ fn run_with_sink<S: AxiTransferSink + ?Sized>(
     Ok(AxiOutcome {
         context,
         diagnostics,
-        stats: outcome.stats,
     })
 }
 

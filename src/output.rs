@@ -12,7 +12,7 @@ pub struct JsonlWriter<W: Write> {
     writer: W,
     command: CommandName,
     next_seq: usize,
-    items: usize,
+    data: usize,
     diagnostics: usize,
 }
 
@@ -22,7 +22,7 @@ impl<W: Write> JsonlWriter<W> {
             writer,
             command,
             next_seq: 0,
-            items: 0,
+            data: 0,
             diagnostics: 0,
         }
     }
@@ -40,10 +40,13 @@ impl<W: Write> JsonlWriter<W> {
         self.write_record(&record)
     }
 
-    pub fn item<T: stream::StreamItem + ?Sized>(&mut self, item: &T) -> Result<(), WavepeekError> {
-        let record = stream::ItemRecord::new(self.next_seq, self.command, item)?;
+    pub fn data<T: stream::StreamDataRow + ?Sized>(
+        &mut self,
+        data: &T,
+    ) -> Result<(), WavepeekError> {
+        let record = stream::DataRecord::new(self.next_seq, self.command, data)?;
         self.write_record(&record)?;
-        self.items += 1;
+        self.data += 1;
         Ok(())
     }
 
@@ -54,20 +57,19 @@ impl<W: Write> JsonlWriter<W> {
         Ok(())
     }
 
-    pub fn end(&mut self, truncated: bool) -> Result<(), WavepeekError> {
-        let record = stream::EndRecord::new(
-            self.next_seq,
-            self.command,
-            self.items,
-            self.diagnostics,
-            truncated,
-        )?;
+    pub fn end(&mut self) -> Result<(), WavepeekError> {
+        let record =
+            stream::EndRecord::new(self.next_seq, self.command, self.data, self.diagnostics)?;
         self.write_record(&record)
     }
 
+    const fn command(&self) -> CommandName {
+        self.command
+    }
+
     #[cfg(test)]
-    pub const fn item_count(&self) -> usize {
-        self.items
+    pub const fn data_count(&self) -> usize {
+        self.data
     }
 
     #[cfg(test)]
@@ -110,6 +112,13 @@ pub fn write_jsonl_result<W: Write>(
     result: CommandResult,
     writer: &mut JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    if result.command != writer.command() {
+        return Err(WavepeekError::Internal(format!(
+            "command {} cannot be written to a {} JSONL stream",
+            result.command.as_str(),
+            writer.command().as_str()
+        )));
+    }
     if !matches!(
         &result.data,
         CommandData::ExtractAhb(_)
@@ -121,65 +130,65 @@ pub fn write_jsonl_result<W: Write>(
         writer.begin()?;
     }
     match &result.data {
-        CommandData::Info(data) => writer.item(data)?,
+        CommandData::Info(data) => writer.data(data)?,
         CommandData::Scope(entries) => {
             for entry in entries {
-                writer.item(entry)?;
+                writer.data(entry)?;
             }
         }
         CommandData::Signal(entries) => {
             for entry in entries {
-                writer.item(entry)?;
+                writer.data(entry)?;
             }
         }
         CommandData::Value(snapshots) => {
             for snapshot in snapshots {
-                writer.item(snapshot)?;
+                writer.data(snapshot)?;
             }
         }
         CommandData::Change(snapshots) => {
             for snapshot in snapshots {
-                writer.item(snapshot)?;
+                writer.data(snapshot)?;
             }
         }
         CommandData::Property(rows) => {
             for row in rows {
-                writer.item(row)?;
+                writer.data(row)?;
             }
         }
         CommandData::ExtractAhb(data) => {
             writer.begin_context(&data.context())?;
             for event in &data.events {
-                writer.item(event)?;
+                writer.data(event)?;
             }
         }
         CommandData::ExtractApb(data) => {
             writer.begin_context(&data.context())?;
             for event in &data.events {
-                writer.item(event)?;
+                writer.data(event)?;
             }
         }
         CommandData::ExtractAtb(data) => {
             writer.begin_context(&data.context())?;
             for event in &data.events {
-                writer.item(event)?;
+                writer.data(event)?;
             }
         }
         CommandData::ExtractAxi(data) => {
             writer.begin_context(&data.context())?;
             for transfer in &data.transfers {
-                writer.item(transfer)?;
+                writer.data(transfer)?;
             }
         }
         CommandData::ExtractAxiStream(data) => {
             writer.begin_context(&data.context())?;
             for transfer in &data.transfers {
-                writer.item(transfer)?;
+                writer.data(transfer)?;
             }
         }
         CommandData::ExtractGeneric(data) => {
             for row in &data.rows {
-                writer.item(row)?;
+                writer.data(row)?;
             }
         }
         CommandData::Text(_) => {
@@ -189,15 +198,10 @@ pub fn write_jsonl_result<W: Write>(
         }
     }
 
-    let truncated = result.diagnostics.iter().any(is_truncation_diagnostic);
     for diagnostic in &result.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(truncated)
-}
-
-fn is_truncation_diagnostic(diagnostic: &Diagnostic) -> bool {
-    diagnostic.code() == Some("WPK-W0002")
+    writer.end()
 }
 
 fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
@@ -650,8 +654,10 @@ mod tests {
         let json = render_json(result).expect("json serialization should succeed");
         let value: Value = serde_json::from_str(&json).expect("json should parse");
 
+        assert_eq!(value["type"], "result");
         assert_eq!(value["command"], "info");
-        assert!(value["data"].is_object());
+        assert_eq!(value["data"].as_array().map(Vec::len), Some(1));
+        assert_eq!(value["data"][0]["time_unit"], "1ns");
         assert!(value["diagnostics"].is_array());
         assert!(value.get("warnings").is_none());
     }
@@ -722,28 +728,35 @@ mod tests {
             let mut writer = JsonlWriter::new(&mut sink, CommandName::Change);
             writer.begin().expect("begin record should write");
             writer
-                .item(&crate::engine::change::ChangeSnapshot {
+                .data(&crate::engine::change::ChangeSnapshot {
                     time: "5ns".to_string(),
                     sample_time: "5ns".to_string(),
                     signals: Vec::new(),
                 })
-                .expect("item record should write");
+                .expect("data record should write");
             writer
                 .diagnostic(&Diagnostic::warning(
                     WarningDiagnosticCode::OutputTruncated,
                     "truncated output to 1 entries",
                 ))
                 .expect("diagnostic record should write");
-            writer.end(true).expect("end record should write");
-            assert_eq!(writer.item_count(), 1);
+            writer
+                .data(&crate::engine::change::ChangeSnapshot {
+                    time: "10ns".to_string(),
+                    sample_time: "10ns".to_string(),
+                    signals: Vec::new(),
+                })
+                .expect("interleaved data record should write");
+            writer.end().expect("end record should write");
+            assert_eq!(writer.data_count(), 2);
             assert_eq!(writer.diagnostic_count(), 1);
         }
 
-        assert_eq!(sink.flushes, 4);
+        assert_eq!(sink.flushes, 5);
         let output = String::from_utf8(sink.bytes).expect("JSONL should be UTF-8");
         assert!(output.ends_with('\n'));
         let lines = output.lines().collect::<Vec<_>>();
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 5);
         let records = lines
             .iter()
             .map(|line| serde_json::from_str::<Value>(line).expect("line should parse"))
@@ -752,14 +765,18 @@ mod tests {
         assert_eq!(records[0]["type"], "begin");
         assert_eq!(records[0]["seq"], 0);
         assert_eq!(records[0]["command"], "change");
-        assert_eq!(records[1]["type"], "item");
+        assert_eq!(records[1]["type"], "data");
         assert_eq!(records[1]["seq"], 1);
+        assert!(records[1].get("command").is_none());
         assert_eq!(records[2]["type"], "diagnostic");
+        assert!(records[2].get("command").is_none());
         assert_eq!(records[2]["diagnostic"]["code"], "WPK-W0002");
-        assert_eq!(records[3]["type"], "end");
-        assert_eq!(records[3]["summary"]["items"], 1);
-        assert_eq!(records[3]["summary"]["diagnostics"], 1);
-        assert_eq!(records[3]["summary"]["truncated"], true);
+        assert_eq!(records[3]["type"], "data");
+        assert_eq!(records[3]["data"]["time"], "10ns");
+        assert_eq!(records[4]["type"], "end");
+        assert!(records[4].get("command").is_none());
+        assert_eq!(records[4]["records"]["data"], 2);
+        assert_eq!(records[4]["records"]["diagnostics"], 1);
     }
 
     #[test]
@@ -770,7 +787,26 @@ mod tests {
     }
 
     #[test]
-    fn jsonl_result_adapter_emits_items_diagnostics_and_summary() {
+    fn jsonl_result_adapter_rejects_command_mismatch() {
+        let result = CommandResult {
+            command: CommandName::Scope,
+            output_mode: OutputMode::Jsonl,
+            human_options: HumanRenderOptions::default(),
+            data: CommandData::Scope(Vec::new()),
+            diagnostics: Vec::new(),
+        };
+        let mut writer = JsonlWriter::new(Vec::new(), CommandName::Signal);
+
+        let error = write_jsonl_result(result, &mut writer).expect_err("mismatch should fail");
+        assert!(
+            error
+                .to_string()
+                .contains("command scope cannot be written to a signal JSONL stream")
+        );
+    }
+
+    #[test]
+    fn jsonl_result_adapter_emits_data_diagnostics_and_counts() {
         let result = CommandResult {
             command: CommandName::Scope,
             output_mode: OutputMode::Jsonl,
@@ -795,9 +831,10 @@ mod tests {
             .map(|line| serde_json::from_str::<Value>(line).expect("line should parse"))
             .collect::<Vec<_>>();
         assert_eq!(records[0]["type"], "begin");
-        assert_eq!(records[1]["item"]["path"], "top");
+        assert_eq!(records[1]["data"]["path"], "top");
         assert_eq!(records[2]["diagnostic"]["code"], "WPK-W0002");
-        assert_eq!(records[3]["summary"]["truncated"], true);
+        assert_eq!(records[3]["records"]["data"], 1);
+        assert_eq!(records[3]["records"]["diagnostics"], 1);
     }
 
     #[test]

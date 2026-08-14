@@ -58,7 +58,7 @@ fn write_source(value: &Value) -> NamedTempFile {
 }
 
 fn event_kinds(value: &Value) -> Vec<&str> {
-    value["data"]["events"]
+    value["data"]
         .as_array()
         .expect("events should be an array")
         .iter()
@@ -78,14 +78,14 @@ fn extract_ahb_lite_defaults_emit_pipeline_events_without_idle_spam() {
     let value = parse_json(&output);
 
     assert_eq!(value["command"], "extract ahb");
-    assert_eq!(value["data"]["name"], "ahb");
-    assert_eq!(value["data"]["profile"], "ahb-lite");
-    assert_eq!(value["data"]["issue"], "C");
-    assert_eq!(value["data"]["include_stall"], false);
-    assert_eq!(value["data"]["include_idle"], false);
-    assert_eq!(value["data"]["include_busy"], false);
+    assert_eq!(value["context"]["name"], "ahb");
+    assert_eq!(value["context"]["profile"], "ahb-lite");
+    assert_eq!(value["context"]["issue"], "C");
+    assert_eq!(value["context"]["include_stall"], false);
+    assert_eq!(value["context"]["include_idle"], false);
+    assert_eq!(value["context"]["include_busy"], false);
     assert_eq!(
-        value["data"]["initial_data_phase"],
+        value["context"]["initial_data_phase"],
         json!({"state": "desynchronized"})
     );
     assert_eq!(
@@ -106,11 +106,11 @@ fn extract_ahb_lite_defaults_emit_pipeline_events_without_idle_spam() {
             "reset",
         ]
     );
-    assert_eq!(value["data"]["events"][4]["time"], "40ns");
-    assert_eq!(value["data"]["events"][4]["event"], "data-complete");
-    assert_eq!(value["data"]["events"][5]["time"], "40ns");
-    assert_eq!(value["data"]["events"][5]["event"], "address");
-    assert_eq!(value["data"]["events"][5]["transfer"], "seq");
+    assert_eq!(value["data"][4]["time"], "40ns");
+    assert_eq!(value["data"][4]["event"], "data-complete");
+    assert_eq!(value["data"][5]["time"], "40ns");
+    assert_eq!(value["data"][5]["event"], "address");
+    assert_eq!(value["data"][5]["transfer"], "seq");
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn extract_ahb_optional_rows_preserve_event_specific_payload_validity() {
         .stdout
         .clone();
     let value = parse_json(&output);
-    let events = value["data"]["events"].as_array().expect("events");
+    let events = value["data"].as_array().expect("events");
 
     let stalls = events
         .iter()
@@ -229,17 +229,17 @@ fn extract_ahb5_emits_issue_c_fields_and_ignores_local_or_check_decoys() {
         );
     }
 
-    assert_eq!(value["data"]["profile"], "ahb5");
-    assert_eq!(value["data"]["issue"], "C");
-    let address = &value["data"]["events"][1];
+    assert_eq!(value["context"]["profile"], "ahb5");
+    assert_eq!(value["context"]["issue"], "C");
+    let address = &value["data"][1];
     assert_eq!(address["payload"]["hnonsec"], "1'h1");
     assert_eq!(address["payload"]["hexcl"], "1'h1");
     assert_eq!(address["payload"]["hmaster"], "4'ha");
-    let write_complete = &value["data"]["events"][2];
+    let write_complete = &value["data"][2];
     assert_eq!(write_complete["payload"]["hwstrb"], "4'h5");
     assert_eq!(write_complete["payload"]["hbuser"], "2'h2");
     assert_eq!(write_complete["payload"]["hexokay"], "1'h1");
-    let read_complete = &value["data"]["events"][4];
+    let read_complete = &value["data"][4];
     assert_eq!(read_complete["payload"]["hrdata"], "32'h55667788");
     assert_eq!(read_complete["payload"]["hruser"], "3'h6");
 }
@@ -254,7 +254,7 @@ fn extract_ahb_warms_state_before_inclusive_lower_bound() {
         .stdout
         .clone();
     let value = parse_json(&output);
-    let initial = &value["data"]["initial_data_phase"];
+    let initial = &value["context"]["initial_data_phase"];
     assert_eq!(initial["state"], "pending");
     assert_eq!(initial["address"]["time"], "15ns");
     assert_eq!(initial["address"]["sample_time"], "14ns");
@@ -262,8 +262,8 @@ fn extract_ahb_warms_state_before_inclusive_lower_bound() {
     assert_eq!(initial["address"]["direction"], "read");
     assert!(initial["address"].get("event").is_none());
     assert!(initial["address"].get("profile").is_none());
-    assert_eq!(value["data"]["events"][0]["time"], "20ns");
-    assert_eq!(value["data"]["events"][0]["event"], "data-stall");
+    assert_eq!(value["data"][0]["time"], "20ns");
+    assert_eq!(value["data"][0]["event"], "data-stall");
 }
 
 #[test]
@@ -287,15 +287,14 @@ fn extract_ahb_limit_can_split_a_same_edge_pair_and_counts_public_rows_only() {
     );
     let items = records
         .iter()
-        .filter(|record| record["type"] == "item")
+        .filter(|record| record["type"] == "data")
         .collect::<Vec<_>>();
     assert_eq!(items.len(), 1);
-    assert_eq!(items[0]["item"]["time"], "40ns");
-    assert_eq!(items[0]["item"]["event"], "data-complete");
+    assert_eq!(items[0]["data"]["time"], "40ns");
+    assert_eq!(items[0]["data"]["event"], "data-complete");
     assert_eq!(records[2]["diagnostic"]["code"], "WPK-W0002");
-    assert_eq!(records[3]["summary"]["items"], 1);
-    assert_eq!(records[3]["summary"]["diagnostics"], 1);
-    assert_eq!(records[3]["summary"]["truncated"], true);
+    assert_eq!(records[3]["records"]["data"], 1);
+    assert_eq!(records[3]["records"]["diagnostics"], 1);
 }
 
 #[test]
@@ -309,7 +308,7 @@ fn extract_ahb_upper_bound_can_leave_a_pending_phase_without_false_completion() 
         .clone();
     let value = parse_json(&output);
     assert_eq!(event_kinds(&value), ["reset", "address"]);
-    assert_eq!(value["data"]["events"][1]["time"], "15ns");
+    assert_eq!(value["data"][1]["time"], "15ns");
 }
 
 #[test]
@@ -493,11 +492,11 @@ fn extract_ahb_source_mode_validates_identity_types_conflicts_and_extensions() {
         .stdout
         .clone();
     let value = parse_json(&output);
-    assert_eq!(value["data"]["name"], "dmem");
-    assert_eq!(value["data"]["profile"], "ahb-lite");
-    assert_eq!(value["data"]["include_stall"], true);
-    assert_eq!(value["data"]["include_idle"], true);
-    assert_eq!(value["data"]["include_busy"], true);
+    assert_eq!(value["context"]["name"], "dmem");
+    assert_eq!(value["context"]["profile"], "ahb-lite");
+    assert_eq!(value["context"]["include_stall"], true);
+    assert_eq!(value["context"]["include_idle"], true);
+    assert_eq!(value["context"]["include_busy"], true);
 
     wavepeek_cmd()
         .args([

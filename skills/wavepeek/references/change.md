@@ -142,12 +142,12 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
     --signals cpu_state,mem_valid,mem_ready,trap \
     --from 1010000ps --to 1040000ps \
     --on '*' --sample-mode native --json
-{"command":"change","data":[{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1030000ps","sample_time":"1030000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h1"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]}],"diagnostics":[]}
+{"type":"result","command":"change","data":[{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1030000ps","sample_time":"1030000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"},{"path":"testbench.uut.mem_ready","value":"1'h1"},{"path":"testbench.uut.trap","value":"1'h0"}]},{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"},{"path":"testbench.uut.mem_ready","value":"1'h0"},{"path":"testbench.uut.trap","value":"1'h0"}]}],"diagnostics":[]}
 ```
 
 ## Use JSONL for large ranges and incremental consumers
 
-`--jsonl` streams one JSON object per line. The first line is `begin`, each change snapshot is an `item`, diagnostics are `diagnostic` records, and a successful stream ends with `end`:
+`--jsonl` streams one JSON object per line. The first line is `begin`, each change snapshot is a `data` record, diagnostics are `diagnostic` records, and a successful stream ends with `end`:
 
 ```text
 $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
@@ -156,9 +156,9 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
     --from 1010000ps --to 1040000ps \
     --on '*' --sample-mode native --jsonl
 {"type":"begin","seq":0,"command":"change"}
-{"type":"item","seq":1,"command":"change","item":{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"}]}}
-{"type":"item","seq":2,"command":"change","item":{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"}]}}
-{"type":"end","seq":3,"command":"change","summary":{"status":"ok","items":2,"diagnostics":0,"truncated":false}}
+{"type":"data","seq":1,"data":{"time":"1020000ps","sample_time":"1020000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h1"}]}}
+{"type":"data","seq":2,"data":{"time":"1040000ps","sample_time":"1040000ps","signals":[{"path":"testbench.uut.cpu_state","value":"8'h40"},{"path":"testbench.uut.mem_valid","value":"1'h0"}]}}
+{"type":"end","seq":3,"records":{"data":2,"diagnostics":0}}
 ```
 
 Use this mode for automation that wants to consume rows while the scan is still running. Require a final `end` record before treating the stream as complete.

@@ -13,7 +13,11 @@ use super::common::{
 
 #[derive(Debug, Serialize)]
 pub struct OutputEnvelope<'a> {
+    #[serde(rename = "type")]
+    result_type: &'static str,
     command: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    context: Option<OutputContextData<'a>>,
     data: OutputData<'a>,
     diagnostics: Vec<ContractDiagnostic<'a>>,
 }
@@ -21,7 +25,9 @@ pub struct OutputEnvelope<'a> {
 impl<'a> OutputEnvelope<'a> {
     pub fn from_result(result: &'a CommandResult) -> Result<Self, WavepeekError> {
         Ok(Self {
+            result_type: "result",
             command: result.command.as_str(),
+            context: OutputContextData::from_command_data(result.command, &result.data)?,
             data: OutputData::from_command_data(result.command, &result.data)?,
             diagnostics: diagnostics(&result.diagnostics)?,
         })
@@ -37,18 +43,64 @@ fn diagnostics(diagnostics: &[Diagnostic]) -> Result<Vec<ContractDiagnostic<'_>>
 
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
+pub enum OutputContextData<'a> {
+    Ahb(ExtractAhbContext<'a>),
+    Apb(ExtractApbContext<'a>),
+    Atb(ExtractAtbContext<'a>),
+    Axi(ExtractAxiContext<'a>),
+    AxiStream(ExtractAxiStreamContext<'a>),
+}
+
+impl<'a> OutputContextData<'a> {
+    fn from_command_data(
+        command: CommandName,
+        data: &'a CommandData,
+    ) -> Result<Option<Self>, WavepeekError> {
+        match (command, data) {
+            (CommandName::ExtractAhb, CommandData::ExtractAhb(data)) => {
+                Ok(Some(Self::Ahb(ExtractAhbContext::from(data))))
+            }
+            (CommandName::ExtractApb, CommandData::ExtractApb(data)) => {
+                Ok(Some(Self::Apb(ExtractApbContext::from(data))))
+            }
+            (CommandName::ExtractAtb, CommandData::ExtractAtb(data)) => {
+                Ok(Some(Self::Atb(ExtractAtbContext::from(data))))
+            }
+            (CommandName::ExtractAxi, CommandData::ExtractAxi(data)) => {
+                Ok(Some(Self::Axi(ExtractAxiContext::from(data))))
+            }
+            (CommandName::ExtractAxiStream, CommandData::ExtractAxiStream(data)) => {
+                Ok(Some(Self::AxiStream(ExtractAxiStreamContext::from(data))))
+            }
+            (CommandName::Info, CommandData::Info(_))
+            | (CommandName::Scope, CommandData::Scope(_))
+            | (CommandName::Signal, CommandData::Signal(_))
+            | (CommandName::Value, CommandData::Value(_))
+            | (CommandName::Change, CommandData::Change(_))
+            | (CommandName::Property, CommandData::Property(_))
+            | (CommandName::ExtractGeneric, CommandData::ExtractGeneric(_)) => Ok(None),
+            _ => Err(WavepeekError::Internal(format!(
+                "command {} cannot be serialized as a JSON contract context",
+                command.as_str()
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
 pub enum OutputData<'a> {
-    Info(InfoData<'a>),
+    Info(Vec<InfoData<'a>>),
     Scope(Vec<ScopeEntry<'a>>),
     Signal(Vec<SignalEntry<'a>>),
     Value(Vec<ValueSnapshot<'a>>),
     Change(Vec<ChangeSnapshot<'a>>),
     Property(Vec<PropertyRow<'a>>),
-    ExtractAhb(ExtractAhbData<'a>),
-    ExtractApb(ExtractApbData<'a>),
-    ExtractAtb(ExtractAtbData<'a>),
-    ExtractAxi(ExtractAxiData<'a>),
-    ExtractAxiStream(ExtractAxiStreamData<'a>),
+    ExtractAhb(Vec<ExtractAhbEvent<'a>>),
+    ExtractApb(Vec<ExtractApbEvent<'a>>),
+    ExtractAtb(Vec<ExtractAtbEvent<'a>>),
+    ExtractAxi(Vec<ExtractAxiTransfer<'a>>),
+    ExtractAxiStream(Vec<ExtractAxiStreamTransfer<'a>>),
     ExtractGeneric(Vec<ExtractGenericRow<'a>>),
 }
 
@@ -58,7 +110,9 @@ impl<'a> OutputData<'a> {
         data: &'a CommandData,
     ) -> Result<Self, WavepeekError> {
         match (command, data) {
-            (CommandName::Info, CommandData::Info(data)) => Ok(Self::Info(InfoData::from(data))),
+            (CommandName::Info, CommandData::Info(data)) => {
+                Ok(Self::Info(vec![InfoData::from(data)]))
+            }
             (CommandName::Scope, CommandData::Scope(entries)) => entries
                 .iter()
                 .map(ScopeEntry::try_from)
@@ -78,20 +132,28 @@ impl<'a> OutputData<'a> {
             (CommandName::Property, CommandData::Property(rows)) => {
                 Ok(Self::Property(rows.iter().map(PropertyRow::from).collect()))
             }
-            (CommandName::ExtractAhb, CommandData::ExtractAhb(data)) => {
-                Ok(Self::ExtractAhb(ExtractAhbData::from(data)))
-            }
-            (CommandName::ExtractApb, CommandData::ExtractApb(data)) => {
-                Ok(Self::ExtractApb(ExtractApbData::from(data)))
-            }
-            (CommandName::ExtractAtb, CommandData::ExtractAtb(data)) => {
-                Ok(Self::ExtractAtb(ExtractAtbData::from(data)))
-            }
-            (CommandName::ExtractAxi, CommandData::ExtractAxi(data)) => {
-                Ok(Self::ExtractAxi(ExtractAxiData::from(data)))
-            }
+            (CommandName::ExtractAhb, CommandData::ExtractAhb(data)) => Ok(Self::ExtractAhb(
+                data.events.iter().map(ExtractAhbEvent::from).collect(),
+            )),
+            (CommandName::ExtractApb, CommandData::ExtractApb(data)) => Ok(Self::ExtractApb(
+                data.events.iter().map(ExtractApbEvent::from).collect(),
+            )),
+            (CommandName::ExtractAtb, CommandData::ExtractAtb(data)) => Ok(Self::ExtractAtb(
+                data.events.iter().map(ExtractAtbEvent::from).collect(),
+            )),
+            (CommandName::ExtractAxi, CommandData::ExtractAxi(data)) => Ok(Self::ExtractAxi(
+                data.transfers
+                    .iter()
+                    .map(ExtractAxiTransfer::from)
+                    .collect(),
+            )),
             (CommandName::ExtractAxiStream, CommandData::ExtractAxiStream(data)) => {
-                Ok(Self::ExtractAxiStream(ExtractAxiStreamData::from(data)))
+                Ok(Self::ExtractAxiStream(
+                    data.transfers
+                        .iter()
+                        .map(ExtractAxiStreamTransfer::from)
+                        .collect(),
+                ))
             }
             (CommandName::ExtractGeneric, CommandData::ExtractGeneric(data)) => Ok(
                 Self::ExtractGeneric(data.rows.iter().map(ExtractGenericRow::from).collect()),
@@ -383,7 +445,7 @@ impl<'a> From<&'a crate::engine::ahb::AhbEvent> for ExtractAhbEvent<'a> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ExtractAhbData<'a> {
+pub struct ExtractAhbContext<'a> {
     name: &'a str,
     profile: &'a str,
     issue: &'a str,
@@ -392,28 +454,37 @@ pub struct ExtractAhbData<'a> {
     include_busy: bool,
     initial_data_phase: ExtractAhbInitialDataPhase<'a>,
     mappings: BTreeMap<&'a str, ExtractAhbMapping<'a>>,
-    events: Vec<ExtractAhbEvent<'a>>,
 }
 
-impl<'a> From<&'a crate::engine::ahb::AhbData> for ExtractAhbData<'a> {
-    fn from(data: &'a crate::engine::ahb::AhbData) -> Self {
-        Self {
-            name: data.name.as_str(),
-            profile: data.profile.as_str(),
-            issue: data.issue.as_str(),
-            include_stall: data.include_stall,
-            include_idle: data.include_idle,
-            include_busy: data.include_busy,
-            initial_data_phase: ExtractAhbInitialDataPhase::from(&data.initial_data_phase),
-            mappings: data
-                .mappings
-                .iter()
-                .map(|mapping| (mapping.standard.as_str(), ExtractAhbMapping::from(mapping)))
-                .collect(),
-            events: data.events.iter().map(ExtractAhbEvent::from).collect(),
+macro_rules! impl_ahb_context {
+    ($source:ty) => {
+        impl<'a> From<&'a $source> for ExtractAhbContext<'a> {
+            fn from(context: &'a $source) -> Self {
+                Self {
+                    name: context.name.as_str(),
+                    profile: context.profile.as_str(),
+                    issue: context.issue.as_str(),
+                    include_stall: context.include_stall,
+                    include_idle: context.include_idle,
+                    include_busy: context.include_busy,
+                    initial_data_phase: ExtractAhbInitialDataPhase::from(
+                        &context.initial_data_phase,
+                    ),
+                    mappings: context
+                        .mappings
+                        .iter()
+                        .map(|mapping| {
+                            (mapping.standard.as_str(), ExtractAhbMapping::from(mapping))
+                        })
+                        .collect(),
+                }
+            }
         }
-    }
+    };
 }
+
+impl_ahb_context!(crate::engine::ahb::AhbData);
+impl_ahb_context!(crate::engine::ahb::AhbContext);
 
 fn ahb_payload<'a>(
     payload: &'a [crate::engine::ahb::AhbPayloadValue],
@@ -475,33 +546,40 @@ impl<'a> From<&'a crate::engine::apb::ApbEvent> for ExtractApbEvent<'a> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ExtractApbData<'a> {
+pub struct ExtractApbContext<'a> {
     name: &'a str,
     profile: &'a str,
     issue: &'a str,
     pready_mode: &'a str,
     include_wait: bool,
     mappings: BTreeMap<&'a str, ExtractApbMapping<'a>>,
-    events: Vec<ExtractApbEvent<'a>>,
 }
 
-impl<'a> From<&'a crate::engine::apb::ApbData> for ExtractApbData<'a> {
-    fn from(data: &'a crate::engine::apb::ApbData) -> Self {
-        Self {
-            name: data.name.as_str(),
-            profile: data.profile.as_str(),
-            issue: data.issue.as_str(),
-            pready_mode: data.pready_mode.as_str(),
-            include_wait: data.include_wait,
-            mappings: data
-                .mappings
-                .iter()
-                .map(|mapping| (mapping.standard.as_str(), ExtractApbMapping::from(mapping)))
-                .collect(),
-            events: data.events.iter().map(ExtractApbEvent::from).collect(),
+macro_rules! impl_apb_context {
+    ($source:ty) => {
+        impl<'a> From<&'a $source> for ExtractApbContext<'a> {
+            fn from(context: &'a $source) -> Self {
+                Self {
+                    name: context.name.as_str(),
+                    profile: context.profile.as_str(),
+                    issue: context.issue.as_str(),
+                    pready_mode: context.pready_mode.as_str(),
+                    include_wait: context.include_wait,
+                    mappings: context
+                        .mappings
+                        .iter()
+                        .map(|mapping| {
+                            (mapping.standard.as_str(), ExtractApbMapping::from(mapping))
+                        })
+                        .collect(),
+                }
+            }
         }
-    }
+    };
 }
+
+impl_apb_context!(crate::engine::apb::ApbData);
+impl_apb_context!(crate::engine::apb::ApbContext);
 
 #[derive(Debug, Serialize)]
 pub struct ExtractAtbMapping<'a> {
@@ -565,29 +643,36 @@ impl<'a> From<&'a crate::engine::atb::AtbEvent> for ExtractAtbEvent<'a> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ExtractAtbData<'a> {
+pub struct ExtractAtbContext<'a> {
     name: &'a str,
     profile: &'a str,
     issue: &'a str,
     mappings: BTreeMap<&'a str, ExtractAtbMapping<'a>>,
-    events: Vec<ExtractAtbEvent<'a>>,
 }
 
-impl<'a> From<&'a crate::engine::atb::AtbData> for ExtractAtbData<'a> {
-    fn from(data: &'a crate::engine::atb::AtbData) -> Self {
-        Self {
-            name: data.name.as_str(),
-            profile: data.profile.as_str(),
-            issue: data.issue.as_str(),
-            mappings: data
-                .mappings
-                .iter()
-                .map(|mapping| (mapping.standard.as_str(), ExtractAtbMapping::from(mapping)))
-                .collect(),
-            events: data.events.iter().map(ExtractAtbEvent::from).collect(),
+macro_rules! impl_atb_context {
+    ($source:ty) => {
+        impl<'a> From<&'a $source> for ExtractAtbContext<'a> {
+            fn from(context: &'a $source) -> Self {
+                Self {
+                    name: context.name.as_str(),
+                    profile: context.profile.as_str(),
+                    issue: context.issue.as_str(),
+                    mappings: context
+                        .mappings
+                        .iter()
+                        .map(|mapping| {
+                            (mapping.standard.as_str(), ExtractAtbMapping::from(mapping))
+                        })
+                        .collect(),
+                }
+            }
         }
-    }
+    };
 }
+
+impl_atb_context!(crate::engine::atb::AtbData);
+impl_atb_context!(crate::engine::atb::AtbContext);
 
 #[derive(Debug, Serialize)]
 pub struct ExtractAxiMapping<'a> {
@@ -633,33 +718,36 @@ impl<'a> From<&'a crate::engine::axi::AxiTransfer> for ExtractAxiTransfer<'a> {
 }
 
 #[derive(Debug, Serialize)]
-pub struct ExtractAxiData<'a> {
+pub struct ExtractAxiContext<'a> {
     name: &'a str,
     profile: &'a str,
     issue: &'a str,
     mappings: BTreeMap<&'a str, ExtractAxiMapping<'a>>,
-    transfers: Vec<ExtractAxiTransfer<'a>>,
 }
 
-impl<'a> From<&'a crate::engine::axi::AxiData> for ExtractAxiData<'a> {
-    fn from(data: &'a crate::engine::axi::AxiData) -> Self {
-        Self {
-            name: data.name.as_str(),
-            profile: data.profile.as_str(),
-            issue: data.issue.as_str(),
-            mappings: data
-                .mappings
-                .iter()
-                .map(|mapping| (mapping.standard.as_str(), ExtractAxiMapping::from(mapping)))
-                .collect(),
-            transfers: data
-                .transfers
-                .iter()
-                .map(ExtractAxiTransfer::from)
-                .collect(),
+macro_rules! impl_axi_context {
+    ($source:ty) => {
+        impl<'a> From<&'a $source> for ExtractAxiContext<'a> {
+            fn from(context: &'a $source) -> Self {
+                Self {
+                    name: context.name.as_str(),
+                    profile: context.profile.as_str(),
+                    issue: context.issue.as_str(),
+                    mappings: context
+                        .mappings
+                        .iter()
+                        .map(|mapping| {
+                            (mapping.standard.as_str(), ExtractAxiMapping::from(mapping))
+                        })
+                        .collect(),
+                }
+            }
         }
-    }
+    };
 }
+
+impl_axi_context!(crate::engine::axi::AxiData);
+impl_axi_context!(crate::engine::axi::AxiContext);
 
 #[derive(Debug, Serialize)]
 pub struct ExtractAxiStreamMapping<'a> {
@@ -705,40 +793,41 @@ impl<'a> From<&'a crate::engine::axistream::AxiStreamTransfer> for ExtractAxiStr
 }
 
 #[derive(Debug, Serialize)]
-pub struct ExtractAxiStreamData<'a> {
+pub struct ExtractAxiStreamContext<'a> {
     name: &'a str,
     profile: &'a str,
     issue: &'a str,
     tready_mode: &'a str,
     mappings: BTreeMap<&'a str, ExtractAxiStreamMapping<'a>>,
-    transfers: Vec<ExtractAxiStreamTransfer<'a>>,
 }
 
-impl<'a> From<&'a crate::engine::axistream::AxiStreamData> for ExtractAxiStreamData<'a> {
-    fn from(data: &'a crate::engine::axistream::AxiStreamData) -> Self {
-        Self {
-            name: data.name.as_str(),
-            profile: data.profile.as_str(),
-            issue: data.issue.as_str(),
-            tready_mode: data.tready_mode.as_str(),
-            mappings: data
-                .mappings
-                .iter()
-                .map(|mapping| {
-                    (
-                        mapping.standard.as_str(),
-                        ExtractAxiStreamMapping::from(mapping),
-                    )
-                })
-                .collect(),
-            transfers: data
-                .transfers
-                .iter()
-                .map(ExtractAxiStreamTransfer::from)
-                .collect(),
+macro_rules! impl_axistream_context {
+    ($source:ty) => {
+        impl<'a> From<&'a $source> for ExtractAxiStreamContext<'a> {
+            fn from(context: &'a $source) -> Self {
+                Self {
+                    name: context.name.as_str(),
+                    profile: context.profile.as_str(),
+                    issue: context.issue.as_str(),
+                    tready_mode: context.tready_mode.as_str(),
+                    mappings: context
+                        .mappings
+                        .iter()
+                        .map(|mapping| {
+                            (
+                                mapping.standard.as_str(),
+                                ExtractAxiStreamMapping::from(mapping),
+                            )
+                        })
+                        .collect(),
+                }
+            }
         }
-    }
+    };
 }
+
+impl_axistream_context!(crate::engine::axistream::AxiStreamData);
+impl_axistream_context!(crate::engine::axistream::AxiStreamContext);
 
 #[cfg(test)]
 mod tests {

@@ -121,18 +121,18 @@ In this window the property is already true at `10ns`, so there is no visible `a
 
 ```text
 $ wavepeek property --waves path/to/dump.vcd --scope top --on data --sample-mode native --eval "data == 8'h0f" --capture match --json
-{"command":"property","data":[{"time":"10ns","sample_time":"10ns","kind":"match"}],"diagnostics":[]}
+{"type":"result","command":"property","data":[{"time":"10ns","sample_time":"10ns","kind":"match"}],"diagnostics":[]}
 ```
 
 Human output is for quick inspection. `--json` is the stable machine contract.
 
-For long searches or incremental consumers, use `--jsonl`. It streams one JSON object per line: `begin`, one `item` per captured property row, optional `diagnostic` records, and a final `end` summary. When `--max` truncates the stream, the final summary has `"truncated":true`. Require the final `end` record before treating the result as complete.
+For long searches or incremental consumers, use `--jsonl`. It streams one JSON object per line: `begin`, one `data` record per captured property row, optional `diagnostic` records, and a final `end` record with record counts. Truncation is reported by diagnostic `WPK-W0002`. Require the final `end` record before treating the result as complete.
 
 ```text
 $ wavepeek property --waves path/to/dump.vcd --scope top --on data --sample-mode native --eval "data == 8'h0f" --capture match --jsonl
 {"type":"begin","seq":0,"command":"property"}
-{"type":"item","seq":1,"command":"property","item":{"time":"10ns","sample_time":"10ns","kind":"match"}}
-{"type":"end","seq":2,"command":"property","summary":{"status":"ok","items":1,"diagnostics":0,"truncated":false}}
+{"type":"data","seq":1,"data":{"time":"10ns","sample_time":"10ns","kind":"match"}}
+{"type":"end","seq":2,"records":{"data":1,"diagnostics":0}}
 ```
 
 ## Trigger expressions you will actually use

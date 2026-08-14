@@ -75,9 +75,7 @@ fn base_apb4_args() -> Vec<String> {
 }
 
 fn json_events(value: &Value) -> &[Value] {
-    value["data"]["events"]
-        .as_array()
-        .expect("events should be an array")
+    value["data"].as_array().expect("events should be an array")
 }
 
 fn event_signature(value: &Value) -> Vec<(String, String, String, Value)> {
@@ -161,10 +159,10 @@ fn extract_apb_json_emits_waits_and_filters_payload_by_event_and_direction() {
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
     assert_eq!(value["command"], "extract apb");
-    assert_eq!(value["data"]["profile"], "apb4");
-    assert_eq!(value["data"]["issue"], "E");
-    assert_eq!(value["data"]["pready_mode"], "mapped");
-    assert_eq!(value["data"]["include_wait"], true);
+    assert_eq!(value["context"]["profile"], "apb4");
+    assert_eq!(value["context"]["issue"], "E");
+    assert_eq!(value["context"]["pready_mode"], "mapped");
+    assert_eq!(value["context"]["include_wait"], true);
     assert_eq!(
         json_events(&value)
             .iter()
@@ -204,7 +202,7 @@ fn extract_apb_json_emits_waits_and_filters_payload_by_event_and_direction() {
 }
 
 #[test]
-fn extract_apb_jsonl_streams_context_items_and_row_limit_summary() {
+fn extract_apb_jsonl_streams_context_data_and_record_counts() {
     let mut args = base_apb4_args();
     args.extend(apb4_explicit_maps(true, true));
     args.extend([
@@ -230,12 +228,11 @@ fn extract_apb_jsonl_streams_context_items_and_row_limit_summary() {
     assert_eq!(records[0]["context"]["profile"], "apb4");
     assert_eq!(records[0]["context"]["pready_mode"], "mapped");
     assert_eq!(records[0]["context"]["include_wait"], true);
-    assert_eq!(records[1]["item"]["event"], "setup");
-    assert_eq!(records[2]["item"]["event"], "access-wait");
+    assert_eq!(records[1]["data"]["event"], "setup");
+    assert_eq!(records[2]["data"]["event"], "access-wait");
     assert_eq!(records[3]["diagnostic"]["code"], "WPK-W0002");
-    assert_eq!(records[4]["summary"]["items"], 2);
-    assert_eq!(records[4]["summary"]["diagnostics"], 1);
-    assert_eq!(records[4]["summary"]["truncated"], true);
+    assert_eq!(records[4]["records"]["data"], 2);
+    assert_eq!(records[4]["records"]["diagnostics"], 1);
 }
 
 #[test]
@@ -258,9 +255,9 @@ fn extract_apb_implicit_high_forbids_pready_and_classifies_every_access() {
         String::from_utf8_lossy(&output.stderr)
     );
     let value = parse_json(&output.stdout);
-    assert_eq!(value["data"]["pready_mode"], "implicit-high");
-    assert_eq!(value["data"]["include_wait"], false);
-    assert!(value["data"]["mappings"].get("pready").is_none());
+    assert_eq!(value["context"]["pready_mode"], "implicit-high");
+    assert_eq!(value["context"]["include_wait"], false);
+    assert!(value["context"]["mappings"].get("pready").is_none());
     assert_eq!(
         json_events(&value)
             .iter()
@@ -382,17 +379,17 @@ fn extract_apb_profiles_use_issue_e_and_profile_specific_mappings() {
             String::from_utf8_lossy(&output.stderr)
         );
         let value = parse_json(&output.stdout);
-        assert_eq!(value["data"]["profile"], profile.to_ascii_lowercase());
-        assert_eq!(value["data"]["issue"], "E");
+        assert_eq!(value["context"]["profile"], profile.to_ascii_lowercase());
+        assert_eq!(value["context"]["issue"], "E");
         for signal in required {
             assert!(
-                value["data"]["mappings"].get(signal).is_some(),
+                value["context"]["mappings"].get(signal).is_some(),
                 "{profile} should map {signal}"
             );
         }
         for signal in forbidden {
             assert!(
-                value["data"]["mappings"].get(signal).is_none(),
+                value["context"]["mappings"].get(signal).is_none(),
                 "{profile} must not map {signal}"
             );
         }
@@ -481,9 +478,9 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
         String::from_utf8_lossy(&output.stderr)
     );
     let value = parse_json(&output.stdout);
-    assert_eq!(value["data"]["name"], "uart");
-    assert_eq!(value["data"]["profile"], "apb4");
-    assert_eq!(value["data"]["include_wait"], true);
+    assert_eq!(value["context"]["name"], "uart");
+    assert_eq!(value["context"]["profile"], "apb4");
+    assert_eq!(value["context"]["include_wait"], true);
     assert_eq!(
         json_events(&value)
             .iter()
@@ -521,10 +518,10 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
         .expect("defaulted source extraction should execute");
     assert!(defaults_output.status.success());
     let defaults = parse_json(&defaults_output.stdout);
-    assert_eq!(defaults["data"]["name"], "apb");
-    assert_eq!(defaults["data"]["profile"], "apb4");
-    assert_eq!(defaults["data"]["pready_mode"], "mapped");
-    assert_eq!(defaults["data"]["include_wait"], false);
+    assert_eq!(defaults["context"]["name"], "apb");
+    assert_eq!(defaults["context"]["profile"], "apb4");
+    assert_eq!(defaults["context"]["pready_mode"], "mapped");
+    assert_eq!(defaults["context"]["include_wait"], false);
 
     for (field, field_value, error_fragment) in [
         (
@@ -755,7 +752,7 @@ fn extract_apb_mapping_validation_is_deterministic() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(
-        value["data"]["mappings"]["psel"]["path"],
+        value["context"]["mappings"]["psel"]["path"],
         "top.uart_apb_psel0_o"
     );
     assert!(json_events(&value).is_empty());
@@ -810,7 +807,7 @@ fn extract_apb_mapping_validation_is_deterministic() {
     );
     let value = parse_json(&output.stdout);
     assert_eq!(
-        value["data"]["mappings"]["paddr"]["path"],
+        value["context"]["mappings"]["paddr"]["path"],
         "top.uart_apb_p_addr_o"
     );
 
