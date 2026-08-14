@@ -45,6 +45,8 @@ The commands that depend on this model are:
 
 Unresolved names are errors. Scoped generic queries may mix relative and in-scope canonical references, but cannot escape the selected scope. Protocol extract mappings remain scope-relative.
 
+In human-readable output, `value`, `change`, and `extract generic` derive signal labels from canonical paths. With `--scope`, labels are relative to that scope and preserve nested components below it; without `--scope` or with `--abs`, labels are canonical. Input spelling does not affect these labels. JSON and JSONL `path` fields remain canonical.
+
 If distinct FSDB records map to one canonical signal path, wavepeek quarantines that path instead of selecting a backing record. Scopes and unambiguous signals remain available. Signal listings omit quarantined paths with a diagnostic, while an explicit reference to one fails as an ambiguous signal.
 
 ## 5. Human-Readable and Machine-Readable Modes

@@ -1546,7 +1546,7 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--scope",
             "top",
             "--signals",
-            "data,clk",
+            "clk,cpu.valid,top.clk,top.cpu.valid",
             "--json",
         ])
         .output()
@@ -1567,7 +1567,7 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--scope",
             "top",
             "--signals",
-            "data,clk",
+            "clk,cpu.valid,top.clk,top.cpu.valid",
             "--json",
             "--abs",
         ])
@@ -1594,7 +1594,7 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--scope",
             "top",
             "--signals",
-            "data,clk",
+            "clk,cpu.valid,top.clk,top.cpu.valid",
         ])
         .output()
         .expect("human default run should execute");
@@ -1614,7 +1614,7 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--scope",
             "top",
             "--signals",
-            "data,clk",
+            "clk,cpu.valid,top.clk,top.cpu.valid",
             "--abs",
         ])
         .output()
@@ -1631,11 +1631,11 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             .lines()
             .next()
             .expect("first line should exist"),
-        "@5ns data=8'h00 clk=1'h1"
+        "@5ns clk=1'h1 cpu.valid=1'h1 clk=1'h1 cpu.valid=1'h1"
     );
     assert_eq!(
         abs_lines.lines().next().expect("first line should exist"),
-        "@5ns top.data=8'h00 top.clk=1'h1"
+        "@5ns top.clk=1'h1 top.cpu.valid=1'h1 top.clk=1'h1 top.cpu.valid=1'h1"
     );
 }
 

@@ -18,10 +18,10 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
 
 - [x] (2026-08-14 14:16Z) Read issue #113, repository guidance, execution paths, public contracts, and existing tests.
 - [x] (2026-08-14 14:16Z) Start the worktree devcontainer and install worktree-local Git hooks.
-- [ ] Add focused regression tests that demonstrate normalized default output and preserved `--abs` output for all three commands.
-- [ ] Reuse the existing canonical-to-relative helper in the three generic command engines.
-- [ ] Update the packaged command-model contract.
-- [ ] Run focused tests and `./dev just ci`, then commit the implementation.
+- [x] (2026-08-14 14:24Z) Add focused regression tests that demonstrate normalized default output and preserved `--abs` output for all three commands.
+- [x] (2026-08-14 14:24Z) Reuse the existing canonical-to-relative helper in the three generic command engines.
+- [x] (2026-08-14 14:24Z) Update the packaged command-model contract.
+- [x] (2026-08-14 14:28Z) Run focused tests and `./dev just ci`, then commit the implementation (focused result: 52 change, 14 extract-generic, and 28 value tests passed; full gate passed with 93.20% average source coverage and all available FSDB gates).
 - [ ] Run first-wave focused reviews with Luna Max, fix findings, and revalidate.
 - [ ] Run second-wave focused reviews with Terra High over the same lanes, fix findings, and revalidate.
 - [ ] Run an independent Sol High control review, fix findings, and revalidate.
@@ -35,6 +35,8 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
   Evidence: `display` is marked `#[serde(skip_serializing)]` while `path` remains canonical in the value, change, and extract payload result types.
 - Observation: Duplicate behavior differs intentionally by command and must not be unified.
   Evidence: `value` and `change` preserve requested entries, while `extract generic` calls `require_unique_payloads` on canonical paths and rejects duplicates.
+- Observation: The new human-output assertion failed on the unmodified implementation exactly at mixed canonical input spelling.
+  Evidence: Before the engine edits, `change_abs_only_affects_human_labels_not_json_payload` produced `top.clk` and `top.cpu.valid` in default output where the test expected `clk` and `cpu.valid`; after the edits all 94 focused integration tests passed.
 
 ## Decision Log
 
@@ -53,7 +55,7 @@ This work does not add relative-path fields to JSON or JSONL, change signal reso
 
 ## Outcomes & Retrospective
 
-Work is in progress. Completion requires passing focused tests and `just ci`, two focused review waves, one independent control review, cleanup of this plan, and an opened pull request.
+Implementation and validation are complete. Completion still requires two focused review waves, one independent control review, cleanup of this plan, and an opened pull request.
 
 ## Context and Orientation
 
@@ -161,3 +163,7 @@ No dependency changes are allowed or needed. At completion, `src/waveform/mod.rs
 The three engine modules call this helper when assigning human-only `display` values. Existing serialized result types and command interfaces remain unchanged.
 
 Revision note (2026-08-14): Created the self-contained implementation and review plan after repository and issue investigation. The plan chooses reuse of the existing waveform helper as the smallest contract-preserving implementation.
+
+Revision note (2026-08-14 14:24Z): Recorded the completed implementation slice, focused red/green test evidence, and the remaining full quality gate.
+
+Revision note (2026-08-14 14:28Z): Recorded the passing full CI gate, including source coverage and FSDB validation.

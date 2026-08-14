@@ -28,7 +28,7 @@ use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, BoundLogicalExpr, EventEvalFrame};
 use crate::waveform::{
     ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    SignalId, expr_host::WaveformExprHost,
+    SignalId, display_signal_path, expr_host::WaveformExprHost,
 };
 
 const DEFAULT_SOURCE_NAME: &str = "transfer";
@@ -719,11 +719,10 @@ fn resolve_payload_signals(
     waveform
         .borrow()
         .validate_expr_values_supported(expr_resolved.as_slice())?;
-    Ok(display_names
+    Ok(resolved
         .into_iter()
-        .zip(resolved)
-        .map(|(display, resolved)| PayloadSignal {
-            display,
+        .map(|resolved| PayloadSignal {
+            display: display_signal_path(resolved.path.as_str(), scope).to_string(),
             path: resolved.path.clone(),
             resolved,
         })

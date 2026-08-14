@@ -24,11 +24,13 @@ fn value_human_output_with_scope_is_default() {
             "--scope",
             "top",
             "--signals",
-            "clk,data",
+            "clk,cpu.valid,top.clk,top.cpu.valid",
         ])
         .assert()
         .success()
-        .stdout(predicate::eq("@10ns clk=1'h1 data=8'h0f\n"))
+        .stdout(predicate::eq(
+            "@10ns clk=1'h1 cpu.valid=1'h1 clk=1'h1 cpu.valid=1'h1\n",
+        ))
         .stderr(predicate::str::is_empty());
 }
 
@@ -48,12 +50,14 @@ fn value_human_output_with_abs_shows_canonical_paths() {
             "--scope",
             "top",
             "--signals",
-            "clk,data",
+            "clk,cpu.valid,top.clk,top.cpu.valid",
             "--abs",
         ])
         .assert()
         .success()
-        .stdout(predicate::eq("@10ns top.clk=1'h1 top.data=8'h0f\n"))
+        .stdout(predicate::eq(
+            "@10ns top.clk=1'h1 top.cpu.valid=1'h1 top.clk=1'h1 top.cpu.valid=1'h1\n",
+        ))
         .stderr(predicate::str::is_empty());
 }
 

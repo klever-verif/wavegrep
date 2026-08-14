@@ -28,7 +28,7 @@ use crate::expr::{
 };
 use crate::waveform::{
     ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    SignalId, SignalOffsetData, Waveform, expr_host::WaveformExprHost,
+    SignalId, SignalOffsetData, Waveform, display_signal_path, expr_host::WaveformExprHost,
 };
 
 const DENSE_EMPTY_RESULT_MESSAGE: &str = "no selected events found in selected time range";
@@ -322,7 +322,7 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     let metadata = waveform.borrow().metadata()?;
     debug.event("metadata.load.done", || serde_json::json!({}));
 
-    let requested_signals = {
+    let mut requested_signals = {
         let waveform_ref = waveform.borrow();
         resolve_requested_signals(&waveform_ref, args.scope.as_deref(), &args)?
     };
@@ -376,6 +376,10 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
         &requested_query_names,
         args.scope.as_deref(),
     )?;
+    for (requested, resolved) in requested_signals.iter_mut().zip(&requested_resolved) {
+        requested.display =
+            display_signal_path(resolved.path.as_str(), args.scope.as_deref()).to_string();
+    }
     let requested_expr_sources = waveform.borrow().resolve_expr_signals_with_diagnostics(
         &requested_paths_owned,
         &requested_query_names,

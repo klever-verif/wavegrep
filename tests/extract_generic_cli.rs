@@ -198,8 +198,8 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
 
 #[test]
 fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
-    let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-human.vcd");
-    let fixture = fixture.path().to_string_lossy().into_owned();
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
 
     let relative = wavepeek_cmd()
         .args([
@@ -210,15 +210,11 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
             "--scope",
             "top",
             "--on",
-            "posedge clk",
+            "posedge top.cpu.valid",
             "--when",
-            "valid && ready",
+            "1",
             "--payload",
-            "data,last",
-            "--from",
-            "5ns",
-            "--to",
-            "5ns",
+            "top.clk,cpu.valid",
         ])
         .output()
         .expect("extract should execute");
@@ -231,15 +227,11 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
             "--scope",
             "top",
             "--on",
-            "posedge clk",
+            "posedge top.cpu.valid",
             "--when",
-            "valid && ready",
+            "1",
             "--payload",
-            "data,last",
-            "--from",
-            "5ns",
-            "--to",
-            "5ns",
+            "top.clk,cpu.valid",
             "--abs",
         ])
         .output()
@@ -249,11 +241,11 @@ fn extract_generic_human_uses_relative_or_absolute_payload_paths() {
     assert!(absolute.status.success());
     assert_eq!(
         String::from_utf8(relative.stdout).expect("stdout should be UTF-8"),
-        "@5ns sample@4ns data=8'haa last=1'h1\n"
+        "@5ns sample@4ns clk=1'h0 cpu.valid=1'h0\n"
     );
     assert_eq!(
         String::from_utf8(absolute.stdout).expect("stdout should be UTF-8"),
-        "@5ns sample@4ns top.data=8'haa top.last=1'h1\n"
+        "@5ns sample@4ns top.clk=1'h0 top.cpu.valid=1'h0\n"
     );
 }
 

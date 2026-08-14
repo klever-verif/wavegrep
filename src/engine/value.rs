@@ -9,7 +9,7 @@ use crate::engine::time::{
 use crate::engine::value_format::format_verilog_literal;
 use crate::engine::{CommandData, CommandName, CommandResult, scoped_signal_path};
 use crate::error::WavepeekError;
-use crate::waveform::{Waveform, WaveformMetadata};
+use crate::waveform::{Waveform, WaveformMetadata, display_signal_path};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ValueSignalValue {
@@ -76,11 +76,11 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
 
     for query_time_raw in query_times_raw {
         let sampled = waveform.sample_signals_at_time(&canonical_paths, query_time_raw)?;
-        let signals = requested_signals
-            .iter()
-            .zip(sampled)
-            .map(|(requested, sampled)| ValueSignalValue {
-                display: requested.display.clone(),
+        let signals = sampled
+            .into_iter()
+            .map(|sampled| ValueSignalValue {
+                display: display_signal_path(sampled.path.as_str(), args.scope.as_deref())
+                    .to_string(),
                 path: sampled.path,
                 value: format_verilog_literal(sampled.width, sampled.bits.as_str()),
             })
