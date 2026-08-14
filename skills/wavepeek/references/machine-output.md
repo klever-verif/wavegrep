@@ -14,7 +14,7 @@ If a downstream consumer intentionally closes stdout early, `wavepeek` stops wri
 
 ## 2. JSON envelopes
 
-A successful `--json` command emits `type`, `command`, optional `context`, `data`, optional `summary`, and `diagnostics`. `type` is `result`. `data` and `diagnostics` are arrays. `info` returns one metadata row; an empty query returns `data: []`. Commands with numeric or unlimited `--max` always include `summary`.
+A successful `--json` command emits `type`, `command`, optional `context`, optional `data`, optional `summary`, and `diagnostics`. `type` is `result`. When present, `data` is an array; `diagnostics` is always an array. `info` returns one metadata row; an empty query returns `data: []`. Commands with numeric or unlimited `--max` always include `summary`.
 
 ```json
 {"type":"result","command":"info","data":[{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"}],"diagnostics":[]}
