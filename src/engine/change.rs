@@ -12,15 +12,17 @@ use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{
     SharedWaveform, bind_waveform_event_expr, candidate_sources_for_handles,
     event_candidate_handles, event_expr_contains_wildcard, event_expr_is_any_tracked_only,
-    event_expr_is_edge_only, event_expr_matches, open_shared_waveform,
+    event_expr_is_edge_only, event_expr_matches, event_expr_matches_with_any_tracked,
+    open_shared_waveform,
 };
+use crate::engine::signal_projection::{ProjectedSignal, resolve_projected_signal};
 use crate::engine::time::{
     DumpTimeContext, ParsedTime, TimeValidationError, format_raw_timestamp,
     parse_dump_time_context, validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
 use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary, scoped_signal_path,
+    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary,
 };
 use crate::error::WavepeekError;
 use crate::expr::{
@@ -69,6 +71,7 @@ struct RequestedSignal {
     display: String,
     path: String,
     relative_path: Option<String>,
+    selected: ProjectedSignal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -378,20 +381,19 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     let baseline_raw = from_raw;
     let requested_paths_owned = requested_signals
         .iter()
-        .map(|signal| signal.path.clone())
+        .map(|signal| signal.selected.source.path.clone())
         .collect::<Vec<_>>();
     let requested_query_names = requested_signals
         .iter()
         .map(|signal| signal.display.clone())
         .collect::<Vec<_>>();
-    let requested_resolved = waveform.borrow().resolve_signals_with_diagnostics(
-        &requested_paths_owned,
-        &requested_query_names,
-        args.scope.as_deref(),
-    )?;
-    for (requested, resolved) in requested_signals.iter_mut().zip(&requested_resolved) {
-        let display =
-            display_signal_path(resolved.path.as_str(), args.scope.as_deref()).to_string();
+    let requested_resolved = requested_signals
+        .iter()
+        .map(|signal| signal.selected.source.clone())
+        .collect::<Vec<_>>();
+    for requested in &mut requested_signals {
+        let display = display_signal_path(requested.selected.path.as_str(), args.scope.as_deref())
+            .to_string();
         requested.relative_path = if (args.json || args.jsonl) && args.scope.is_some() {
             Some(display.clone())
         } else {
@@ -759,7 +761,7 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
     let mut previous_values = if row_mode == RowMode::Sparse {
         let baseline_samples =
             sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
-        sample_values(&baseline_samples)
+        sample_values(&project_samples(requested_signals, &baseline_samples)?)
     } else if row_values == RowValues::Delta {
         vec![None; requested_resolved.len()]
     } else {
@@ -774,17 +776,51 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
         }
 
         let previous_timestamp = waveform.borrow().previous_sample_time(timestamp);
+        let (wildcard_changed, current_samples) = if event_expr_contains_wildcard(bound_event) {
+            let current =
+                sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
+            let current = project_samples(requested_signals, &current)?;
+            let changed = if let Some(previous_timestamp) = previous_timestamp {
+                let previous = sample_cache.sample_requested_batch(
+                    waveform,
+                    requested_resolved,
+                    previous_timestamp,
+                )?;
+                selected_value_changed(&project_samples(requested_signals, &previous)?, &current)
+            } else {
+                false
+            };
+            (Some(changed), Some(current))
+        } else {
+            (None, None)
+        };
         let frame = EventEvalFrame {
             timestamp,
             previous_timestamp,
             tracked_signals: tracked_signal_handles,
         };
-        if !event_expr_matches(event_expr_source, bound_event, host, &frame)? {
+        let event_matches = match wildcard_changed {
+            Some(changed) => event_expr_matches_with_any_tracked(
+                event_expr_source,
+                bound_event,
+                host,
+                &frame,
+                changed,
+            )?,
+            None => event_expr_matches(event_expr_source, bound_event, host, &frame)?,
+        };
+        if !event_matches {
             continue;
         }
 
-        let current_samples =
-            sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
+        let current_samples = match current_samples {
+            Some(samples) => samples,
+            None => {
+                let samples =
+                    sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
+                project_samples(requested_signals, &samples)?
+            }
+        };
         let stop = emit_row(
             requested_signals,
             &current_samples,
@@ -841,7 +877,7 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
     let mut previous_values = if row_mode == RowMode::Sparse {
         let baseline_samples =
             sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
-        sample_values(&baseline_samples)
+        sample_values(&project_samples(requested_signals, &baseline_samples)?)
     } else if row_values == RowValues::Delta {
         vec![None; requested_resolved.len()]
     } else {
@@ -871,6 +907,7 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
 
         let current_samples =
             sample_cache.sample_requested_batch(waveform, requested_resolved, sample_time)?;
+        let current_samples = project_samples(requested_signals, &current_samples)?;
         if emit_row(
             requested_signals,
             &current_samples,
@@ -1135,7 +1172,7 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
         let baseline_samples = waveform
             .borrow_mut()
             .sample_resolved_optional(requested_resolved, baseline_raw)?;
-        sample_values(&baseline_samples)
+        sample_values(&project_samples(requested_signals, &baseline_samples)?)
     } else if row_values == RowValues::Delta {
         vec![None; requested_resolved.len()]
     } else {
@@ -1195,6 +1232,7 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
                 })
             })
             .collect::<Result<Vec<_>, WavepeekError>>()?;
+        let current_samples = project_samples(requested_signals, &current_samples)?;
         if emit_row(
             requested_signals,
             &current_samples,
@@ -1452,7 +1490,7 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
         let baseline_samples = waveform
             .borrow_mut()
             .sample_resolved_optional(requested_resolved, baseline_raw)?;
-        sample_values(&baseline_samples)
+        sample_values(&project_samples(requested_signals, &baseline_samples)?)
     } else if row_values == RowValues::Delta {
         vec![None; requested_resolved.len()]
     } else {
@@ -1530,24 +1568,70 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             rolling.as_slice(),
             previous_bits.as_slice(),
         );
+        let (wildcard_changed, current_samples) = if event_expr_contains_wildcard(bound_event) {
+            let current = requested_tracked_indices
+                .iter()
+                .zip(requested_resolved.iter())
+                .map(|(tracked_index, resolved)| SampledSignalState {
+                    path: resolved.path.clone(),
+                    width: resolved.width,
+                    bits: rolling[*tracked_index].bits.clone(),
+                })
+                .collect::<Vec<_>>();
+            let previous = requested_tracked_indices
+                .iter()
+                .zip(requested_resolved.iter())
+                .map(|(tracked_index, resolved)| SampledSignalState {
+                    path: resolved.path.clone(),
+                    width: resolved.width,
+                    bits: previous_bits[*tracked_index]
+                        .clone()
+                        .unwrap_or_else(|| rolling[*tracked_index].bits.clone()),
+                })
+                .collect::<Vec<_>>();
+            let current = project_samples(requested_signals, &current)?;
+            let previous = project_samples(requested_signals, &previous)?;
+            (
+                Some(selected_value_changed(&previous, &current)),
+                Some(current),
+            )
+        } else {
+            (None, None)
+        };
         let frame = EventEvalFrame {
             timestamp,
             previous_timestamp,
             tracked_signals: tracked_signal_handles,
         };
-        if !event_expr_matches(event_expr_source, bound_event, &fast_host, &frame)? {
+        let event_matches = match wildcard_changed {
+            Some(changed) => event_expr_matches_with_any_tracked(
+                event_expr_source,
+                bound_event,
+                &fast_host,
+                &frame,
+                changed,
+            )?,
+            None => event_expr_matches(event_expr_source, bound_event, &fast_host, &frame)?,
+        };
+        if !event_matches {
             continue;
         }
 
-        let current_samples = requested_tracked_indices
-            .iter()
-            .zip(requested_resolved.iter())
-            .map(|(tracked_index, resolved)| SampledSignalState {
-                path: resolved.path.clone(),
-                width: resolved.width,
-                bits: rolling[*tracked_index].bits.clone(),
-            })
-            .collect::<Vec<_>>();
+        let current_samples = match current_samples {
+            Some(samples) => samples,
+            None => {
+                let samples = requested_tracked_indices
+                    .iter()
+                    .zip(requested_resolved.iter())
+                    .map(|(tracked_index, resolved)| SampledSignalState {
+                        path: resolved.path.clone(),
+                        width: resolved.width,
+                        bits: rolling[*tracked_index].bits.clone(),
+                    })
+                    .collect::<Vec<_>>();
+                project_samples(requested_signals, &samples)?
+            }
+        };
         if emit_row(
             requested_signals,
             &current_samples,
@@ -1623,6 +1707,29 @@ fn emit_row<S: ChangeSnapshotSink + ?Sized>(
     )?)?;
     *emitted += 1;
     Ok(false)
+}
+
+fn project_samples(
+    requested_signals: &[RequestedSignal],
+    samples: &[SampledSignalState],
+) -> Result<Vec<SampledSignalState>, WavepeekError> {
+    if requested_signals.len() != samples.len() {
+        return Err(WavepeekError::Internal(
+            "requested signal and sample counts do not match".to_string(),
+        ));
+    }
+    requested_signals
+        .iter()
+        .zip(samples)
+        .map(|(requested, sample)| requested.selected.project_sample(sample))
+        .collect()
+}
+
+fn selected_value_changed(previous: &[SampledSignalState], current: &[SampledSignalState]) -> bool {
+    previous
+        .iter()
+        .zip(current)
+        .any(|(previous, current)| previous.bits != current.bits)
 }
 
 fn sample_values(samples: &[SampledSignalState]) -> Vec<Option<String>> {
@@ -1741,11 +1848,12 @@ fn resolve_requested_signals(
             ));
         }
 
-        let path = scoped_signal_path(display, scope);
+        let selected = resolve_projected_signal(waveform, display, scope)?;
         resolved.push(RequestedSignal {
             display: display.to_string(),
-            path,
+            path: selected.path.clone(),
             relative_path: None,
+            selected,
         });
     }
 
@@ -1954,6 +2062,7 @@ mod tests {
     use crate::cli::sampling::SampleMode;
     use crate::engine::CommandData;
     use crate::engine::expr_runtime::bind_waveform_event_expr;
+    use crate::engine::signal_projection::ProjectedSignal;
     use crate::error::WavepeekError;
     use crate::expr::SignalHandle;
     use crate::expr::host::{ExprStorage, ExprType, ExprTypeKind, ExpressionHost, SampledValue};
@@ -2097,7 +2206,7 @@ mod tests {
             from: None,
             to: None,
             scope: Some("top".to_string()),
-            signals: vec!["sig".to_string(), "msg".to_string()],
+            signals: vec!["sig".to_string()],
             on: "*".to_string(),
             sample_mode: SampleMode::Native,
             row_mode: RowMode::Dense,
@@ -2121,6 +2230,7 @@ mod tests {
                 display: "sig".to_string(),
                 path: "top.sig".to_string(),
                 relative_path: Some("sig".to_string()),
+                selected: resolved[0].selected.clone(),
             }],
             &[SampledSignalState {
                 path: "top.sig".to_string(),
@@ -2145,6 +2255,7 @@ mod tests {
                 display: "sig".to_string(),
                 path: "top.sig".to_string(),
                 relative_path: Some("sig".to_string()),
+                selected: resolved[0].selected.clone(),
             }],
             &[SampledSignalState {
                 path: "top.sig".to_string(),
@@ -2667,15 +2778,16 @@ mod tests {
         let (host, bound_event) =
             bind_waveform_event_expr(waveform.clone(), Some("top"), "posedge sig")
                 .expect("event expression should bind");
-        let requested_signals = vec![RequestedSignal {
-            display: "sig".to_string(),
-            path: "top.sig".to_string(),
-            relative_path: Some("sig".to_string()),
-        }];
         let requested_resolved = waveform
             .borrow()
             .resolve_signals(&["top.sig".to_string()])
             .expect("signal should resolve");
+        let requested_signals = vec![RequestedSignal {
+            display: "sig".to_string(),
+            path: "top.sig".to_string(),
+            relative_path: Some("sig".to_string()),
+            selected: ProjectedSignal::unprojected(requested_resolved[0].clone()),
+        }];
         let requested_expr_sources = waveform
             .borrow()
             .resolve_expr_signals(&["top.sig".to_string()])

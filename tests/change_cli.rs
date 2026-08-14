@@ -2404,3 +2404,108 @@ fn change_runtime_manifest_cases_pass() {
         }
     }
 }
+
+const FLAT_PROJECTION_VCD: &str = concat!(
+    "$timescale 1ns $end\n",
+    "$scope module top $end\n",
+    "$var wire 8 ! data $end\n",
+    "$upscope $end\n",
+    "$enddefinitions $end\n",
+    "#0\nb00000000 !\n",
+    "#5\nb00001111 !\n",
+    "#10\nb11111111 !\n",
+);
+
+#[test]
+fn change_compares_projected_values_for_wildcard_sparse_and_delta_rows() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "change-flat-projection.vcd");
+    let run = |engine: &str| {
+        let output = wavepeek_cmd()
+            .env("DEBUG", "1")
+            .args([
+                "change",
+                "--waves",
+                fixture.path().to_str().unwrap(),
+                "--scope",
+                "top",
+                "--signals",
+                "data[7:4],data[5:2],data,data[7:4]",
+                "--on",
+                "*",
+                "--sample-mode",
+                "native",
+                "--row-mode",
+                "sparse",
+                "--row-values",
+                "delta",
+                "--tune-engine",
+                engine,
+                "--json",
+            ])
+            .output()
+            .expect("change should execute");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        parse_json(&output.stdout)["data"].clone()
+    };
+
+    let expected = json!([
+        {
+            "time": "5ns",
+            "sample_time": "5ns",
+            "signals": [
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+                {"path": "top.data[5:2]", "relative_path": "data[5:2]", "value": "4'h3"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+            ]
+        },
+        {
+            "time": "10ns",
+            "sample_time": "10ns",
+            "signals": [
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'hf"},
+                {"path": "top.data[5:2]", "relative_path": "data[5:2]", "value": "4'hf"},
+                {"path": "top.data", "relative_path": "data", "value": "8'hff"},
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'hf"},
+            ]
+        }
+    ]);
+    assert_eq!(run("baseline"), expected);
+    assert_eq!(run("fused"), expected);
+}
+
+#[test]
+fn change_wildcard_ignores_changes_outside_the_only_projection() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "change-projection-wildcard.vcd");
+    let output = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.path().to_str().unwrap(),
+            "--scope",
+            "top",
+            "--signals",
+            "data[7:4]",
+            "--on",
+            "*",
+            "--sample-mode",
+            "native",
+            "--json",
+        ])
+        .output()
+        .expect("change should execute");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        parse_json(&output.stdout)["data"].as_array().unwrap().len(),
+        1
+    );
+    assert_eq!(parse_json(&output.stdout)["data"][0]["time"], "10ns");
+}

@@ -16,19 +16,20 @@ use crate::engine::expr_runtime::{
     event_expr_is_edge_only, event_expr_matches, event_iff_handles, open_shared_waveform,
     referenced_signal_handles,
 };
+use crate::engine::signal_projection::{ProjectedSignal, resolve_projected_signal};
 use crate::engine::time::{
     DumpTimeContext, TimeValidationError, format_raw_timestamp, parse_dump_time_context,
     validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
 use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary, scoped_signal_path,
+    CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary,
 };
 use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, BoundLogicalExpr, EventEvalFrame};
 use crate::waveform::{
-    ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    SignalId, display_signal_path, expr_host::WaveformExprHost,
+    ChangeCandidateCollectionMode, ExprResolvedSignal, SampledSignalState, SignalId,
+    display_signal_path, expr_host::WaveformExprHost,
 };
 
 const DEFAULT_SOURCE_NAME: &str = "transfer";
@@ -107,7 +108,7 @@ struct PayloadSignal {
     display: String,
     path: String,
     relative_path: Option<String>,
-    resolved: ResolvedSignal,
+    selected: ProjectedSignal,
 }
 
 #[derive(Debug)]
@@ -573,7 +574,6 @@ fn build_plan(args: &GenericArgs) -> Result<ExtractPlan, WavepeekError> {
         )
     })?;
     let payload = normalize_payload(payload)?;
-    require_unique_payloads(&payload)?;
 
     Ok(ExtractPlan::new(vec![ExtractSource::new(
         0,
@@ -626,7 +626,6 @@ fn plan_from_source_file(path: &std::path::Path) -> Result<ExtractPlan, Wavepeek
             )));
         }
         let payload = normalize_payload(source.payload)?;
-        require_unique_payloads(&payload)?;
         sources.push(ExtractSource::new(
             declaration_index,
             source.name,
@@ -660,18 +659,6 @@ fn normalize_payload(payload: Vec<String>) -> Result<Vec<String>, WavepeekError>
             }
         })
         .collect()
-}
-
-fn require_unique_payloads(payload: &[String]) -> Result<(), WavepeekError> {
-    let mut seen = HashSet::new();
-    for signal in payload {
-        if !seen.insert(signal.as_str()) {
-            return Err(WavepeekError::Args(format!(
-                "payload contains duplicate signal '{signal}'. See 'wavepeek extract generic --help'."
-            )));
-        }
-    }
-    Ok(())
 }
 
 fn bind_extract_sources(
@@ -729,29 +716,29 @@ fn resolve_payload_signals(
     include_relative_paths: bool,
     payload: &[String],
 ) -> Result<Vec<PayloadSignal>, WavepeekError> {
-    let canonical_paths = payload
+    let selected = {
+        let waveform = waveform.borrow();
+        payload
+            .iter()
+            .map(|token| resolve_projected_signal(&waveform, token, scope))
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    let source_paths = selected
         .iter()
-        .map(|token| scoped_signal_path(token, scope))
+        .map(|selected| selected.source.path.clone())
         .collect::<Vec<_>>();
-    require_unique_payloads(&canonical_paths)?;
-
-    let resolved = waveform.borrow().resolve_signals_with_diagnostics(
-        canonical_paths.as_slice(),
-        payload,
-        scope,
-    )?;
     let expr_resolved = waveform.borrow().resolve_expr_signals_with_diagnostics(
-        canonical_paths.as_slice(),
+        source_paths.as_slice(),
         payload,
         scope,
     )?;
     waveform
         .borrow()
         .validate_expr_values_supported(expr_resolved.as_slice())?;
-    Ok(resolved
+    Ok(selected
         .into_iter()
-        .map(|resolved| {
-            let display = display_signal_path(resolved.path.as_str(), scope).to_string();
+        .map(|selected| {
+            let display = display_signal_path(selected.path.as_str(), scope).to_string();
             let relative_path = if include_relative_paths && scope.is_some() {
                 Some(display.clone())
             } else {
@@ -759,9 +746,9 @@ fn resolve_payload_signals(
             };
             PayloadSignal {
                 display,
-                path: resolved.path.clone(),
+                path: selected.path.clone(),
                 relative_path,
-                resolved,
+                selected,
             }
         })
         .collect())
@@ -872,8 +859,8 @@ fn preload_extract_value_changes(
     let mut seen_payload = HashSet::new();
     for source in sources {
         for payload in &source.payload {
-            if seen_payload.insert(payload.resolved.id) {
-                payload_sources.push(payload.resolved.clone());
+            if seen_payload.insert(payload.selected.source.id) {
+                payload_sources.push(payload.selected.source.clone());
             }
         }
     }
@@ -1095,7 +1082,7 @@ fn build_row(
     let resolved = source
         .payload
         .iter()
-        .map(|payload| payload.resolved.clone())
+        .map(|payload| payload.selected.source.clone())
         .collect::<Vec<_>>();
     let samples = waveform
         .borrow_mut()
@@ -1119,6 +1106,7 @@ fn build_payload_value(
     requested: &PayloadSignal,
     sampled: &SampledSignalState,
 ) -> Result<ExtractPayloadValue, WavepeekError> {
+    let sampled = requested.selected.project_sample(sampled)?;
     let bits = sampled.bits.as_ref().ok_or_else(|| {
         WavepeekError::Signal(format!(
             "signal '{}' has no value at or before requested time",
@@ -1170,7 +1158,7 @@ pub(crate) fn parse_bound_time(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_plan, normalize_payload, require_unique_payloads};
+    use super::{build_plan, normalize_payload};
     use crate::cli::extract::GenericArgs;
     use crate::cli::limits::LimitArg;
 
@@ -1198,11 +1186,10 @@ mod tests {
     }
 
     #[test]
-    fn payload_normalization_rejects_empty_and_duplicate_names() {
+    fn payload_normalization_rejects_empty_and_preserves_duplicates() {
         assert!(normalize_payload(vec![" ".to_string()]).is_err());
         let payload = normalize_payload(vec![" data ".to_string(), "data".to_string()])
             .expect("trimmed payload should parse");
         assert_eq!(payload, vec!["data", "data"]);
-        assert!(require_unique_payloads(&payload).is_err());
     }
 }

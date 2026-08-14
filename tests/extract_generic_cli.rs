@@ -648,9 +648,9 @@ fn extract_generic_scope_mixes_relative_and_canonical_names() {
             "cpu.valid,top.cpu.valid",
         ])
         .assert()
-        .failure()
-        .stderr(predicate::str::contains(
-            "payload contains duplicate signal 'top.cpu.valid'",
+        .success()
+        .stdout(predicate::eq(
+            "@5ns sample@4ns cpu.valid=1'h0 cpu.valid=1'h0\n",
         ));
 }
 
@@ -727,9 +727,6 @@ fn extract_generic_rejects_bad_sources_and_paths_outside_scope() {
     let duplicate_names = write_source(
         r#"{"kind":"extract.generic.sources","sources":[{"name":"dup","on":"posedge clk","when":"valid","payload":["data"]},{"name":"dup","on":"posedge clk","when":"valid","payload":["last"]}]}"#,
     );
-    let duplicate_payload = write_source(
-        r#"{"kind":"extract.generic.sources","sources":[{"name":"a","on":"posedge clk","when":"valid","payload":["data","data"]}]}"#,
-    );
     let empty_sources = write_source(r#"{"kind":"extract.generic.sources","sources":[]}"#);
 
     wavepeek_cmd()
@@ -746,20 +743,6 @@ fn extract_generic_rejects_bad_sources_and_paths_outside_scope() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("duplicate source name 'dup'"));
-    wavepeek_cmd()
-        .args([
-            "extract",
-            "generic",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--source",
-            duplicate_payload.path().to_str().unwrap(),
-        ])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("duplicate signal 'data'"));
     wavepeek_cmd()
         .args([
             "extract",
@@ -850,4 +833,87 @@ fn extract_generic_rejects_zero_max() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("--max must be greater than 0"));
+}
+
+const FLAT_PROJECTION_VCD: &str = concat!(
+    "$timescale 1ns $end\n",
+    "$scope module top $end\n",
+    "$var wire 1 ! clk $end\n",
+    "$var wire 8 \" data $end\n",
+    "$upscope $end\n",
+    "$enddefinitions $end\n",
+    "#0\n0!\nb00000000 \"\n",
+    "#4\nb00001111 \"\n",
+    "#5\n1!\n",
+);
+
+#[test]
+fn extract_generic_projects_and_preserves_duplicate_payloads_from_cli_and_source() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "extract-flat-projection.vcd");
+    let source = write_source(
+        r#"{
+  "kind": "extract.generic.sources",
+  "sources": [
+    {"name": "transfer", "on": "posedge clk", "when": "1", "payload": ["data[7:4]", "data[7:4]", "data[5:2]", "data"]}
+  ]
+}
+"#,
+    );
+    let expected = json!([{
+        "time": "5ns",
+        "sample_time": "4ns",
+        "source": "transfer",
+        "payload": [
+            {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+            {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+            {"path": "top.data[5:2]", "relative_path": "data[5:2]", "value": "4'h3"},
+            {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+        ]
+    }]);
+
+    let cli = wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.path().to_str().unwrap(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge clk",
+            "--when",
+            "1",
+            "--payload",
+            "data[7:4],data[7:4],data[5:2],data",
+            "--json",
+        ])
+        .output()
+        .expect("CLI extract should execute");
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    assert_eq!(parse_json(&cli.stdout)["data"], expected);
+
+    let from_source = wavepeek_cmd()
+        .args([
+            "extract",
+            "generic",
+            "--waves",
+            fixture.path().to_str().unwrap(),
+            "--scope",
+            "top",
+            "--source",
+            source.path().to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .expect("source-file extract should execute");
+    assert!(
+        from_source.status.success(),
+        "{}",
+        String::from_utf8_lossy(&from_source.stderr)
+    );
+    assert_eq!(parse_json(&from_source.stdout)["data"], expected);
 }

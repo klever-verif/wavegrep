@@ -237,7 +237,7 @@ $ wavepeek extract generic --waves path/to/dump.vcd \
 
 `--on` selects candidate event timestamps. `extract generic` only accepts edge-only event expressions, such as `posedge clk`, `negedge clk`, or `edge clk`, with optional `iff` gating. Wildcard triggers, plain signal triggers, and mixed level/edge triggers are rejected.
 
-`--when` is a Boolean expression evaluated at the pre-edge sample point. `--payload` is the ordered list of signals sampled at the same pre-edge point. The command emits a row only when the event matches and `--when` is true.
+`--when` is a Boolean expression evaluated at the pre-edge sample point. `--payload` is the ordered list of signals sampled at the same pre-edge point. Payload entries may append one static decimal `[msb:lsb]` projection to a flat integral signal. Bit zero is the rightmost bit of the normalized sampled value, and `[n:n]` selects one bit. Exact waveform paths resolve first; `[n]` remains ordinary waveform path syntax. Duplicate, overlapping, projected, and complete-source payload entries are preserved in request order. The command emits a row only when the event matches and `--when` is true.
 
 With `--scope`, signal references in `--on`, `--when`, and `--payload` may be relative or canonical paths inside the scope, and both forms may be mixed. The same rule applies to source-file fields.
 
@@ -271,7 +271,7 @@ Then run:
 $ wavepeek extract generic --waves path/to/dump.vcd --scope top.dut --source sources.json --jsonl
 ```
 
-Source names must be unique within the file. Payload names must be unique within one source. Source-file mode conflicts with `--name`, `--on`, `--when`, and `--payload` because those fields come from the file. Source-file fields and behavior are described above and in command help.
+Source names must be unique within the file. Payload arrays accept the same projections as CLI `--payload` and preserve duplicate entries. Source-file mode conflicts with `--name`, `--on`, `--when`, and `--payload` because those fields come from the file. Source-file fields and behavior are described above and in command help.
 
 ## Pre-edge sampling
 

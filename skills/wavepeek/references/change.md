@@ -23,6 +23,12 @@ Use `--on '*' --sample-mode native` when you want any change in the tracked sign
 
 For exact syntax and flags, run `wavepeek help change`.
 
+## Project flat vector ranges
+
+A `--signals` entry may end in one static decimal `[msb:lsb]`. The projection indexes the normalized sampled value, with bit zero at the right, and `[n:n]` selects one bit. Exact waveform paths are resolved first; `[n]` remains ordinary waveform path syntax. Dynamic, reversed, out-of-range, chained, and multidimensional selections are rejected.
+
+Projected entries are independent request positions. Overlapping ranges, duplicate ranges, and a range beside its complete source are preserved in order. Sparse and delta comparisons use each projected value rather than the complete source. For `--on '*'`, a source change outside every requested projection does not select a row; adding the complete source makes every source change relevant again. Explicit named and edge terms in `--on` continue to evaluate their complete expression signal.
+
 ## Start with a short window and a focused signal list
 
 This is the fastest way to answer "what changed here?":
@@ -197,7 +203,7 @@ warning[WPK-W0001]: limit disabled: --max=unlimited
 - `--on` guarantees a row only in dense mode. Sparse mode suppresses a selected sample if none of the requested `--signals` changed from the previous selected sample.
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were printed.
-- In scoped mode, `--signals` and `--on` accept relative names and canonical paths inside the scope, including both forms in one request. Without `--scope`, use canonical full paths.
+- In scoped mode, `--signals` and `--on` accept relative names and canonical paths inside the scope, including both forms in one request. `--signals` also accepts one trailing static `[msb:lsb]` projection. Without `--scope`, use canonical full paths.
 - Empty output is valid. If the query is well-formed but nothing matched, the command succeeds and emits a diagnostic:
 
 ```text

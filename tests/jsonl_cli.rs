@@ -487,3 +487,37 @@ fn jsonl_broken_pipe_from_early_consumer_is_silent_success() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+#[test]
+fn value_jsonl_emits_projected_paths_and_widths() {
+    let fixture = fixture_path("m2_core.vcd");
+    let output = wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.to_str().unwrap(),
+            "--at",
+            "10ns",
+            "--scope",
+            "top",
+            "--signals",
+            "data[3:0]",
+            "--jsonl",
+        ])
+        .output()
+        .expect("value JSONL should execute");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let records = parse_stream(&output.stdout, "value");
+    let data = records
+        .iter()
+        .find(|record| record["type"] == "data")
+        .expect("data record should exist");
+    assert_eq!(
+        data["data"]["signals"][0],
+        json!({"path": "top.data[3:0]", "relative_path": "data[3:0]", "value": "4'hf"})
+    );
+}

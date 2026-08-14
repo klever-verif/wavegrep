@@ -428,6 +428,8 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         "`--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows",
         "`--row-values full|delta` controls whether rows contain all requested signals or only changed signals",
         "Range boundaries are inclusive",
+        "`--signals` accepts trailing static `[msb:lsb]` projections",
+        "wildcard comparisons use the projected values",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -450,11 +452,7 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(help.contains(
             "Canonical scope path for relative or in-scope canonical signal and trigger names"
         ));
-        assert!(
-            help.contains(
-                "Comma-separated canonical paths, or relative names resolved under --scope"
-            )
-        );
+        assert!(help.contains("Comma-separated signal paths or flat [msb:lsb] projections"));
         assert!(
             help.contains("Select whether every sampled event or only changed samples become rows")
         );
@@ -701,6 +699,8 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         "By default, signal names are top-related canonical paths",
         "set `--scope` once with a canonical scope path",
         "Relative and canonical references inside the selected scope may be mixed",
+        "A trailing static `[msb:lsb]` projects a flat integral signal's normalized sampled value",
+        "`[n]` remains ordinary waveform path syntax",
         "more precise than dump resolution",
     ] {
         assert!(
@@ -719,11 +719,7 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(
             help.contains("Canonical scope path for relative or in-scope canonical signal names")
         );
-        assert!(
-            help.contains(
-                "Comma-separated canonical paths, or relative names resolved under --scope"
-            )
-        );
+        assert!(help.contains("Comma-separated signal paths or flat [msb:lsb] projections"));
         assert!(help.contains("Show canonical signal paths"));
         assert!(help.contains("Machine-readable JSON output"));
         assert!(!help.contains("(`--waves <FILE>` is required)"));
@@ -957,6 +953,8 @@ fn extract_generic_help_is_self_descriptive() {
         "Extract protocol-neutral event rows from waveform signals.",
         "Selects edge-only event timestamps with --on.",
         "Always samples --when and --payload at the pre-edge sample point.",
+        "Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.",
+        "Comma-separated payload paths or flat [msb:lsb] projections",
         "Canonical scope path for relative or in-scope canonical event, predicate, and payload names",
         "In source-file mode, --source provides one or more sources",
         "Source-file fields and behavior are documented in the corresponding protocol topic.",

@@ -8,6 +8,12 @@ use tempfile::NamedTempFile;
 mod common;
 use common::{fixture_path, wavepeek_cmd};
 
+fn write_fixture(contents: &str, suffix: &str) -> NamedTempFile {
+    let fixture = NamedTempFile::with_suffix(suffix).expect("temp fixture should create");
+    fs::write(fixture.path(), contents).expect("fixture should write");
+    fixture
+}
+
 #[test]
 fn value_human_output_with_scope_is_default() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
@@ -983,5 +989,128 @@ fn value_debug_trace_can_precede_fatal_output() {
             .last()
             .expect("fatal line should exist")
             .starts_with("fatal: ")
+    );
+}
+
+const FLAT_PROJECTION_VCD: &str = concat!(
+    "$timescale 1ns $end\n",
+    "$scope module top $end\n",
+    "$var wire 8 ! data $end\n",
+    "$scope module steps[0] $end\n",
+    "$var wire 1 \" flag $end\n",
+    "$upscope $end\n",
+    "$upscope $end\n",
+    "$enddefinitions $end\n",
+    "#0\nb00000000 !\n0\"\n",
+    "#5\nb00001111 !\n1\"\n",
+    "#10\nb11111111 !\n",
+);
+
+#[test]
+fn value_projects_flat_ranges_and_preserves_request_positions() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "value-flat-projection.vcd");
+    let output = wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.path().to_str().unwrap(),
+            "--at",
+            "10ns",
+            "--scope",
+            "top",
+            "--signals",
+            "data[7:4],data[5:2],data,data[7:4],data[0:0],steps[0].flag",
+            "--json",
+        ])
+        .output()
+        .expect("value should execute");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).expect("stdout should be json");
+    assert_eq!(
+        value["data"][0]["signals"],
+        json!([
+            {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'hf"},
+            {"path": "top.data[5:2]", "relative_path": "data[5:2]", "value": "4'hf"},
+            {"path": "top.data", "relative_path": "data", "value": "8'hff"},
+            {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'hf"},
+            {"path": "top.data[0:0]", "relative_path": "data[0:0]", "value": "1'h1"},
+            {"path": "top.steps[0].flag", "relative_path": "steps[0].flag", "value": "1'h1"},
+        ])
+    );
+}
+
+#[test]
+fn value_rejects_invalid_flat_ranges_before_sampling() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "value-invalid-projection.vcd");
+    for (projection, message) in [
+        ("data[3:4]", "msb must be greater"),
+        ("data[8:0]", "outside signal 'top.data' width 8"),
+        ("data[WIDTH:0]", "non-negative decimal integers"),
+        ("data[7:4][3:2]", "chained and multidimensional"),
+        ("data[3]", "no dumped signal with basename 'data[3]'"),
+    ] {
+        wavepeek_cmd()
+            .args([
+                "value",
+                "--waves",
+                fixture.path().to_str().unwrap(),
+                "--at",
+                "10ns",
+                "--scope",
+                "top",
+                "--signals",
+                projection,
+            ])
+            .assert()
+            .failure()
+            .code(1)
+            .stderr(predicate::str::contains(message));
+    }
+}
+
+#[test]
+fn value_projects_normalized_ascending_and_unknown_bits() {
+    let fixture = fixture_path("value_vectors.vcd");
+    let output = wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.to_str().unwrap(),
+            "--at",
+            "0ns,5ns",
+            "--scope",
+            "top",
+            "--signals",
+            "asc[3:2],nibble[1:0],status[1:0]",
+            "--json",
+        ])
+        .output()
+        .expect("value should execute");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).expect("stdout should be json");
+    assert_eq!(
+        value["data"][0]["signals"],
+        json!([
+            {"path": "top.asc[3:2]", "relative_path": "asc[3:2]", "value": "2'h3"},
+            {"path": "top.nibble[1:0]", "relative_path": "nibble[1:0]", "value": "2'h2"},
+            {"path": "top.status[1:0]", "relative_path": "status[1:0]", "value": "2'hz"},
+        ])
+    );
+    assert_eq!(
+        value["data"][1]["signals"],
+        json!([
+            {"path": "top.asc[3:2]", "relative_path": "asc[3:2]", "value": "2'h0"},
+            {"path": "top.nibble[1:0]", "relative_path": "nibble[1:0]", "value": "2'hx"},
+            {"path": "top.status[1:0]", "relative_path": "status[1:0]", "value": "2'h3"},
+        ])
     );
 }

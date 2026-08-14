@@ -45,6 +45,8 @@ The commands that depend on this model are:
 
 Unresolved names are errors. Scoped generic queries may mix relative and in-scope canonical references, but cannot escape the selected scope. Protocol extract mappings remain scope-relative.
 
+`value --signals`, `change --signals`, and `extract generic` payloads may append one flat static decimal `[msb:lsb]` projection. Resolution first tries the complete token as a waveform path, then removes one trailing projection and resolves its base. `[n]` therefore remains ordinary waveform path syntax; use `[n:n]` for one projected bit. Projection indexes normalized sampled bits with bit zero at the right. These request lists preserve order and duplicates, including overlapping projections and a projection beside its complete source.
+
 In human-readable output, `value`, `change`, and `extract generic` derive signal labels from canonical paths. With `--scope`, labels are relative to that scope and preserve nested components below it; without `--scope` or with `--abs`, labels are canonical. Input spelling does not affect these labels. JSON and JSONL `path` fields remain canonical.
 
 If distinct FSDB records map to one canonical signal path, wavepeek quarantines that path instead of selecting a backing record. Scopes and unambiguous signals remain available. Signal listings omit quarantined paths with a diagnostic, while an explicit reference to one fails as an ambiguous signal.
@@ -82,8 +84,8 @@ The main ordering rules are:
 - `scope` traverses hierarchy in pre-order depth-first order with lexicographic child ordering.
 - Recursive `signal` queries walk scopes in that same stable order and sort signals deterministically within each visited scope.
 - `value` preserves the request order from `--at` and `--signals`, including duplicates.
-- `change` and `property` emit rows in ascending normalized timestamp order.
-- `extract` emits rows in ascending event timestamp order and, when multiple sources match at the same timestamp, source declaration order.
+- `change` preserves `--signals` request order and duplicates within each full row or changed subset, and emits rows in ascending normalized timestamp order.
+- `extract` preserves payload request order and duplicates, and emits rows in ascending event timestamp order and, when multiple sources match at the same timestamp, source declaration order.
 - When multiple diagnostics apply, their order is deterministic for a given command contract.
 
 These ordering guarantees are part of the command model because automation depends on predictable, replayable output.

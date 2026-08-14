@@ -18,11 +18,11 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 
 - [x] (2026-08-14 17:40Z) Read issue #94, repository guidance, public contracts, command engines, waveform resolution and sampling, tests, fixture policy, and review requirements.
 - [x] (2026-08-14 17:40Z) Resolve product questions: source-file generic payloads support projections; request order and duplicates are preserved in every command, including `extract generic`.
-- [ ] Add focused failing tests and a shared source fixture proving parsing, normalized slicing, exact bracketed-path precedence, scoped names, output shape, duplicate/overlapping/full selections, and invalid diagnostics.
-- [ ] Implement one shared engine-level flat projection resolver and sampler, then integrate `value`, `change`, and `extract generic` without backend changes.
-- [ ] Make every `change` execution path compare projected values for sparse, delta, and wildcard decisions.
-- [ ] Update CLI help, public packaged-skill references, and contract tests.
-- [ ] Run focused tests, VCD/FST parity, optional FSDB tests, `just ci`, and `just check`; record evidence.
+- [x] (2026-08-14 18:08Z) Add focused tests proving parsing, normalized slicing, scoped names, output shape, duplicate/overlapping/full selections, invalid diagnostics, JSONL, and VCD/FST/FSDB parity.
+- [x] (2026-08-14 18:08Z) Implement one shared engine-level flat projection resolver and sampler, then integrate `value`, `change`, and `extract generic` without backend changes.
+- [x] (2026-08-14 18:08Z) Make every applicable `change` execution path compare projected values for sparse, delta, and wildcard decisions.
+- [x] (2026-08-14 18:08Z) Update CLI help, public packaged-skill references, and contract tests.
+- [ ] Run focused tests, VCD/FST parity, optional FSDB tests, `just ci`, and `just check`; record evidence. (`just ci` passed with FSDB; `just check` remains.)
 - [ ] Run Luna Max focused review wave, apply findings, and verify affected lanes.
 - [ ] Run Terra High focused review wave over the same areas, apply findings, and verify affected lanes.
 - [ ] Run independent Sol High control review, apply any final findings, and rerun gates.
@@ -38,6 +38,12 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 
 - Observation: all backends already return normalized sampled bit strings, so bit zero maps to the rightmost byte without declaration-direction metadata.
   Evidence: `src/waveform/types.rs::SampledSignalState`, Wellen `bit_string()` conversion, and FSDB sampled-width validation.
+
+- Observation: the existing sparse/delta contract emits every requested position in the first selected row, then only changed positions. Projecting before `emit_row` preserved that behavior without special cases.
+  Evidence: `tests/change_cli.rs::change_compares_projected_values_for_wildcard_sparse_and_delta_rows` passes in forced baseline and fused modes.
+
+- Observation: VCD/FST and FSDB preserve known bits around unknown values sufficiently for range slicing; literal formatting may collapse an unknown-containing selected value after slicing, as intended.
+  Evidence: `value_projects_normalized_ascending_and_unknown_bits` and `fsdb_value_json_matches_vcd_sampling_contract` pass.
 
 ## Decision Log
 
@@ -63,7 +69,7 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 
 ## Outcomes & Retrospective
 
-Implementation has not started. The intended outcome is one shared projection implementation, command-specific integration only where comparison/event behavior differs, no backend or public JSON schema expansion, and a reviewed pull request with all repository gates passing.
+Implementation and user documentation are complete. One shared engine module resolves and slices selections, all three command surfaces preserve duplicate positions, and projected wildcard comparison is covered in baseline, fused, VCD/FST, and FSDB tests. `just ci` passes, including 665 unit tests, integration suites, 22 FSDB CLI tests, documentation publishing checks, and coverage above 92%. Reviews, `just check`, plan cleanup, and the pull request remain.
 
 ## Context and Orientation
 
@@ -174,3 +180,5 @@ Use only the Rust standard library and existing repository dependencies. The sha
 Keep `crate::waveform::{ResolvedSignal,SampledSignalState}` and all backend public behavior unchanged. Keep the existing JSON DTO field names unchanged. If wildcard evaluation needs an override, preserve the current public `event_matches_at` entrypoint and make existing non-`change` callers receive identical semantics.
 
 Plan revision note (2026-08-14): Initial self-contained plan created after repository research and user decisions on `[n:n]`, JSON shape, source-file payload support, and duplicate preservation.
+
+Plan revision note (2026-08-14 18:08Z): Recorded completed implementation, docs, cross-backend tests, wildcard behavior, and passing `just ci`; review and handoff work remains.

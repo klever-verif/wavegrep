@@ -2,14 +2,15 @@ use serde::Serialize;
 
 use crate::cli::value::ValueArgs;
 use crate::debug_trace::DebugTrace;
+use crate::engine::signal_projection::{ProjectedSignal, resolve_projected_signal};
 use crate::engine::time::{
     DumpTimeContext, TimeValidationError, format_raw_timestamp, parse_dump_time_context,
     validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{CommandData, CommandName, CommandResult, scoped_signal_path};
+use crate::engine::{CommandData, CommandName, CommandResult};
 use crate::error::WavepeekError;
-use crate::waveform::{Waveform, WaveformMetadata, display_signal_path};
+use crate::waveform::{SampledSignalState, Waveform, WaveformMetadata, display_signal_path};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ValueSignalValue {
@@ -32,7 +33,7 @@ pub type ValueData = Vec<ValueSnapshot>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RequestedSignal {
     display: String,
-    path: String,
+    selected: ProjectedSignal,
 }
 
 pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
@@ -61,26 +62,24 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
         || serde_json::json!({"times": query_times_raw.len()}),
     );
 
-    let canonical_paths = requested_signals
+    let source_paths = requested_signals
         .iter()
-        .map(|signal| signal.path.clone())
+        .map(|signal| signal.selected.source.path.clone())
         .collect::<Vec<_>>();
-    let query_names = requested_signals
-        .iter()
-        .map(|signal| signal.display.clone())
-        .collect::<Vec<_>>();
-    waveform.resolve_signals_with_diagnostics(
-        &canonical_paths,
-        &query_names,
-        args.scope.as_deref(),
-    )?;
     let mut snapshots = Vec::with_capacity(query_times_raw.len());
 
     for query_time_raw in query_times_raw {
-        let sampled = waveform.sample_signals_at_time(&canonical_paths, query_time_raw)?;
-        let signals = sampled
-            .into_iter()
-            .map(|sampled| {
+        let sampled = waveform.sample_signals_at_time(&source_paths, query_time_raw)?;
+        let signals = requested_signals
+            .iter()
+            .zip(sampled)
+            .map(|(requested, sampled)| {
+                let sampled = requested.selected.project_sample(&SampledSignalState {
+                    path: sampled.path,
+                    width: sampled.width,
+                    bits: Some(sampled.bits),
+                })?;
+                let bits = sampled.bits.expect("value sampling always returns bits");
                 let display =
                     display_signal_path(sampled.path.as_str(), args.scope.as_deref()).to_string();
                 let relative_path = if (args.json || args.jsonl) && args.scope.is_some() {
@@ -88,14 +87,14 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
                 } else {
                     None
                 };
-                ValueSignalValue {
+                Ok(ValueSignalValue {
                     display,
                     path: sampled.path,
                     relative_path,
-                    value: format_verilog_literal(sampled.width, sampled.bits.as_str()),
-                }
+                    value: format_verilog_literal(sampled.width, bits.as_str()),
+                })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, WavepeekError>>()?;
 
         snapshots.push(ValueSnapshot {
             time: format_raw_timestamp(query_time_raw, dump_time.dump_tick)?,
@@ -105,7 +104,7 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
     debug.event("value.sample.done", || {
         serde_json::json!({
             "snapshots": snapshots.len(),
-            "signals": canonical_paths.len(),
+            "signals": source_paths.len(),
         })
     });
 
@@ -170,10 +169,9 @@ fn resolve_requested_signals(
             ));
         }
 
-        let path = scoped_signal_path(display, scope);
         resolved.push(RequestedSignal {
             display: display.to_string(),
-            path,
+            selected: resolve_projected_signal(waveform, display, scope)?,
         });
     }
 
@@ -216,7 +214,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use super::{
-        RequestedSignal, WaveformMetadata, map_value_time_validation_error, parse_at_tokens,
+        WaveformMetadata, map_value_time_validation_error, parse_at_tokens,
         resolve_requested_signals, run,
     };
     use crate::cli::value::ValueArgs;
@@ -240,26 +238,22 @@ mod tests {
         let fixture = write_fixture(TEST_VCD, ".value-run.vcd");
         let waveform = Waveform::open(fixture.path()).expect("waveform should open");
 
-        assert_eq!(
-            resolve_requested_signals(
-                &waveform,
-                Some("top"),
-                &ValueArgs {
-                    waves: PathBuf::from(fixture.path()),
-                    at: "5ns".to_string(),
-                    scope: Some("top".to_string()),
-                    signals: vec!["sig".to_string()],
-                    abs: false,
-                    json: false,
-                    jsonl: false,
-                },
-            )
-            .expect("scoped signals should resolve"),
-            vec![RequestedSignal {
-                display: "sig".to_string(),
-                path: "top.sig".to_string(),
-            }]
-        );
+        let resolved = resolve_requested_signals(
+            &waveform,
+            Some("top"),
+            &ValueArgs {
+                waves: PathBuf::from(fixture.path()),
+                at: "5ns".to_string(),
+                scope: Some("top".to_string()),
+                signals: vec!["sig".to_string()],
+                abs: false,
+                json: false,
+                jsonl: false,
+            },
+        )
+        .expect("scoped signals should resolve");
+        assert_eq!(resolved[0].display, "sig");
+        assert_eq!(resolved[0].selected.path, "top.sig");
         assert!(
             resolve_requested_signals(
                 &waveform,
