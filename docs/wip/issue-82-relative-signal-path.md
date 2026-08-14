@@ -22,7 +22,7 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 - [x] (2026-08-14 04:54Z) Ran focused VCD/FST, JSONL, FSDB, and full CI checks, then committed the implementation as `3d47328`.
 - [x] (2026-08-14 05:05Z) Ran Luna Max code/architecture and tests/docs lanes, fixed all four findings, verified focused tests and full CI, and committed `de207e5`.
 - [x] (2026-08-14 05:07Z) Ran Terra High over the same code/architecture and tests/docs lanes; both reported no substantive findings.
-- [ ] Run independent Sol High control review, fix any substantive findings, and run final `./dev just check` and `./dev just ci`.
+- [x] (2026-08-14 05:11Z) Sol High reported no substantive findings; final `./dev just check` and `./dev just ci` both passed with FSDB enabled.
 - [ ] Remove this branch-local plan, commit final cleanup, push the branch, and open a pull request for issue #82.
 
 ## Surprises & Discoveries
@@ -55,7 +55,9 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 
 ## Outcomes & Retrospective
 
-Implementation and review are pending. At completion this section will record the observed CLI behavior, gate results, review outcomes, commit state, and pull request URL.
+Issue #82 is implemented across the shared signal engine and machine DTO: JSON and JSONL now expose exact scope-relative paths for direct and recursive entries on VCD, FST, and FSDB, while canonical paths, leaf names, and human output remain stable. Focused tests passed with 23 signal CLI cases, 10 JSONL cases, and 20 FSDB CLI cases. Full `just check` and `just ci` gates passed.
+
+Luna Max found one redundant engine field and three coverage/documentation gaps; all were fixed in `de207e5`. Terra High repeated both review lanes with no substantive findings, and Sol High's independent control pass was also clean. The only remaining work is branch-local plan removal, push, and pull request creation.
 
 ## Context and Orientation
 
@@ -159,3 +161,7 @@ Revision note (2026-08-14 05:04Z): Recorded Luna Max findings and fixes: removed
 Revision note (2026-08-14 05:05Z): Recorded first-wave fix commit `de207e5` and started the same two review lanes with Terra High.
 
 Revision note (2026-08-14 05:07Z): Recorded clean Terra High code/architecture and tests/docs reviews.
+
+Revision note (2026-08-14 05:08Z): Started the independent Sol High control review.
+
+Revision note (2026-08-14 05:11Z): Recorded clean Sol High control review, final check/CI evidence, and completed implementation retrospective before WIP cleanup.
