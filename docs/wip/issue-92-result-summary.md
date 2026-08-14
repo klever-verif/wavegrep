@@ -18,10 +18,10 @@ This work does not add or change fatal JSONL records. It does not make a second 
 
 - [x] (2026-08-14 14:24Z) Read issue #92, related output-contract issue #106, context issue #114, architecture, testing, style, quality, and local breadcrumb guidance.
 - [x] (2026-08-14 14:24Z) Install worktree hooks and start the devcontainer.
-- [ ] Add the shared summary state and `--summary` CLI surface to every command with `--max`.
-- [ ] Preserve existing query execution while propagating summary values through list, row, event, and streaming paths.
-- [ ] Render summaries consistently in human, JSON, and JSONL modes while preserving optional context and diagnostics.
-- [ ] Add focused runtime and contract coverage for complete, exactly-at-limit, truncated, unlimited, max-depth, and summary-only cases.
+- [x] (2026-08-14 14:45Z) Add the shared summary state and `--summary` CLI surface to every command with `--max`.
+- [x] (2026-08-14 14:45Z) Preserve existing query execution while propagating summary values through list, row, event, and streaming paths.
+- [x] (2026-08-14 14:45Z) Render summaries consistently in human summary-only, JSON, and JSONL modes while preserving optional context and diagnostics.
+- [x] (2026-08-14 14:45Z) Add focused runtime and contract coverage for complete, exactly-at-limit, truncated, unlimited, max-depth, and summary-only cases.
 - [ ] Update packaged machine-output, command-model, command references, and bundled skill guidance.
 - [ ] Run focused tests, `./dev just ci`, and `./dev just check`; record evidence.
 - [ ] Commit implementation milestones with conventional commits.
@@ -60,7 +60,7 @@ This work does not add or change fatal JSONL records. It does not make a second 
 
 ## Outcomes & Retrospective
 
-Implementation has not started. The repository is clean at the base commit and the output-contract decisions are resolved. This section will be updated after each validated milestone and at completion.
+The implementation milestone now exposes summaries across all ten bounded commands without changing their existing limit walkers. A dedicated integration suite covers list, row, and event producers plus summary-only context and diagnostic retention; the full Rust test suite passes with 664 unit tests and all integration binaries, and both default and FSDB clippy passes are clean. Documentation, full repository gates, review waves, and PR creation remain.
 
 ## Context and Orientation
 
@@ -171,3 +171,5 @@ Define one shared summary DTO or engine value with the wire fields:
 `CommandResult` must carry `Option<ResultSummary>` because commands without `--max` have no summary, plus one rendering-only boolean controlling row suppression. JSON contracts borrow or serialize this value directly rather than defining command-specific copies. JSONL `EndRecord` accepts the summary for affected commands while retaining `RecordCounts`. Streaming engine functions must pass the summary produced by the same execution that emitted or suppressed rows.
 
 Plan revision note, 2026-08-14: created the initial self-contained plan after resolving JSONL end-record and context-composition semantics with the user and related v3 issues.
+
+Plan revision note, 2026-08-14 14:45Z: recorded completion of the implementation and focused-test milestone; clarified that ordinary human row output remains unchanged and the four human summary fields are rendered when `--summary` is requested.

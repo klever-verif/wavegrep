@@ -13,7 +13,7 @@ use crate::engine::extract::{
     self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
 use crate::engine::signal_mapping::candidate_matching_standards;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 
 const DEFAULT_PROFILE: &str = "axi4";
@@ -80,6 +80,7 @@ impl AxiData {
 struct AxiOutcome {
     context: AxiContext,
     diagnostics: Vec<Diagnostic>,
+    summary: ResultSummary,
 }
 
 trait AxiTransferSink {
@@ -1221,6 +1222,7 @@ const ACE5_LITE_ACP_PROFILE: AxiProfileSpec = AxiProfileSpec {
 pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingAxiSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -1232,6 +1234,7 @@ pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
             signals_abs,
         },
         scope: None,
+        summary_only,
         data: CommandData::ExtractAxi(AxiData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -1239,6 +1242,7 @@ pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             transfers: sink.transfers,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -1247,6 +1251,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: AxiArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlAxiSink { writer };
         run_with_sink(args, &mut sink)?
@@ -1255,7 +1260,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end()
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: AxiTransferSink + ?Sized>(
@@ -1297,6 +1302,7 @@ fn run_with_sink<S: AxiTransferSink + ?Sized>(
     Ok(AxiOutcome {
         context,
         diagnostics,
+        summary: outcome.summary,
     })
 }
 

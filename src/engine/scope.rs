@@ -2,7 +2,7 @@ use crate::cli::limits::LimitArg;
 use crate::cli::scope::ScopeArgs;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
-use crate::engine::{CommandData, CommandName, CommandResult};
+use crate::engine::{CommandData, CommandName, CommandResult, ResultSummary};
 use crate::error::WavepeekError;
 use crate::waveform::Waveform;
 use regex::Regex;
@@ -22,6 +22,7 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         max_depth,
         filter,
         tree,
+        summary,
         json,
         jsonl,
     } = args;
@@ -77,6 +78,7 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         || serde_json::json!({"scopes": entries.len()}),
     );
 
+    let total = entries.len();
     if let Some(max_entries) = max.numeric()
         && entries.len() > max_entries
     {
@@ -102,6 +104,13 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
             signals_abs: false,
         },
         scope: None,
+        summary_only: summary,
+        summary: Some(ResultSummary {
+            complete: entries.len() == total,
+            returned: entries.len(),
+            limit: max.numeric(),
+            total: Some(total),
+        }),
         data: CommandData::Scope(entries),
         diagnostics,
     })

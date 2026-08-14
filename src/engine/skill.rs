@@ -9,10 +9,12 @@ pub fn run(args: SkillArgs) -> Result<CommandResult, WavepeekError> {
         output_mode: crate::output_mode::OutputMode::Human,
         human_options: HumanRenderOptions::default(),
         scope: None,
+        summary_only: false,
         data: CommandData::Text(format!(
             "Extracted wavepeek skill to {}\n",
             args.directory.display()
         )),
+        summary: None,
         diagnostics: Vec::new(),
     })
 }

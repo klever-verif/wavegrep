@@ -15,7 +15,7 @@ use crate::engine::time::{
     DumpTimeContext, TimeValidationError, format_raw_timestamp, parse_dump_time_context,
     validate_time_token_to_raw,
 };
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::EventEvalFrame;
 use crate::waveform::ChangeCandidateCollectionMode;
@@ -97,16 +97,23 @@ impl<W: std::io::Write> PropertyRowSink for JsonlPropertySink<'_, W> {
 
 pub fn run(args: PropertyArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
+    let summary_only = args.summary;
+    let limit = args.max.numeric();
     let mut sink = CollectingPropertySink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
-    let _emitted = outcome.stats.emitted;
     Ok(CommandResult {
         command: CommandName::Property,
         output_mode,
         human_options: HumanRenderOptions::default(),
         scope: None,
+        summary_only,
         data: CommandData::Property(sink.rows),
+        summary: Some(ResultSummary::from_run(
+            outcome.stats.emitted,
+            limit,
+            outcome.stats.truncated,
+        )),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -115,16 +122,21 @@ pub fn run_jsonl<W: std::io::Write>(
     args: PropertyArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
+    let limit = args.max.numeric();
     let outcome = {
         let mut sink = JsonlPropertySink { writer };
         run_with_sink(args, &mut sink)?
     };
 
-    let _emitted = outcome.stats.emitted;
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end()
+    writer.end_summary(&ResultSummary::from_run(
+        outcome.stats.emitted,
+        limit,
+        outcome.stats.truncated,
+    ))
 }
 
 fn run_with_sink<S: PropertyRowSink + ?Sized>(
@@ -671,6 +683,7 @@ mod tests {
             capture: CaptureMode::Match,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect("match capture should succeed");
@@ -692,6 +705,7 @@ mod tests {
             capture: CaptureMode::Switch,
             max: LimitArg::Unlimited,
             json: true,
+            summary: false,
             jsonl: false,
         })
         .expect("switch capture should succeed");
@@ -715,6 +729,7 @@ mod tests {
             capture: CaptureMode::Assert,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect("assert capture should succeed");
@@ -735,6 +750,7 @@ mod tests {
             capture: CaptureMode::Match,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect_err("reversed time bounds should fail");
@@ -761,6 +777,7 @@ mod tests {
                 eval: "sig".to_string(),
                 capture: CaptureMode::Match,
                 max: LimitArg::Unlimited,
+                summary: false,
                 json: false,
                 jsonl: true,
             },
@@ -786,6 +803,7 @@ mod tests {
             capture: CaptureMode::Match,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect_err("signal-free wildcard trigger should fail");

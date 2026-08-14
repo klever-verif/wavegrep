@@ -40,6 +40,7 @@ fn assert_json_jsonl_parity(args: &[String]) {
     }
 
     assert_eq!(json.get("context"), records[0].get("context"));
+    assert_eq!(json.get("summary"), records.last().unwrap().get("summary"));
     let data = records
         .iter()
         .filter(|record| record["type"] == "data")
