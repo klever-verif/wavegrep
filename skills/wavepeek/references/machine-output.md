@@ -24,6 +24,12 @@ A successful `--json` command emits `type`, `command`, optional `context`, `data
 {"type":"result","command":"value","data":[{"time":"5ns","signals":[{"path":"top.clk","value":"1'h1"}]}],"diagnostics":[]}
 ```
 
+A `signal` row contains the leaf `name`, canonical `path`, path relative to the exact selected scope in `relative_path`, normalized `kind`, and optional `width`. Immediate children use their basename as `relative_path`; descendants retain the child scope path:
+
+```json
+{"type":"result","command":"signal","data":[{"name":"valid","path":"top.cpu.valid","relative_path":"cpu.valid","kind":"wire","width":1}],"diagnostics":[]}
+```
+
 Protocol extractors put command-wide metadata in `context` and rows directly in `data`:
 
 ```json

@@ -362,11 +362,11 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
         .expect("signal --jsonl should execute");
     assert!(signal.status.success());
     let signal_records = parse_stream(&signal.stdout, "signal");
-    assert!(
-        signal_records
-            .iter()
-            .any(|record| { record["type"] == "data" && record["data"]["path"] == "top.clk" })
-    );
+    assert!(signal_records.iter().any(|record| {
+        record["type"] == "data"
+            && record["data"]["path"] == "top.clk"
+            && record["data"]["relative_path"] == "clk"
+    }));
 
     let value = wavepeek_cmd()
         .args([

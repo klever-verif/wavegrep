@@ -14,6 +14,7 @@ pub struct SignalEntry {
     pub display: String,
     pub name: String,
     pub path: String,
+    pub relative_path: String,
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,
@@ -92,17 +93,24 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         .entries
         .into_iter()
         .filter(|entry| filter.is_match(entry.name.as_str()))
-        .map(|entry| SignalEntry {
-            display: signal_display_name(
-                recursive,
-                scope_prefix.as_str(),
-                entry.path.as_str(),
-                entry.name.as_str(),
-            ),
-            name: entry.name,
-            path: entry.path,
-            kind: entry.kind,
-            width: entry.width,
+        .map(|entry| {
+            let relative_path = entry
+                .path
+                .strip_prefix(scope_prefix.as_str())
+                .unwrap_or(entry.name.as_str())
+                .to_string();
+            SignalEntry {
+                display: if recursive {
+                    relative_path.clone()
+                } else {
+                    entry.name.clone()
+                },
+                name: entry.name,
+                path: entry.path,
+                relative_path,
+                kind: entry.kind,
+                width: entry.width,
+            }
         })
         .collect::<Vec<_>>();
     debug.event(
@@ -137,14 +145,6 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         data: CommandData::Signal(entries),
         diagnostics,
     })
-}
-
-fn signal_display_name(recursive: bool, scope_prefix: &str, path: &str, name: &str) -> String {
-    if !recursive {
-        return name.to_string();
-    }
-
-    path.strip_prefix(scope_prefix).unwrap_or(name).to_string()
 }
 
 fn ambiguous_signal_warning(paths: &[String]) -> Diagnostic {

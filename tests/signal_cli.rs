@@ -79,9 +79,9 @@ fn signal_json_shape_for_vcd_keeps_full_paths() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "data", "path": "top.data", "kind": "reg", "width": 8}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "data", "path": "top.data", "relative_path": "data", "kind": "reg", "width": 8}
         ])
     );
 }
@@ -112,9 +112,9 @@ fn signal_json_shape_for_fst_keeps_full_paths() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "data", "path": "top.data", "kind": "reg", "width": 8}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "data", "path": "top.data", "relative_path": "data", "kind": "reg", "width": 8}
         ])
     );
 }
@@ -145,8 +145,8 @@ fn signal_filter_applies_to_signal_names() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1}
         ])
     );
 }
@@ -516,6 +516,7 @@ fn signal_recursive_max_depth_respects_grandchild_boundary() {
             "top.mem.ready",
         ]
     );
+    assert_eq!(depth_2_json["data"][3]["relative_path"], "cpu.core.execute");
 }
 
 #[test]

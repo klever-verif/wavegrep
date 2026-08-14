@@ -206,6 +206,7 @@ impl<'a> TryFrom<&'a crate::engine::scope::ScopeEntry> for ScopeEntry<'a> {
 pub struct SignalEntry<'a> {
     name: &'a str,
     path: CanonicalPath<'a>,
+    relative_path: &'a str,
     kind: SignalKind<'a>,
     #[serde(skip_serializing_if = "Option::is_none")]
     width: Option<u32>,
@@ -218,6 +219,7 @@ impl<'a> TryFrom<&'a crate::engine::signal::SignalEntry> for SignalEntry<'a> {
         Ok(Self {
             name: entry.name.as_str(),
             path: CanonicalPath::new(entry.path.as_str()),
+            relative_path: entry.relative_path.as_str(),
             kind: validate_signal_kind(entry.kind.as_str())?,
             width: entry.width,
         })

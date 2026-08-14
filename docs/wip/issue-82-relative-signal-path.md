@@ -16,10 +16,10 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 
 - [x] (2026-08-14 04:44Z) Read issue #82, repository guidance, signal execution path, current JSON/JSONL contract, tests, and packaged documentation.
 - [x] (2026-08-14 04:44Z) Confirm with the maintainer that removed JSON Schema generation must not be restored.
-- [ ] Add one shared scope-relative value to signal engine entries and expose it through the existing JSON/JSONL contract data transfer object.
-- [ ] Update focused VCD, FST, JSONL, and optional FSDB contract tests plus required in-source constructors.
-- [ ] Update packaged signal and machine-output documentation and the Unreleased changelog.
-- [ ] Run focused tests and `./dev just ci`, then commit the implementation.
+- [x] (2026-08-14 04:53Z) Added one shared scope-relative value to signal engine entries and exposed it through the existing JSON/JSONL contract data transfer object.
+- [x] (2026-08-14 04:53Z) Updated focused VCD, FST, JSONL, and FSDB contract tests plus required in-source constructors.
+- [x] (2026-08-14 04:53Z) Updated packaged signal and machine-output documentation and the Unreleased changelog.
+- [ ] Run focused tests and `./dev just ci`, then commit the implementation (completed: focused VCD/FST, JSONL, FSDB, and full CI all pass; remaining: commit).
 - [ ] Run first review wave with separate Luna Max code/architecture and tests/docs lanes, fix findings, verify, and commit.
 - [ ] Run second review wave with separate Terra High lanes over the same areas, fix findings, verify, and commit.
 - [ ] Run independent Sol High control review, fix any substantive findings, and run final `./dev just check` and `./dev just ci`.
@@ -32,6 +32,9 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 
 - Observation: JSON Schema support was intentionally deleted after issue #82 was written.
   Evidence: closed issue #89 and the current tree contain runtime contract DTOs but no schema generation path.
+
+- Observation: The local environment includes a usable Verdi FSDB Reader SDK, so optional backend parity was fully exercised rather than skipped.
+  Evidence: `./dev just test-fsdb` passed 20 FSDB CLI tests, and `./dev just ci` reported `ok: fsdb: Verdi FSDB Reader SDK found`.
 
 ## Decision Log
 
@@ -143,3 +146,5 @@ The branch starts at `d3409f0` on `dev3-82/relative-signal-path`, based on `orig
 No dependency changes are allowed or needed. At completion, `crate::engine::signal::SignalEntry` must expose `pub relative_path: String`, and `crate::contract::output::SignalEntry` must serialize a borrowed `relative_path: &str`. `crate::contract::stream::StreamDataRow` must continue using the output contract DTO unchanged so JSON and JSONL cannot diverge. The existing standard-library `str::strip_prefix` operation is the only path transformation required.
 
 Revision note (2026-08-14): Initial plan created after repository exploration and maintainer confirmation that removed JSON Schema support stays out of scope.
+
+Revision note (2026-08-14 04:53Z): Recorded implementation, documentation, focused test, FSDB, and full CI completion before the implementation commit.
