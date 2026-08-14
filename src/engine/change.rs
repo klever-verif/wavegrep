@@ -367,10 +367,20 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
         .iter()
         .map(|signal| signal.path.clone())
         .collect::<Vec<_>>();
-    let requested_resolved = waveform.borrow().resolve_signals(&requested_paths_owned)?;
-    let requested_expr_sources = waveform
-        .borrow()
-        .resolve_expr_signals(&requested_paths_owned)?;
+    let requested_query_names = requested_signals
+        .iter()
+        .map(|signal| signal.display.clone())
+        .collect::<Vec<_>>();
+    let requested_resolved = waveform.borrow().resolve_signals_with_diagnostics(
+        &requested_paths_owned,
+        &requested_query_names,
+        args.scope.as_deref(),
+    )?;
+    let requested_expr_sources = waveform.borrow().resolve_expr_signals_with_diagnostics(
+        &requested_paths_owned,
+        &requested_query_names,
+        args.scope.as_deref(),
+    )?;
     let tracked_signal_handles = requested_paths_owned
         .iter()
         .map(|path| {

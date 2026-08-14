@@ -596,6 +596,62 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
 }
 
 #[test]
+fn fsdb_missing_path_uses_backend_neutral_signal_suggestions() {
+    let fixtures = GeneratedFsdbFixtures::new();
+    let fixture = path_str(&fixtures.signal_recursive_depth());
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "10ns",
+            "--scope",
+            "top",
+            "--signals",
+            "valid",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "signal 'valid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
+}
+
+#[test]
+fn fsdb_missing_path_does_not_suggest_unsupported_events() {
+    let dir = TempDir::new().expect("temporary directory should create");
+    let fixture = path_str(&convert_vcd_fixture(
+        dir.path(),
+        "change_property_events.vcd",
+    ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "5ns",
+            "--scope",
+            "top",
+            "--signals",
+            "tik",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tik'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
+}
+
+#[test]
 fn fsdb_value_preserves_scope_relative_human_output_and_abs() {
     let fixtures = GeneratedFsdbFixtures::new();
     let fixture = path_str(&fixtures.value_vectors());
@@ -695,6 +751,27 @@ fn fsdb_value_rejects_non_bit_vector_signal() {
         .stderr(predicate::str::contains(
             "signal 'top.temp' has unsupported non-bit-vector encoding",
         ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--signals",
+            "tem",
+            "--at",
+            "0ns",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tem'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
 }
 
 #[test]

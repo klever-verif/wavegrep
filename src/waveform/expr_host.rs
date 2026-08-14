@@ -12,6 +12,7 @@ use crate::waveform::{ExprResolvedSignal, Waveform};
 #[derive(Debug)]
 pub(crate) struct WaveformExprHost {
     waveform: Rc<RefCell<Waveform>>,
+    scope: Option<String>,
     handles_by_name: RefCell<HashMap<String, SignalHandle>>,
     signals_by_handle: RefCell<HashMap<SignalHandle, Rc<ExprResolvedSignal>>>,
     next_handle: Cell<u32>,
@@ -28,8 +29,13 @@ impl WaveformExprHost {
     }
 
     pub(crate) fn from_shared(waveform: Rc<RefCell<Waveform>>) -> Self {
+        Self::from_shared_scoped(waveform, None)
+    }
+
+    pub(crate) fn from_shared_scoped(waveform: Rc<RefCell<Waveform>>, scope: Option<&str>) -> Self {
         Self {
             waveform,
+            scope: scope.map(str::to_string),
             handles_by_name: RefCell::new(HashMap::new()),
             signals_by_handle: RefCell::new(HashMap::new()),
             next_handle: Cell::new(1),
@@ -70,10 +76,16 @@ impl ExpressionHost for WaveformExprHost {
             return Ok(handle);
         }
 
+        let query_name = self
+            .scope
+            .as_deref()
+            .and_then(|scope| name.strip_prefix(scope))
+            .and_then(|name| name.strip_prefix('.'))
+            .unwrap_or(name);
         let resolved = self
             .waveform
             .borrow()
-            .resolve_expr_signal(name)
+            .resolve_expr_signal_with_diagnostic(name, query_name, self.scope.as_deref())
             .map_err(|error| ExprDiagnostic {
                 layer: DiagnosticLayer::Semantic,
                 code: "HOST-UNKNOWN-SIGNAL",

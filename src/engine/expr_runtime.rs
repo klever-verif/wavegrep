@@ -60,7 +60,7 @@ pub(crate) fn bind_waveform_event_expr(
     scope: Option<&str>,
     source: &str,
 ) -> Result<(WaveformExprHost, BoundEventExpr), WavepeekError> {
-    let host = WaveformExprHost::from_shared(waveform);
+    let host = WaveformExprHost::from_shared_scoped(waveform, scope);
     let scoped = ScopedExprHost::new(&host, scope);
     let ast =
         parse_event_expr_ast(source).map_err(|diagnostic| expr_diagnostic(source, diagnostic))?;

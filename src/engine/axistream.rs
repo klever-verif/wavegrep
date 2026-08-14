@@ -595,8 +595,10 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
-        let resolved = resolved.remove(0);
+        let resolved =
+            waveform
+                .borrow()
+                .resolve_local_signal_with_diagnostic(&query_path, waves, scope)?;
         result.insert(
             standard.clone(),
             AxiStreamSignalMapping {
