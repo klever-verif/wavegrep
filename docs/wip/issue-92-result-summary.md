@@ -23,7 +23,7 @@ This work does not add or change fatal JSONL records. It does not make a second 
 - [x] (2026-08-14 14:45Z) Render summaries consistently in human summary-only, JSON, and JSONL modes while preserving optional context and diagnostics.
 - [x] (2026-08-14 14:45Z) Add focused runtime and contract coverage for complete, exactly-at-limit, truncated, unlimited, max-depth, and summary-only cases.
 - [x] (2026-08-14 14:51Z) Update packaged machine-output, command-model, command references, and bundled skill guidance.
-- [ ] Run focused tests, `./dev just ci`, and `./dev just check`; record evidence (focused Rust, clippy, and docs checks pass; full gates remain).
+- [x] (2026-08-14 14:54Z) Run focused tests, `./dev just ci`, and `./dev just check`; all pass, including default/FSDB tests, clippy, docs generation, actionlint, and FSDB smoke checks.
 - [x] (2026-08-14 14:51Z) Commit implementation milestones with conventional commits.
 - [ ] Run Luna Max focused review wave, fix findings, then Terra High focused review wave over the same lanes and fix findings.
 - [ ] Run independent Sol High control review, resolve findings, rerun gates, remove this WIP plan, and commit cleanup.
@@ -175,3 +175,5 @@ Plan revision note, 2026-08-14: created the initial self-contained plan after re
 Plan revision note, 2026-08-14 14:45Z: recorded completion of the implementation and focused-test milestone; clarified that ordinary human row output remains unchanged and the four human summary fields are rendered when `--summary` is requested.
 
 Plan revision note, 2026-08-14 14:51Z: recorded completion of packaged documentation and skill guidance; docs-site generation and focused skill/runtime tests pass.
+
+Plan revision note, 2026-08-14 14:54Z: recorded successful `./dev just ci` and `./dev just check` pre-review gates.
