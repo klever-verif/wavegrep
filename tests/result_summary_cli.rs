@@ -211,6 +211,7 @@ fn summary_only_suppresses_data_but_preserves_query_results() {
         .into_owned();
     let cases = vec![
         vec!["scope", "--waves", &m2, "--max", "1"],
+        vec!["signal", "--waves", &m2, "--scope", "top", "--max", "1"],
         vec![
             "change",
             "--waves",
@@ -219,8 +220,10 @@ fn summary_only_suppresses_data_but_preserves_query_results() {
             "1ns",
             "--to",
             "10ns",
+            "--scope",
+            "top",
             "--signals",
-            "top.clk,top.data",
+            "clk,data",
             "--on",
             "*",
             "--sample-mode",

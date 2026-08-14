@@ -192,6 +192,7 @@ pub struct CommandResult {
     pub human_options: HumanRenderOptions,
     #[serde(skip)]
     pub scope: Option<String>,
+    #[serde(skip)]
     pub summary_only: bool,
     pub data: CommandData,
     #[serde(skip_serializing_if = "Option::is_none")]
