@@ -2481,31 +2481,34 @@ fn change_compares_projected_values_for_wildcard_sparse_and_delta_rows() {
 #[test]
 fn change_wildcard_ignores_changes_outside_the_only_projection() {
     let fixture = write_fixture(FLAT_PROJECTION_VCD, "change-projection-wildcard.vcd");
-    let output = wavepeek_cmd()
-        .args([
-            "change",
-            "--waves",
-            fixture.path().to_str().unwrap(),
-            "--scope",
-            "top",
-            "--signals",
-            "data[7:4]",
-            "--on",
-            "*",
-            "--sample-mode",
-            "native",
-            "--json",
-        ])
-        .output()
-        .expect("change should execute");
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(
-        parse_json(&output.stdout)["data"].as_array().unwrap().len(),
-        1
-    );
-    assert_eq!(parse_json(&output.stdout)["data"][0]["time"], "10ns");
+    for engine in ["baseline", "fused"] {
+        let output = wavepeek_cmd()
+            .env("DEBUG", "1")
+            .args([
+                "change",
+                "--waves",
+                fixture.path().to_str().unwrap(),
+                "--scope",
+                "top",
+                "--signals",
+                "data[7:4]",
+                "--on",
+                "*",
+                "--sample-mode",
+                "native",
+                "--tune-engine",
+                engine,
+                "--json",
+            ])
+            .output()
+            .expect("change should execute");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let data = parse_json(&output.stdout)["data"].clone();
+        assert_eq!(data.as_array().unwrap().len(), 1, "{engine}");
+        assert_eq!(data[0]["time"], "10ns", "{engine}");
+    }
 }

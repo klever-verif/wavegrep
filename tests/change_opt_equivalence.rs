@@ -678,7 +678,7 @@ fn change_auto_dense_any_tracked_profile_matches_fused_output() {
     let fixture = fixture.path().to_string_lossy().into_owned();
 
     let signals = (0..20)
-        .map(|idx| format!("top.sig{idx}"))
+        .map(|idx| format!("top.sig{idx}[0:0]"))
         .collect::<Vec<_>>()
         .join(",");
     let args = [
@@ -703,7 +703,7 @@ fn change_auto_dense_edge_profile_matches_edge_fast_output() {
     let fixture = fixture.path().to_string_lossy().into_owned();
 
     let signals = (0..20)
-        .map(|idx| format!("top.sig{idx}"))
+        .map(|idx| format!("top.sig{idx}[0:0]"))
         .collect::<Vec<_>>()
         .join(",");
     let args = [
@@ -728,7 +728,7 @@ fn change_auto_sparse_any_tracked_profile_matches_baseline_output() {
     let fixture = fixture.path().to_string_lossy().into_owned();
 
     let signals = (0..10)
-        .map(|idx| format!("top.sig{idx}"))
+        .map(|idx| format!("top.sig{idx}[0:0]"))
         .collect::<Vec<_>>()
         .join(",");
     let args = [
@@ -753,7 +753,7 @@ fn change_auto_sparse_edge_profile_matches_baseline_output() {
     let fixture = fixture.path().to_string_lossy().into_owned();
 
     let signals = (0..10)
-        .map(|idx| format!("top.sig{idx}"))
+        .map(|idx| format!("top.sig{idx}[0:0]"))
         .collect::<Vec<_>>()
         .join(",");
     let args = [

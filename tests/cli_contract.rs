@@ -954,6 +954,7 @@ fn extract_generic_help_is_self_descriptive() {
         "Selects edge-only event timestamps with --on.",
         "Always samples --when and --payload at the pre-edge sample point.",
         "Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.",
+        "Use [n:n] for one bit; exact waveform paths win and [n] remains path syntax.",
         "Comma-separated payload paths or flat [msb:lsb] projections",
         "Canonical scope path for relative or in-scope canonical event, predicate, and payload names",
         "In source-file mode, --source provides one or more sources",

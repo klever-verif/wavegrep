@@ -38,7 +38,7 @@ The same rule applies to `value` and `change` `--signals`, names in `--on`, `--e
 For `value --signals`, `change --signals`, and generic payloads, append a flat projection after either naming form:
 
 ```text
-wavepeek value --waves dump.vcd --at 10ns --scope top.cpu --signals state[7:4],top.cpu.data[31:16]
+wavepeek value --waves dump.vcd --at 10ns --scope top.cpu --signals 'state[7:4],top.cpu.data[31:16]'
 ```
 
 WavePeek scopes and resolves the base path, while output retains `[msb:lsb]`. Use `[n:n]` for one bit; `[n]` remains part of ordinary waveform path syntax.

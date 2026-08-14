@@ -32,9 +32,9 @@ impl ProjectedSignal {
 
     pub(crate) fn project_sample(
         &self,
-        sample: &SampledSignalState,
+        sample: SampledSignalState,
     ) -> Result<SampledSignalState, WavepeekError> {
-        let bits = match (&sample.bits, self.range) {
+        let bits = match (sample.bits, self.range) {
             (Some(bits), Some(range)) => {
                 let width = usize::try_from(self.source.width).map_err(|_| {
                     WavepeekError::Internal("signal width exceeds platform limits".to_string())
@@ -52,7 +52,7 @@ impl ProjectedSignal {
                         .to_string(),
                 )
             }
-            (bits, None) => bits.clone(),
+            (bits, None) => bits,
             (None, Some(_)) => None,
         };
 

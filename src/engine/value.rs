@@ -74,7 +74,7 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
             .iter()
             .zip(sampled)
             .map(|(requested, sampled)| {
-                let sampled = requested.selected.project_sample(&SampledSignalState {
+                let sampled = requested.selected.project_sample(SampledSignalState {
                     path: sampled.path,
                     width: sampled.width,
                     bits: Some(sampled.bits),

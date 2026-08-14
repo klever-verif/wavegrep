@@ -22,8 +22,8 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 - [x] (2026-08-14 18:08Z) Implement one shared engine-level flat projection resolver and sampler, then integrate `value`, `change`, and `extract generic` without backend changes.
 - [x] (2026-08-14 18:08Z) Make every applicable `change` execution path compare projected values for sparse, delta, and wildcard decisions.
 - [x] (2026-08-14 18:08Z) Update CLI help, public packaged-skill references, and contract tests.
-- [ ] Run focused tests, VCD/FST parity, optional FSDB tests, `just ci`, and `just check`; record evidence. (`just ci` passed with FSDB; `just check` remains.)
-- [ ] Run Luna Max focused review wave, apply findings, and verify affected lanes.
+- [x] (2026-08-14 18:10Z) Run focused tests, VCD/FST parity, FSDB tests, `just ci`, and `just check`; all passed.
+- [x] (2026-08-14 18:33Z) Run Luna Max correctness/tests, architecture/performance, and docs/contracts review lanes; fix the fused first-timestamp wildcard bug, reduce hot-loop cloning/tracking, expand optimized-engine projection tests, and correct docs/help findings.
 - [ ] Run Terra High focused review wave over the same areas, apply findings, and verify affected lanes.
 - [ ] Run independent Sol High control review, apply any final findings, and rerun gates.
 - [ ] Remove this WIP plan, commit the reviewed result, push the branch, and open a pull request closing issue #94.
@@ -44,6 +44,9 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 
 - Observation: VCD/FST and FSDB preserve known bits around unknown values sufficiently for range slicing; literal formatting may collapse an unknown-containing selected value after slicing, as intended.
   Evidence: `value_projects_normalized_ascending_and_unknown_bits` and `fsdb_value_json_matches_vcd_sampling_contract` pass.
+
+- Observation: Luna Max found fused wildcard evaluation treated a first dump timestamp as a change even when no previous timestamp existed, unlike baseline evaluation.
+  Evidence: gating the projected comparison on `previous_timestamp.is_some()` makes the forced fused and baseline dense wildcard regression emit only the real in-range change at 10ns.
 
 ## Decision Log
 
@@ -66,6 +69,10 @@ This change does not add `[n]` bit selection, dynamic or indexed ranges, chained
 - Decision: Support projections in generic extractor JSON source files through the same payload resolver used by CLI `--payload`.
   Rationale: the user confirmed source-file support, and both inputs already share one execution plan.
   Date/Author: 2026-08-14 / user.
+
+- Decision: Consume sampled states during projection and deduplicate fused tracking IDs, but do not add extract-row remapping or bulk projection resolution.
+  Rationale: consuming removes full-width clones and fused deduplication deletes unused state with small local changes. Extract remapping and batch fallback add code without measured need; payload lists are small and correctness gates already pass.
+  Date/Author: 2026-08-14 / coding agent after Luna Max review.
 
 ## Outcomes & Retrospective
 
@@ -182,3 +189,5 @@ Keep `crate::waveform::{ResolvedSignal,SampledSignalState}` and all backend publ
 Plan revision note (2026-08-14): Initial self-contained plan created after repository research and user decisions on `[n:n]`, JSON shape, source-file payload support, and duplicate preservation.
 
 Plan revision note (2026-08-14 18:08Z): Recorded completed implementation, docs, cross-backend tests, wildcard behavior, and passing `just ci`; review and handoff work remains.
+
+Plan revision note (2026-08-14 18:33Z): Recorded passing `just check`, Luna Max review findings, the fused wildcard fix, lean performance changes, expanded engine coverage, and rejected speculative optimizations.

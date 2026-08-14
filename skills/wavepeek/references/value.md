@@ -53,7 +53,7 @@ This is usually the most convenient form for manual debugging.
 Append a static `[msb:lsb]` to a flat integral signal to sample only that normalized value range:
 
 ```text
-$ wavepeek value --waves path/to/dump.vcd --at 10ns --scope top --signals data[7:4],data[0:0]
+$ wavepeek value --waves path/to/dump.vcd --at 10ns --scope top --signals 'data[7:4],data[0:0]'
 @10ns data[7:4]=4'hf data[0:0]=1'h0
 ```
 

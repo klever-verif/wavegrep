@@ -116,6 +116,7 @@ Behavior:
 - Selects edge-only event timestamps with --on.
 - Always samples --when and --payload at the pre-edge sample point.
 - Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.
+- Use [n:n] for one bit; exact waveform paths win and [n] remains path syntax.
 - In single-source mode, --on, --when, and --payload define one source named by --name or "transfer".
 - In source-file mode, --source provides one or more sources and conflicts with --name, --on, --when, and --payload.
 - Source-file fields and behavior are documented in the corresponding protocol topic.

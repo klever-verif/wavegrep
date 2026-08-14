@@ -106,7 +106,6 @@ impl ExtractSource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PayloadSignal {
     display: String,
-    path: String,
     relative_path: Option<String>,
     selected: ProjectedSignal,
 }
@@ -746,7 +745,6 @@ fn resolve_payload_signals(
             };
             PayloadSignal {
                 display,
-                path: selected.path.clone(),
                 relative_path,
                 selected,
             }
@@ -1090,7 +1088,7 @@ fn build_row(
     let payload = source
         .payload
         .iter()
-        .zip(samples.iter())
+        .zip(samples)
         .map(|(requested, sampled)| build_payload_value(requested, sampled))
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -1104,18 +1102,18 @@ fn build_row(
 
 fn build_payload_value(
     requested: &PayloadSignal,
-    sampled: &SampledSignalState,
+    sampled: SampledSignalState,
 ) -> Result<ExtractPayloadValue, WavepeekError> {
     let sampled = requested.selected.project_sample(sampled)?;
     let bits = sampled.bits.as_ref().ok_or_else(|| {
         WavepeekError::Signal(format!(
             "signal '{}' has no value at or before requested time",
-            requested.path
+            requested.selected.path
         ))
     })?;
     Ok(ExtractPayloadValue {
         display: requested.display.clone(),
-        path: requested.path.clone(),
+        path: requested.selected.path.clone(),
         relative_path: requested.relative_path.clone(),
         value: format_verilog_literal(sampled.width, bits.as_str()),
     })

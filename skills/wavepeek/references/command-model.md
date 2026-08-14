@@ -85,7 +85,8 @@ The main ordering rules are:
 - Recursive `signal` queries walk scopes in that same stable order and sort signals deterministically within each visited scope.
 - `value` preserves the request order from `--at` and `--signals`, including duplicates.
 - `change` preserves `--signals` request order and duplicates within each full row or changed subset, and emits rows in ascending normalized timestamp order.
-- `extract` preserves payload request order and duplicates, and emits rows in ascending event timestamp order and, when multiple sources match at the same timestamp, source declaration order.
+- `property` emits rows in ascending normalized timestamp order.
+- `extract generic` preserves payload request order and duplicates, and emits rows in ascending event timestamp order and, when multiple sources match at the same timestamp, source declaration order.
 - When multiple diagnostics apply, their order is deterministic for a given command contract.
 
 These ordering guarantees are part of the command model because automation depends on predictable, replayable output.
