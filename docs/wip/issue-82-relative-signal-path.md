@@ -20,8 +20,8 @@ This work does not restore the JSON Schema subsystem removed in v3, change wavef
 - [x] (2026-08-14 04:53Z) Updated focused VCD, FST, JSONL, and FSDB contract tests plus required in-source constructors.
 - [x] (2026-08-14 04:53Z) Updated packaged signal and machine-output documentation and the Unreleased changelog.
 - [x] (2026-08-14 04:54Z) Ran focused VCD/FST, JSONL, FSDB, and full CI checks, then committed the implementation as `3d47328`.
-- [ ] Run first review wave with separate Luna Max code/architecture and tests/docs lanes, fix findings, verify, and commit (completed: both lanes returned; all four findings fixed; focused tests and full CI pass; remaining: commit).
-- [ ] Run second review wave with separate Terra High lanes over the same areas, fix findings, verify, and commit.
+- [x] (2026-08-14 05:05Z) Ran Luna Max code/architecture and tests/docs lanes, fixed all four findings, verified focused tests and full CI, and committed `de207e5`.
+- [x] (2026-08-14 05:07Z) Ran Terra High over the same code/architecture and tests/docs lanes; both reported no substantive findings.
 - [ ] Run independent Sol High control review, fix any substantive findings, and run final `./dev just check` and `./dev just ci`.
 - [ ] Remove this branch-local plan, commit final cleanup, push the branch, and open a pull request for issue #82.
 
@@ -155,3 +155,7 @@ Revision note (2026-08-14 04:53Z): Recorded implementation, documentation, focus
 Revision note (2026-08-14 04:54Z): Recorded implementation commit `3d47328` and started the two-lane Luna Max review wave.
 
 Revision note (2026-08-14 05:04Z): Recorded Luna Max findings and fixes: removed duplicate display state, added exact nested-scope JSON/JSONL coverage, added recursive FST coverage, and clarified path terminology. Focused tests and full CI pass.
+
+Revision note (2026-08-14 05:05Z): Recorded first-wave fix commit `de207e5` and started the same two review lanes with Terra High.
+
+Revision note (2026-08-14 05:07Z): Recorded clean Terra High code/architecture and tests/docs reviews.
