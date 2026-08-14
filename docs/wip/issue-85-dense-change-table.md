@@ -24,7 +24,7 @@ This work does not add a separate `sample` command, change event-expression synt
 - [x] (2026-08-14 05:04Z) Update CLI help, bundled skill references, README, changelog, and migration guidance.
 - [x] (2026-08-14 05:06Z) Run focused tests and `./dev just ci`, update this plan with evidence, and commit the implementation (commit remains the immediate next command).
 - [x] (2026-08-14 05:42Z) Run Luna Max focused review wave and apply findings (completed: correctness, docs, architecture, and performance reviews; migration/help qualification, bounded edge-fast decode cache, centralized row emission, full FSDB mode parity, and full FST stream-mode parity; focused tests and 20 FSDB tests pass; review-fix commit is next).
-- [ ] Run Terra High focused review wave over the same areas, fix findings, test, and commit.
+- [x] (2026-08-14 05:50Z) Run Terra High focused review wave over the same areas, fix findings, test, and commit (completed: correctness, docs, architecture, and performance lanes; fixed delayed-value comparison, dense table wording, unnecessary dense/full baseline decoding, and sparse/full per-candidate flag allocation; focused tests and strict Clippy pass; commit is next).
 - [ ] Run the independent Sol High control review, fix any findings, and run `./dev just check`.
 - [ ] Remove this branch-local plan if required by repository policy, commit final cleanup, push, and open the pull request.
 
@@ -47,6 +47,12 @@ This work does not add a separate `sample` command, change event-expression synt
 
 - Observation: Luna correctness review treated a representable pre-edge sample point with a requested signal lacking prior data as the same case as no representable pre-edge point.
   Evidence: `pre_edge_sample_time` already skips the maintainer-decided no-point case before sampling. `build_snapshot` has historically returned a signal error when an emit-eligible mixed sample lacks a value; changing all emitters to silently skip incomplete rows would broaden behavior beyond issue #85, so that suggestion was not applied.
+
+- Observation: Terra correctness review found that the inherited comparison helper did not count a requested signal's first available `Some` value after a `None` baseline as a change.
+  Evidence: changing comparison to full `Option` equality makes sparse/delta emit the first available value; `change_sparse_delta_emits_first_available_value` passes in baseline, fused, and forced edge-fast engines.
+
+- Observation: Terra performance review found two compatibility-path costs: dense/full sampled an unused baseline, and sparse/full allocated a per-signal Boolean vector only to reduce it to one Boolean.
+  Evidence: baseline values are now sampled only for sparse mode, dense/delta initializes state without decoding a baseline, dense/full holds no comparison vector, and `changed_values_and_update` collects flags only for delta output. Strict Clippy and focused equivalence tests pass.
 
 ## Decision Log
 
@@ -73,6 +79,10 @@ This work does not add a separate `sample` command, change event-expression synt
 - Decision: Centralize row filtering, truncation, projection, and sink emission in one private `emit_row` helper.
   Rationale: Four engine-specific copies carried the public row contract and could drift. One direct helper fixes the shared source without adding a trait, strategy, module, or dependency.
   Date/Author: 2026-08-14 / Luna architecture review and coding agent
+
+- Decision: Treat transitions between missing and available requested values as changes in selected-sample state.
+  Rationale: Issue #85 defines comparison against the previous selected sample. A first available value differs from an unavailable baseline and must be eligible as the first full sparse/delta row; later waveform sampling normally retains available values, so the inverse remains an explicit build error only if a backend cannot provide an emit-eligible value.
+  Date/Author: 2026-08-14 / Terra correctness review and coding agent
 
 ## Outcomes & Retrospective
 
@@ -206,3 +216,5 @@ Revision note (2026-08-14 05:04Z): Recorded completed implementation, tests, doc
 Revision note (2026-08-14 05:06Z): Recorded the successful full CI rerun and exact validation evidence.
 
 Revision note (2026-08-14 05:42Z): Recorded all Luna Max review findings, accepted fixes, one rejected out-of-scope behavior change, and focused post-fix validation.
+
+Revision note (2026-08-14 05:50Z): Recorded Terra High review findings, architecture clean result, accepted fixes, and post-fix Clippy/equivalence evidence.

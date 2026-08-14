@@ -8,8 +8,8 @@ Two independent options control the table:
 
 | Options | Rows | Values in each row |
 |---|---|---|
-| `--row-mode dense --row-values full` | Every selected event | All requested signals |
-| `--row-mode dense --row-values delta` | Every selected event | First row is full; later rows contain changed signals only |
+| `--row-mode dense --row-values full` | Every selected event that can be sampled | All requested signals |
+| `--row-mode dense --row-values delta` | Every selected event that can be sampled | First row is full; later rows contain changed signals only |
 | `--row-mode sparse --row-values full` | Selected samples that changed | All requested signals |
 | `--row-mode sparse --row-values delta` | Selected samples that changed | First emitted row is full; later rows contain changed signals only |
 

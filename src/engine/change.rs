@@ -722,9 +722,15 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
             )?
     };
     let mut sample_cache = SampleCache::default();
-    let baseline_samples =
-        sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
-    let mut previous_values = sample_values(&baseline_samples);
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples =
+            sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
+        sample_values(&baseline_samples)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
 
     let mut emitted = 0usize;
     let mut truncated = false;
@@ -798,9 +804,15 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
             candidate_mode,
         )?;
     let mut sample_cache = SampleCache::default();
-    let baseline_samples =
-        sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
-    let mut previous_values = sample_values(&baseline_samples);
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples =
+            sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
+        sample_values(&baseline_samples)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
 
     let mut emitted = 0usize;
     let mut truncated = false;
@@ -1085,10 +1097,16 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
     )?;
 
     let mut decode_cache = IndexDecodeCache::default();
-    let baseline_samples = waveform
-        .borrow_mut()
-        .sample_resolved_optional(requested_resolved, baseline_raw)?;
-    let mut previous_values = sample_values(&baseline_samples);
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples = waveform
+            .borrow_mut()
+            .sample_resolved_optional(requested_resolved, baseline_raw)?;
+        sample_values(&baseline_samples)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
 
@@ -1396,10 +1414,16 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
 
     let mut changed_offsets = vec![false; tracked_resolved.len()];
     let mut previous_bits = vec![None; tracked_resolved.len()];
-    let baseline_samples = waveform
-        .borrow_mut()
-        .sample_resolved_optional(requested_resolved, baseline_raw)?;
-    let mut previous_values = sample_values(&baseline_samples);
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples = waveform
+            .borrow_mut()
+            .sample_resolved_optional(requested_resolved, baseline_raw)?;
+        sample_values(&baseline_samples)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
     let mut stream_cursor = 0usize;
@@ -1533,13 +1557,17 @@ fn emit_row<S: ChangeSnapshotSink + ?Sized>(
     dump_tick: ParsedTime,
     sink: &mut S,
 ) -> Result<bool, WavepeekError> {
-    let changed = (row_mode == RowMode::Sparse || row_values == RowValues::Delta)
-        .then(|| changed_values_and_update(previous_values, current_samples));
-    if row_mode == RowMode::Sparse
-        && !changed
-            .as_ref()
-            .is_some_and(|changed| changed.iter().any(|changed| *changed))
-    {
+    let track_changes = row_mode == RowMode::Sparse || row_values == RowValues::Delta;
+    let (any_changed, changed) = if track_changes {
+        changed_values_and_update(
+            previous_values,
+            current_samples,
+            row_values == RowValues::Delta,
+        )
+    } else {
+        (false, Vec::new())
+    };
+    if row_mode == RowMode::Sparse && !any_changed {
         return Ok(false);
     }
     if max_entries == Some(*emitted) {
@@ -1547,7 +1575,7 @@ fn emit_row<S: ChangeSnapshotSink + ?Sized>(
     }
 
     let changed = if row_values == RowValues::Delta && *emitted > 0 {
-        changed.as_deref()
+        Some(changed.as_slice())
     } else {
         None
     };
@@ -1570,21 +1598,23 @@ fn sample_values(samples: &[SampledSignalState]) -> Vec<Option<String>> {
 fn changed_values_and_update(
     previous_values: &mut [Option<String>],
     current_samples: &[SampledSignalState],
-) -> Vec<bool> {
-    previous_values
-        .iter_mut()
-        .zip(current_samples)
-        .map(|(previous, current)| {
-            let changed = matches!(
-                (previous.as_ref(), current.bits.as_ref()),
-                (Some(previous), Some(current)) if previous != current
-            );
-            if current.bits.is_some() {
-                previous.clone_from(&current.bits);
-            }
-            changed
-        })
-        .collect()
+    collect_changes: bool,
+) -> (bool, Vec<bool>) {
+    let mut any_changed = false;
+    let mut changed_values = Vec::with_capacity(if collect_changes {
+        current_samples.len()
+    } else {
+        0
+    });
+    for (previous, current) in previous_values.iter_mut().zip(current_samples) {
+        let changed = *previous != current.bits;
+        any_changed |= changed;
+        previous.clone_from(&current.bits);
+        if collect_changes {
+            changed_values.push(changed);
+        }
+    }
+    (any_changed, changed_values)
 }
 
 fn build_snapshot(

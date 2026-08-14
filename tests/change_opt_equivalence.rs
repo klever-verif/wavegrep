@@ -396,6 +396,41 @@ fn change_anychange_trigger_detects_none_to_some_transition() {
 }
 
 #[test]
+fn change_sparse_delta_emits_first_available_value() {
+    let fixture = write_fixture(
+        "$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! clk $end\n$var wire 1 \" sig $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n#5\n1!\n1\"\n",
+        "change-delayed-value.vcd",
+    );
+    let fixture = fixture.path().to_string_lossy().into_owned();
+
+    let value = run_change_json_with_edge_modes(
+        fixture.as_str(),
+        &[
+            "--from",
+            "0ns",
+            "--to",
+            "5ns",
+            "--signals",
+            "top.sig",
+            "--on",
+            "posedge top.clk",
+            "--row-values",
+            "delta",
+        ],
+    );
+
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(
+        value["data"],
+        json!([{
+            "time": "5ns",
+            "sample_time": "5ns",
+            "signals": [{"path": "top.sig", "value": "1'h1"}]
+        }])
+    );
+}
+
+#[test]
 fn change_forced_edge_fast_falls_back_for_non_edge_triggers() {
     let fixture = write_fixture(
         "$date\n  today\n$end\n$version\n  wavepeek-test\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! sig $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\n#5\n1!\n#10\n0!\n",
