@@ -121,22 +121,21 @@ Use this command for deterministic spot checks at specific timestamps."#
     )]
     Value(value::ValueArgs),
     #[command(
-        about = "Provides range-based delta snapshots for selected signals.",
-        long_about = r#"Provides range-based delta snapshots for selected signals.
+        about = "Provides event-driven tables for selected signals.",
+        long_about = r#"Provides event-driven tables for selected signals.
 
 Behavior:
-- Prints requested signal values for each `--on` trigger firing when at least one value changed since the previous firing.
-- Similar to a modified SystemVerilog `$monitor`, but with print trigger control instead of printing at every timestamp.
-- Range boundaries are inclusive; baseline state is initialized at range start.
-- `--on` is required. Use explicit clock edges such as `--on 'posedge clk'` for RTL-style sampling.
+- Prints requested signal values for each event selected by required `--on`.
+- `--row-mode dense|sparse` controls whether every selected event or only changed samples become rows; the default is `dense`.
+- `--row-values full|delta` controls whether rows contain all requested signals or only changed signals; the default is `full`, and the first delta row is always full.
+- Range boundaries are inclusive. Dense mode can emit a matching event at `--from`; sparse mode uses `--from` only as its comparison baseline.
 - Value sampling defaults to pre-edge sampling: displayed values are sampled just before edge-only triggers while row timestamps stay at the trigger edge.
 - Use `--sample-mode native` for raw wildcard or plain-signal triggers such as `--on '*'`.
 - JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where values were sampled); text output shows `sample@<time>` only when it differs from `time`.
-- Rows are emitted only when sampled signal values changed from prior sampled state.
 - Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.
 - `--json` emits the standard machine-readable envelope.
 
-Use this command to inspect value transitions over bounded time windows."#
+Use this command to inspect event-aligned values or value transitions over bounded time windows."#
     )]
     Change(change::ChangeArgs),
     #[command(
@@ -653,6 +652,8 @@ mod tests {
                 assert_eq!(args.signals, vec!["clk", "data"]);
                 assert_eq!(args.on, "posedge clk");
                 assert_eq!(args.sample_mode, crate::cli::sampling::SampleMode::PreEdge);
+                assert_eq!(args.row_mode, crate::cli::change::RowMode::Dense);
+                assert_eq!(args.row_values, crate::cli::change::RowValues::Full);
                 assert_eq!(args.max, LimitArg::Numeric(12));
                 assert!(args.abs);
                 assert!(args.json);

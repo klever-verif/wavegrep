@@ -15,7 +15,7 @@ This extracted package provides version-matched references. Do not infer exact s
 2. Discover unknown hierarchy with `scope`, then signals within a selected scope with `signal`.
 3. Choose the command matching the question:
    - `value` for state at explicit timestamps;
-   - `change` for displayed value transitions;
+   - `change` for event-aligned signal tables or sparse value transitions;
    - `property` for timestamps where a Boolean condition matches or changes state;
    - `extract` for every matching event or transfer with payload values.
 4. Use `--json` for scripts and agent-side processing, and inspect diagnostics before trusting results.
@@ -31,7 +31,7 @@ Read [Command overview](references/overview.md) for command selection and [Help 
 - Write hexadecimal expression literals in SystemVerilog form, such as `64'h10` or `128'h0011...`; `0x...` and `64h10` are invalid.
 - For synchronous RTL, separate the sampling event from the tested condition: use `--on 'posedge <clock>'` and put the condition in `--eval` or `--when`.
 - Edge-triggered queries commonly evaluate pre-edge values. Use each row's `sample_time` for follow-up sampling unless same-edge dump state is intentional.
-- Derive event and transaction counts from `extract` or `property --capture match`, not from `change`; repeated events with unchanged displayed values are intentionally collapsed by `change`.
+- For repeated event counts with raw signal payloads, use dense `change`; for derived conditions use `property --capture match`, and for protocol semantics use `extract`.
 - For every JSON result, inspect the top-level `diagnostics` before using counts or conclusions.
 
 ## References

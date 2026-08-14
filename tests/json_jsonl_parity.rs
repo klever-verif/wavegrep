@@ -90,6 +90,8 @@ fn every_command_has_matching_json_and_jsonl_payloads() {
             "*",
             "--sample-mode",
             "native",
+            "--row-values",
+            "delta",
         ],
         vec![
             "property",

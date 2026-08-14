@@ -60,7 +60,7 @@ A successful stream obeys these rules:
 - `diagnostic.diagnostic` has the same shape as one JSON result diagnostic and may appear between data records.
 - `end` is last and its required `records` object counts emitted data and diagnostic records.
 
-`change`, `property`, and extraction rows use `time` for the selected event and `sample_time` for the sampled values. Protocol rows repeat `profile`; it must match the begin context. If the process exits non-zero or no final `end` appears, treat the stream as incomplete.
+`change`, `property`, and extraction rows use `time` for the selected event and `sample_time` for the sampled values. A `change` row's `signals` array follows `--row-values`: full rows contain every requested signal, while delta rows can contain a subset or be empty. The first emitted delta row is always full. Protocol rows repeat `profile`; it must match the begin context. If the process exits non-zero or no final `end` appears, treat the stream as incomplete.
 
 `--json` and `--jsonl` are mutually exclusive. JSONL is available on waveform commands only.
 

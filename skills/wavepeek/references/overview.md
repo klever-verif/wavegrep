@@ -22,7 +22,7 @@ Use `signal` after `scope` to inspect the signals available in a selected scope.
 
 Use `value` for exact point sampling. It is the most direct command when you already know the signal set and want one or more explicit normalized timestamps.
 
-Use `change` to inspect value transitions across a bounded time range. Trigger selection comes from `--on`; expression syntax is documented in [Expression language](expression-language.md).
+Use `change` for event-aligned signal tables or sparse value transitions across a bounded time range. Trigger selection comes from `--on`; `--row-mode` selects dense or sparse rows, and `--row-values` selects full or delta values. Expression syntax is documented in [Expression language](expression-language.md).
 
 Use `property` when you want to evaluate a logical expression on event-selected timestamps instead of printing raw signal snapshots. Capture modes control whether you keep every match or only state transitions such as asserts and deasserts.
 

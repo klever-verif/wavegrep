@@ -33,21 +33,23 @@ When in doubt, remove the filter first and confirm the raw names that the dump a
 
 `change` is the easiest command to misread here.
 
-A query can be fully valid, the trigger can fire, and the command can still show no rows if none of the requested `--signals` changed at those sampled timestamps.
+A dense query can be empty when no event was selected. A sparse query can be fully valid, select events, and still show no rows if none of the requested `--signals` changed at those sampled timestamps.
 
 Common causes:
 
 - the selected time window is too narrow,
 - the trigger never fires in that window,
-- the trigger fires, but the printed signals did not change,
-- the signal list is correct, but the values were already stable,
+- sparse mode selected events, but the printed signals did not change,
+- sparse mode sampled a correct signal list whose values were already stable,
 - a signal spelling does not resolve inside the selected scope.
 
-If `change` finds no qualifying rows, it emits a diagnostic instead of failing:
+If `change` finds no qualifying rows, it emits a mode-specific diagnostic instead of failing:
 
 ```text
-warning[WPK-W0003]: no signal changes found in selected time range
+warning[WPK-W0003]: no selected events found in selected time range
 ```
+
+With `--row-mode sparse`, the message is `no signal changes found in selected time range`.
 
 ## `property` can succeed with no output
 

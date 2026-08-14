@@ -736,9 +736,34 @@ fn fsdb_change_json_matches_vcd_contracts() {
                 {"path": "top.valid", "value": "1'h1"},
                 {"path": "top.ready", "value": "1'h1"},
                 {"path": "top.data", "value": "8'h2a"}
+            ]},
+            {"time": "35ns", "sample_time": "35ns", "signals": [
+                {"path": "top.valid", "value": "1'h1"},
+                {"path": "top.ready", "value": "1'h1"},
+                {"path": "top.data", "value": "8'h3c"}
             ]}
         ])
     );
+
+    let delta_args = [
+        "change",
+        "--scope",
+        "top",
+        "--signals",
+        "valid,ready,data",
+        "--from",
+        "0ns",
+        "--to",
+        "35ns",
+        "--on",
+        "posedge clk",
+        "--row-values",
+        "delta",
+        "--json",
+    ];
+    let fsdb_delta = run_json_success_with_waves(fsdb_fixture.as_str(), &delta_args);
+    let vcd_delta = run_json_success_with_waves(vcd_fixture.as_str(), &delta_args);
+    assert_eq!(fsdb_delta["data"], vcd_delta["data"]);
 
     let wildcard_args = [
         "change",

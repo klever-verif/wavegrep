@@ -18,6 +18,154 @@ fn write_fixture(contents: &str, suffix: &str) -> NamedTempFile {
     fixture
 }
 
+const ROW_MODES_VCD: &str = concat!(
+    "$timescale 1ns $end\n",
+    "$scope module top $end\n",
+    "$var wire 1 ! clk $end\n",
+    "$var wire 1 \" a $end\n",
+    "$var wire 1 # b $end\n",
+    "$upscope $end\n",
+    "$enddefinitions $end\n",
+    "#0\n0!\n0\"\n0#\n",
+    "#5\n1!\n",
+    "#10\n0!\n",
+    "#15\n1!\n1\"\n",
+    "#20\n0!\n",
+    "#25\n1!\n",
+    "#30\n0!\n",
+    "#35\n1!\n1#\n",
+);
+
+#[test]
+fn change_row_mode_and_values_matrix() {
+    let fixture = write_fixture(ROW_MODES_VCD, "change-row-modes.vcd");
+    let fixture = fixture.path().to_string_lossy().into_owned();
+    let run = |mode: &str, values: &str| {
+        let output = wavepeek_cmd()
+            .args([
+                "change",
+                "--waves",
+                fixture.as_str(),
+                "--from",
+                "5ns",
+                "--to",
+                "35ns",
+                "--signals",
+                "top.a,top.b",
+                "--on",
+                "posedge top.clk",
+                "--sample-mode",
+                "native",
+                "--row-mode",
+                mode,
+                "--row-values",
+                values,
+                "--json",
+            ])
+            .output()
+            .expect("change should execute");
+        assert!(output.status.success());
+        parse_json(&output.stdout)["data"].clone()
+    };
+
+    assert_eq!(
+        run("dense", "full"),
+        json!([
+            {"time":"5ns","sample_time":"5ns","signals":[{"path":"top.a","value":"1'h0"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"25ns","sample_time":"25ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+    assert_eq!(
+        run("dense", "delta"),
+        json!([
+            {"time":"5ns","sample_time":"5ns","signals":[{"path":"top.a","value":"1'h0"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"}]},
+            {"time":"25ns","sample_time":"25ns","signals":[]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+    assert_eq!(
+        run("sparse", "full"),
+        json!([
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+    assert_eq!(
+        run("sparse", "delta"),
+        json!([
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+
+    let limited = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "5ns",
+            "--to",
+            "35ns",
+            "--signals",
+            "top.a,top.b",
+            "--on",
+            "posedge top.clk",
+            "--sample-mode",
+            "native",
+            "--row-mode",
+            "sparse",
+            "--max",
+            "1",
+            "--json",
+        ])
+        .output()
+        .expect("limited change should execute");
+    let limited = parse_json(&limited.stdout);
+    assert_eq!(limited["data"][0]["time"], "15ns");
+    assert_eq!(limited["diagnostics"][0]["code"], "WPK-W0002");
+}
+
+#[test]
+fn change_dense_pre_edge_delta_keeps_empty_rows() {
+    let fixture = write_fixture(RTL_SAMPLING_VCD, "change-dense-pre-edge.vcd");
+    let fixture = fixture.path().to_string_lossy().into_owned();
+    let output = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "5ns",
+            "--to",
+            "25ns",
+            "--scope",
+            "top",
+            "--signals",
+            "data",
+            "--on",
+            "posedge clk",
+            "--row-values",
+            "delta",
+            "--json",
+        ])
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    assert_eq!(
+        parse_json(&output.stdout)["data"],
+        json!([
+            {"time":"5ns","sample_time":"4ns","signals":[{"path":"top.data","value":"8'h00"}]},
+            {"time":"15ns","sample_time":"14ns","signals":[{"path":"top.data","value":"8'haa"}]},
+            {"time":"25ns","sample_time":"24ns","signals":[]}
+        ])
+    );
+}
+
 const RTL_SAMPLING_VCD: &str = concat!(
     "$date\n",
     "  today\n",
@@ -78,6 +226,8 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -97,6 +247,8 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
             "data",
             "--on",
             "posedge clk",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -116,6 +268,8 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
             "data",
             "--on",
             "posedge clk",
+            "--row-mode",
+            "sparse",
         ])
         .output()
         .expect("change should execute");
@@ -167,6 +321,8 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
             "posedge clk",
             "--sample-mode",
             "pre-edge",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -188,6 +344,8 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
             "posedge clk",
             "--sample-mode",
             "pre-edge",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -450,6 +608,8 @@ fn change_zero_delta_path_returns_empty_data_with_warning() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -486,6 +646,8 @@ fn change_zero_delta_warning_matches_between_json_and_human_modes() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -507,6 +669,8 @@ fn change_zero_delta_warning_matches_between_json_and_human_modes() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
         ])
         .output()
         .expect("human change run should execute");
@@ -546,6 +710,8 @@ fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_mode
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
             "--max",
             "unlimited",
             "--json",
@@ -567,6 +733,8 @@ fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_mode
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
             "--max",
             "unlimited",
         ])
@@ -636,7 +804,7 @@ fn change_omitted_from_uses_dump_start_baseline_checkpoint() {
 }
 
 #[test]
-fn change_from_timestamp_is_baseline_only_for_emission() {
+fn change_sparse_from_timestamp_is_baseline_only_for_emission() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -657,6 +825,8 @@ fn change_from_timestamp_is_baseline_only_for_emission() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -672,7 +842,7 @@ fn change_from_timestamp_is_baseline_only_for_emission() {
 }
 
 #[test]
-fn change_equal_from_and_to_never_emits_baseline_row() {
+fn change_sparse_equal_from_and_to_never_emits_baseline_row() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -693,6 +863,8 @@ fn change_equal_from_and_to_never_emits_baseline_row() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -1188,6 +1360,37 @@ fn change_triggered_iff_payload_executes() {
 }
 
 #[test]
+fn change_dense_empty_result_reports_no_selected_events() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+    let output = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "6ns",
+            "--to",
+            "9ns",
+            "--signals",
+            "top.data",
+            "--on",
+            "posedge top.clk",
+            "--sample-mode",
+            "native",
+            "--json",
+        ])
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    assert_eq!(
+        parse_json(&output.stdout)["diagnostics"],
+        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no selected events found in selected time range"}])
+    );
+}
+
+#[test]
 fn change_empty_result_warning_matches_between_json_and_human_modes() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
@@ -1207,6 +1410,8 @@ fn change_empty_result_warning_matches_between_json_and_human_modes() {
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -1226,6 +1431,8 @@ fn change_empty_result_warning_matches_between_json_and_human_modes() {
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
         ])
         .output()
         .expect("human change run should execute");

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Changed `change` to emit every selected event with full signal values by default, added independent `--row-mode dense|sparse` and `--row-values full|delta` controls, and retained version 2 behavior through `--row-mode sparse --row-values full` ([issue #85](https://github.com/kleverhq/wavepeek/issues/85)).
 - Normalized successful JSON and JSONL results so JSON `data` is always an array, protocol metadata uses `context`, and streamed rows match JSON data elements ([issue #106](https://github.com/kleverhq/wavepeek/issues/106)).
 - Replaced the overlapping embedded documentation surfaces with `wavepeek skill <DIRECTORY>`, which extracts a complete version-matched package containing `SKILL.md`, flat offline references with explicit navigation, an examples directory, and a provenance manifest ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
 - Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.

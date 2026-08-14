@@ -419,15 +419,15 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Provides range-based delta snapshots for selected signals.")
+            Some("Provides event-driven tables for selected signals.")
         );
     }
 
     for fragment in [
-        "Prints requested signal values for each `--on` trigger firing",
-        "Similar to a modified SystemVerilog `$monitor`",
+        "Prints requested signal values for each event selected by required `--on`",
+        "`--row-mode dense|sparse` controls whether every selected event or only changed samples become rows",
+        "`--row-values full|delta` controls whether rows contain all requested signals or only changed signals",
         "Range boundaries are inclusive",
-        "Rows are emitted only when sampled signal values changed",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -455,6 +455,12 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
                 "Comma-separated canonical paths, or relative names resolved under --scope"
             )
         );
+        assert!(help.contains("Select whether every event or only changed samples become rows"));
+        assert!(help.contains("[default: dense]"));
+        assert!(help.contains("[possible values: dense, sparse]"));
+        assert!(help.contains("Select whether rows contain all values or only changed values"));
+        assert!(help.contains("[default: full]"));
+        assert!(help.contains("[possible values: full, delta]"));
         assert!(help.contains(
             "Maximum number of snapshot rows (`unlimited` disables truncation, value must be > 0)"
         ));
@@ -784,9 +790,10 @@ fn shipped_commands_help_is_self_descriptive() {
         (
             "change",
             &[
-                "range-based delta snapshots",
-                "Prints requested signal values for each `--on` trigger firing",
-                "Similar to a modified SystemVerilog `$monitor`",
+                "event-driven tables",
+                "Prints requested signal values for each event selected by required `--on`",
+                "--row-mode dense|sparse",
+                "--row-values full|delta",
                 "Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics",
             ],
         ),

@@ -75,19 +75,30 @@ fn change_vcd_and_fst_payloads_match_for_explicit_wildcard_native_trigger() {
     let fst_fixture = fixture_path("m2_core.fst");
     let fst_fixture = fst_fixture.to_string_lossy().into_owned();
 
-    let args = [
-        "--from",
-        "1ns",
-        "--to",
-        "10ns",
-        "--signals",
-        "top.clk,top.data",
-    ];
-    let vcd_json = run_change_json(vcd_fixture.as_str(), &args);
-    let fst_json = run_change_json(fst_fixture.as_str(), &args);
+    for (row_mode, row_values) in [
+        ("dense", "full"),
+        ("dense", "delta"),
+        ("sparse", "full"),
+        ("sparse", "delta"),
+    ] {
+        let args = [
+            "--from",
+            "1ns",
+            "--to",
+            "10ns",
+            "--signals",
+            "top.clk,top.data",
+            "--row-mode",
+            row_mode,
+            "--row-values",
+            row_values,
+        ];
+        let vcd_json = run_change_json(vcd_fixture.as_str(), &args);
+        let fst_json = run_change_json(fst_fixture.as_str(), &args);
 
-    assert_eq!(vcd_json["data"], fst_json["data"]);
-    assert_eq!(vcd_json["diagnostics"], fst_json["diagnostics"]);
+        assert_eq!(vcd_json["data"], fst_json["data"]);
+        assert_eq!(vcd_json["diagnostics"], fst_json["diagnostics"]);
+    }
 }
 
 #[test]

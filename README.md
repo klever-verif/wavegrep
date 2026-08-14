@@ -109,7 +109,7 @@ wavepeek skill ./wavepeek-skill
 | `scope` | List hierarchy scopes |
 | `signal` | List signals in a scope with metadata |
 | `value` | Signal values at explicit time point(s) |
-| `change` | Delta snapshots over a time range with event triggers |
+| `change` | Event-aligned signal tables or sparse transitions over a time range |
 | `property` | Property checks over event triggers with capture modes |
 | `extract` | Get events, handshakes, transfers from synchronous signals |
 | `skill` | Extract the packaged agent skill into a directory |

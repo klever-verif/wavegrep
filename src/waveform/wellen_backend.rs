@@ -1157,7 +1157,7 @@ mod tests {
     use crate::waveform::{
         ChangeCandidateCollectionMode, EXCLUDED_SCOPE_KIND_ALIASES, EXCLUDED_SIGNAL_KIND_ALIASES,
         STABLE_SCOPE_KIND_ALIASES, STABLE_SIGNAL_KIND_ALIASES, SampledSignal, ScopeEntry, Waveform,
-        classify_edge, duplicate_preserving_projection, should_emit_delta_and_update_baseline,
+        classify_edge, duplicate_preserving_projection,
     };
 
     const TEST_VCD: &str = "$date\n  today\n$end\n$version\n  wavepeek-test\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! clk $end\n$var reg 8 \" data $end\n$var parameter 8 # cfg $end\n$scope module cpu $end\n$var wire 1 $ valid $end\n$upscope $end\n$scope function helper $end\n$var wire 1 & helper_flag $end\n$upscope $end\n$scope module mem $end\n$var wire 1 % ready $end\n$upscope $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\nb00000000 \"\nb10101010 #\n0$\n0&\n0%\n#5\n1!\n1$\n1&\n#10\nb00001111 \"\n1%\n";
@@ -1811,28 +1811,6 @@ mod tests {
     fn edge_classification_treats_empty_samples_as_no_edge() {
         assert!(!classify_edge("", "1").edge());
         assert!(!classify_edge("0", "").edge());
-    }
-
-    #[test]
-    fn delta_filter_initializes_without_prior_state() {
-        let mut previous = vec![None];
-        let current = vec![Some("1".to_string())];
-
-        let emitted = should_emit_delta_and_update_baseline(&mut previous, &current);
-
-        assert!(!emitted);
-        assert_eq!(previous, vec![Some("1".to_string())]);
-    }
-
-    #[test]
-    fn delta_filter_mixed_prior_state_emits_on_comparable_change() {
-        let mut previous = vec![Some("0".to_string()), None];
-        let current = vec![Some("1".to_string()), Some("1".to_string())];
-
-        let emitted = should_emit_delta_and_update_baseline(&mut previous, &current);
-
-        assert!(emitted);
-        assert_eq!(previous, vec![Some("1".to_string()), Some("1".to_string())]);
     }
 
     #[test]

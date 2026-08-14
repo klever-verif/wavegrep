@@ -1,31 +1,37 @@
 # Change command
 
-Use `change` when explicit point snapshots are not enough and you need the moments when a small set of signals actually transitions.
+Use `change` when explicit point snapshots are not enough and you need an event-aligned table or a compact transition log.
 
-`change` scans an inclusive time window, samples the signals from `--signals` at timestamps selected by the required `--on` event expression, and prints a row only when at least one sampled value changed. Use `--on '*' --sample-mode native` when you want to consider any change in the tracked signal set.
+`change` scans an inclusive time window and samples `--signals` at timestamps selected by the required `--on` event expression. By default, every selected event produces a row containing every requested signal.
 
-In practice, `change` is the command between `value` and `property`: it is more selective than sampling every cycle, but still shows raw signal snapshots instead of a derived pass/fail result.
+Two independent options control the table:
+
+| Options | Rows | Values in each row |
+|---|---|---|
+| `--row-mode dense --row-values full` | Every selected event | All requested signals |
+| `--row-mode dense --row-values delta` | Every selected event | First row is full; later rows contain changed signals only |
+| `--row-mode sparse --row-values full` | Selected samples that changed | All requested signals |
+| `--row-mode sparse --row-values delta` | Selected samples that changed | First emitted row is full; later rows contain changed signals only |
+
+`dense` and `full` are the defaults. A later dense/delta row can have no signal values when the selected sample matches the previous selected sample. In human output that row is only `@<time>` plus `sample@<time>` when pre-edge sampling uses a different timestamp.
+
+Sparse comparisons use the previous selected sample, not the preceding dump timestamp. State advances on every selected sample even when sparse mode suppresses its row. `--max` counts rows after this filtering.
 
 `--on` is intentionally a SystemVerilog-style event-expression surface. Treat it as a practical CLI spelling of the same concepts you would use in `@(...)`: named events, `posedge`/`negedge`/`edge`, `*` for any tracked change, unions with `or` or `,`, and `iff` for gating. For the full shipped syntax and semantics, see [Expression language](expression-language.md).
 
-A rough mental model is this SystemVerilog-like pseudocode:
-
-```systemverilog
-logic initialized = 1'b0;
-sample_t prev;
-
-always @(<event from --on>) begin
-  sample_t cur = sample(<signals from --signals>);
-  if (initialized && (cur != prev))
-    $display("@%0t ...", $time, cur);
-  prev = cur;
-  initialized = 1'b1;
-end
-```
-
-That is only an intuition aid, not a normative definition: `wavepeek` runs over recorded dump timestamps, applies the selected inclusive `--from`/`--to` window, and initializes its baseline at `--from`.
+Use `--on '*' --sample-mode native` when you want any change in the tracked signal set to select a sample. Use an edge such as `--on 'posedge clk'` for an event-aligned cycle table.
 
 For exact syntax and flags, run `wavepeek help change`.
+
+## Migrating from wavepeek 2
+
+wavepeek 2 emitted sparse, full rows. To preserve that behavior, add:
+
+```text
+--row-mode sparse --row-values full
+```
+
+The version 3 default is `--row-mode dense --row-values full`, so clock-triggered queries can produce more rows than before.
 
 ## Start with a short window and a focused signal list
 
@@ -92,7 +98,7 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
 @1030000ps sample@1029999ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
 ```
 
-This means: sample on `posedge clk`, but only on cycles where `mem_valid` is true. `change` still suppresses triggered cycles when the sampled `--signals` values match the previous sampled state.
+This means: sample on `posedge clk`, but only on cycles where `mem_valid` is true. Dense mode keeps every gated clock event. Add `--row-mode sparse` when unchanged sampled values should suppress a row.
 
 ## Choose native or pre-edge sampling on clock edges
 
@@ -196,8 +202,9 @@ warning[WPK-W0001]: limit disabled: --max=unlimited
 ## Non-obvious behavior
 
 - VCD and FST work in default builds. FSDB works only in binaries built with the `fsdb` Cargo feature and a local Verdi FSDB Reader SDK. FSDB `change` supports digital bit-vector/integral signals, including raw event triggers when the FSDB contains event occurrences; unsupported real or string values fail with a `signal` error.
-- `--from` is inclusive for selection, but it also initializes the baseline state. `change` does not emit a row exactly at `--from`; if you need the boundary value itself, use `value`.
-- `--on` does not guarantee a row by itself. A trigger can fire, but `change` still suppresses the row if none of the requested `--signals` changed.
+- `--from` and `--to` are inclusive. Dense mode emits a matching event at `--from`; sparse mode uses the `--from` sample only as its comparison baseline.
+- In pre-edge mode, an event is skipped when no representable point exists before it. This includes a range-start event when the dump has no earlier sample point.
+- `--on` guarantees a row only in dense mode. Sparse mode suppresses a selected sample if none of the requested `--signals` changed from the previous selected sample.
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were printed.
 - In scoped mode, `--signals` and `--on` accept relative names and canonical paths inside the scope, including both forms in one request. Without `--scope`, use canonical full paths.
@@ -209,7 +216,9 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
     --signals cpu_state,mem_valid,mem_ready,trap \
     --from 0ps --to 20000ps \
     --on "posedge mem_valid" --max 20
-warning[WPK-W0003]: no signal changes found in selected time range
+warning[WPK-W0003]: no selected events found in selected time range
 ```
+
+Sparse mode instead reports `no signal changes found in selected time range` when no selected sample changes.
 
 When a query keeps coming back empty, widen one dimension at a time: start with the time window, then the trigger, then the signal list.
