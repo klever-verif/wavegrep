@@ -698,6 +698,67 @@ fn change_auto_dense_any_tracked_profile_matches_fused_output() {
 }
 
 #[test]
+fn change_wildcard_preserves_repeated_raw_events_with_projections() {
+    let fixture = write_fixture(
+        "$timescale 1ns $end\n$scope module top $end\n$var event 1 ! tick $end\n$var wire 8 \" data [7:0] $end\n$upscope $end\n$enddefinitions $end\n#0\nb10100101 \"\n#5\n1!\n#10\n1!\n#15\n1!\n#25\n1!\n",
+        "change-projected-raw-events.vcd",
+    );
+    let fixture = fixture.path().to_string_lossy().into_owned();
+
+    for signals in ["top.tick", "top.tick,top.data[3:0]"] {
+        let value = run_change_json_with_modes(
+            fixture.as_str(),
+            &[
+                "--signals",
+                signals,
+                "--on",
+                "*",
+                "--row-mode",
+                "dense",
+                "--row-values",
+                "full",
+            ],
+        );
+        assert_eq!(
+            value["data"]
+                .as_array()
+                .expect("change data should be an array")
+                .iter()
+                .map(|row| row["time"].as_str().expect("row time should be a string"))
+                .collect::<Vec<_>>(),
+            ["5ns", "10ns", "15ns", "25ns"]
+        );
+    }
+}
+
+#[test]
+fn change_rejected_projected_candidates_keep_baseline_cache_bounded() {
+    let mut source = String::from(
+        "$timescale 1ns $end\n$scope module top $end\n$var wire 8 ! data [7:0] $end\n$upscope $end\n$enddefinitions $end\n#0\nb00000000 !\n",
+    );
+    for timestamp in 1..=100 {
+        source.push_str(format!("#{timestamp}\nb{:08b} !\n", timestamp % 16).as_str());
+    }
+    let fixture = write_fixture(&source, "change-projected-cache-bound.vcd");
+    let fixture = fixture.path().to_string_lossy().into_owned();
+
+    let value = run_change_json_with_modes(
+        fixture.as_str(),
+        &[
+            "--signals",
+            "top.data[7:4]",
+            "--on",
+            "*",
+            "--row-mode",
+            "dense",
+            "--row-values",
+            "full",
+        ],
+    );
+    assert_eq!(value["data"], json!([]));
+}
+
+#[test]
 fn change_auto_dense_edge_profile_matches_edge_fast_output() {
     let fixture = write_generated_dispatch_fixture(true, 20, 100000, "change-auto-dense-edge.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();

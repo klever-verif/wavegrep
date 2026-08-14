@@ -13,7 +13,7 @@ use crate::engine::expr_runtime::{
     SharedWaveform, bind_waveform_event_expr, candidate_sources_for_handles,
     event_candidate_handles, event_expr_contains_wildcard, event_expr_is_any_tracked_only,
     event_expr_is_edge_only, event_expr_matches, event_expr_matches_with_any_tracked,
-    open_shared_waveform,
+    expr_diagnostic, open_shared_waveform,
 };
 use crate::engine::signal_projection::{ProjectedSignal, resolve_projected_signal};
 use crate::engine::time::{
@@ -765,7 +765,15 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
         Vec::new()
     };
 
-    let has_wildcard = event_expr_contains_wildcard(bound_event);
+    let has_projected_wildcard = event_expr_contains_wildcard(bound_event)
+        && requested_signals
+            .iter()
+            .any(|requested| requested.selected.is_projected());
+    let unprojected_event_handles = if has_projected_wildcard {
+        collect_unprojected_event_handles(host, requested_signals, tracked_signal_handles)?
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
     for timestamp in candidate_times {
@@ -774,11 +782,11 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
         }
 
         let previous_timestamp = waveform.borrow().previous_sample_time(timestamp);
-        let (wildcard_changed, current_samples) = if has_wildcard {
+        let (wildcard_changed, current_samples) = if has_projected_wildcard {
             let current =
                 sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
             let current = project_samples(requested_signals, current)?;
-            let changed = if let Some(previous_timestamp) = previous_timestamp {
+            let value_changed = if let Some(previous_timestamp) = previous_timestamp {
                 let previous = sample_cache.sample_requested_batch(
                     waveform,
                     requested_resolved,
@@ -788,6 +796,13 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
             } else {
                 false
             };
+            let changed = value_changed
+                || any_event_occurred(
+                    host,
+                    &unprojected_event_handles,
+                    timestamp,
+                    event_expr_source,
+                )?;
             (Some(changed), Some(current))
         } else {
             (None, None)
@@ -808,6 +823,10 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
             None => event_expr_matches(event_expr_source, bound_event, host, &frame)?,
         };
         if !event_matches {
+            if current_samples.is_some() {
+                sample_cache.retain_only(timestamp);
+                debug_assert!(sample_cache.requested_batches.len() <= 1);
+            }
             continue;
         }
 
@@ -1496,7 +1515,15 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
     } else {
         Vec::new()
     };
-    let has_wildcard = event_expr_contains_wildcard(bound_event);
+    let has_projected_wildcard = event_expr_contains_wildcard(bound_event)
+        && requested_signals
+            .iter()
+            .any(|requested| requested.selected.is_projected());
+    let unprojected_event_handles = if has_projected_wildcard {
+        collect_unprojected_event_handles(host, requested_signals, tracked_signal_handles)?
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
     let mut stream_cursor = 0usize;
@@ -1569,7 +1596,7 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             rolling.as_slice(),
             previous_bits.as_slice(),
         );
-        let (wildcard_changed, current_samples) = if has_wildcard {
+        let (wildcard_changed, current_samples) = if has_projected_wildcard {
             let current = project_rolling_samples(
                 requested_signals,
                 &requested_tracked_indices,
@@ -1582,10 +1609,16 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
                 &rolling,
                 Some(&previous_bits),
             )?;
-            (
-                Some(previous_timestamp.is_some() && selected_value_changed(&previous, &current)),
-                Some(current),
-            )
+            let value_changed =
+                previous_timestamp.is_some() && selected_value_changed(&previous, &current);
+            let changed = value_changed
+                || any_event_occurred(
+                    host,
+                    &unprojected_event_handles,
+                    timestamp,
+                    event_expr_source,
+                )?;
+            (Some(changed), Some(current))
         } else {
             (None, None)
         };
@@ -1739,6 +1772,40 @@ fn selected_value_changed(previous: &[SampledSignalState], current: &[SampledSig
         .iter()
         .zip(current)
         .any(|(previous, current)| previous.bits != current.bits)
+}
+
+fn collect_unprojected_event_handles(
+    host: &dyn ExpressionHost,
+    requested_signals: &[RequestedSignal],
+    tracked_signal_handles: &[SignalHandle],
+) -> Result<Vec<SignalHandle>, WavepeekError> {
+    requested_signals
+        .iter()
+        .zip(tracked_signal_handles)
+        .filter(|(requested, _)| !requested.selected.is_projected())
+        .filter_map(|(_, handle)| match host.signal_type(*handle) {
+            Ok(ty) if ty.kind == ExprTypeKind::Event => Some(Ok(*handle)),
+            Ok(_) => None,
+            Err(error) => Some(Err(WavepeekError::Internal(error.message))),
+        })
+        .collect()
+}
+
+fn any_event_occurred(
+    host: &dyn ExpressionHost,
+    handles: &[SignalHandle],
+    timestamp: u64,
+    event_expr_source: &str,
+) -> Result<bool, WavepeekError> {
+    for handle in handles {
+        if host
+            .event_occurred(*handle, timestamp)
+            .map_err(|error| expr_diagnostic(event_expr_source, error))?
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn sample_values(samples: &[SampledSignalState]) -> Vec<Option<String>> {

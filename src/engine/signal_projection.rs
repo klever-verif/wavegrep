@@ -30,6 +30,10 @@ impl ProjectedSignal {
             .map_or(self.source.width, |range| range.msb - range.lsb + 1)
     }
 
+    pub(crate) fn is_projected(&self) -> bool {
+        self.range.is_some()
+    }
+
     pub(crate) fn project_sample(
         &self,
         sample: SampledSignalState,
