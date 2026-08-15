@@ -151,7 +151,9 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             docs_install_box = docs_install.bounding_box()
             assert docs_install_box
             assert abs(docs_install_box["x"] - playground_install_box["x"]) < 1
+            assert abs(docs_install_box["y"] - playground_install_box["y"]) < 1
             assert abs(docs_install_box["width"] - playground_install_box["width"]) < 1
+            assert abs(docs_install_box["height"] - playground_install_box["height"]) < 1
             page.locator("#copy-agent-prompt").click()
             page.locator("#copy-agent-prompt").filter(has_text="Copied").wait_for()
             assert page.evaluate("navigator.clipboard.readText()") == prompt

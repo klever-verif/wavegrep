@@ -57,6 +57,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 17:53Z) Stopped Demo queries at content height, added local/demo pressed-state semantics, captured light/dark/focused/narrow screenshots, completed bounded Luna plus ponytail review without unresolved actionable findings, and passed final `just ci` and `just check`.
 - [x] (2026-08-15 17:58Z) Aligned slate documentation canvas, text, code, links, and footer with the Playground graphite palette; captured the documentation comparison and added same-origin palette checks.
 - [x] (2026-08-15 18:35Z) Added the same responsive installation/copy strip to every generated documentation page, centralized its styling and copy behavior across both builds, completed bounded Luna and ponytail review with no findings, and passed final `just ci` and `just check`.
+- [x] (2026-08-15 18:49Z) Matched the documentation strip's x/y position, width, height, and line-height to the Playground strip, including native-scrollbar compensation; focused browser checks pass.
 
 ## Surprises & Discoveries
 

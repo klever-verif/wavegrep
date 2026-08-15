@@ -67,10 +67,11 @@ body:has(.playground) .md-search {
   background: color-mix(in srgb, var(--md-primary-fg-color) 5%, var(--md-default-bg-color));
   padding: 0.35rem 0.55rem;
   font-size: 0.66rem;
+  line-height: 1.6;
 }
 
 .md-main > .playground__install {
-  margin: 0.5rem 1rem 0;
+  margin: 0.9rem max(0px, calc(1rem - (100vw - 100%))) 0 1rem;
 }
 
 .playground__install > a {
@@ -175,6 +176,10 @@ body:has(.playground) .md-search {
 }
 
 @media (max-width: 72rem) {
+  .md-main > .playground__install {
+    margin-top: 0.5rem;
+  }
+
   .playground__install {
     grid-template-columns: auto 1fr auto;
   }
@@ -186,7 +191,8 @@ body:has(.playground) .md-search {
 
 @media (max-width: 48rem) {
   .md-main > .playground__install {
-    margin-inline: 0.6rem;
+    margin-right: max(0px, calc(0.6rem - (100vw - 100%)));
+    margin-left: 0.6rem;
   }
 
   .playground__install {
