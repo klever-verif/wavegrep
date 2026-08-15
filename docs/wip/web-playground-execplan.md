@@ -58,6 +58,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 17:58Z) Aligned slate documentation canvas, text, code, links, and footer with the Playground graphite palette; captured the documentation comparison and added same-origin palette checks.
 - [x] (2026-08-15 18:35Z) Added the same responsive installation/copy strip to every generated documentation page, centralized its styling and copy behavior across both builds, completed bounded Luna and ponytail review with no findings, and passed final `just ci` and `just check`.
 - [x] (2026-08-15 18:49Z) Matched the documentation strip's x/y position, width, height, and line-height to the Playground strip, including native-scrollbar compensation; focused browser checks pass.
+- [x] (2026-08-15 20:26Z) Replaced the eight generic Demo queries with eleven translated SCR1 timing, hierarchy, timer, reset, CSR, and AXI questions; browser checks execute every query. Fixed sparse filtered scope-tree indentation at the shared renderer, added unit coverage, and resolved the bounded Luna review finding about omitted-ancestor guides.
 
 ## Surprises & Discoveries
 

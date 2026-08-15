@@ -238,18 +238,28 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#command-line").input_value() == "scope --help"
             assert page.locator('[data-example="scope"]').get_attribute("aria-pressed") == "true"
             assert page.locator("#transcript .playground__entry").count() == initial_entries
-            page.locator('[data-suggestion="property"]').click()
-            assert page.locator("#command-line").input_value().startswith("property ")
-            assert page.locator('[data-example="property"]').get_attribute("aria-pressed") == "true"
-            assert page.locator("#toggle-suggestions").count() == 0
-            assert page.locator("[data-suggestion]").count() == 8
-            assert all(
-                button.is_visible()
-                for button in page.locator("[data-suggestion]").all()
-            )
-            page.locator('[data-suggestion="generic"]').click()
-            assert page.locator("#command-line").input_value().startswith("extract generic ")
+            demo_queries = [
+                ("duration", "How long is this waveform?", "info --waves scr1_axi.fst"),
+                ("dutScopes", "Which DUT blocks were dumped?", 'scope --waves scr1_axi.fst --filter ".*i_top.*" --max-depth 3 --tree'),
+                ("timerValue", "What was the timer value at 66 ns?", "value --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --signals i_timer.timer_val,i_timer.timer_en --at 66ns"),
+                ("timerClock", "What is the timer clock period?", 'change --waves scr1_axi.fst --to 100ns --scope TOP.scr1_top_tb_axi.i_top.i_timer --signals clk --on "*" --sample-mode native --max 10'),
+                ("tapFsm", "Did the TAP controller FSM toggle?", 'change --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top.i_core_top --signals i_tapc.tap_fsm_ff --on "posedge clk" --max 10 --row-mode sparse'),
+                ("resets", "Were there any resets between 610 and 660 ns?", 'property --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top.i_core_top --on "posedge clk" --eval "sys_rst_n_o == 0" --capture deassert --from 610ns --to 660ns'),
+                ("mscratch", "When did MSCRATCH first equal f7ff8818?", 'property --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top.i_core_top --on "posedge clk" --eval "i_pipe_top.i_pipe_csr.csr_mscratch_ff == 32\'hf7ff8818" --capture match --max 1'),
+                ("dmemReadCount", "How many AXI DMEM reads occurred during the simulation?", 'property --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --on "posedge clk iff axi_rst_n" --eval "io_axi_dmem_arvalid && io_axi_dmem_arready" --capture match --summary --max unlimited'),
+                ("dmemReadAddress", "When did AXI DMEM reads target address 0x87e?", 'property --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --on "posedge clk" --eval "io_axi_dmem_arvalid && io_axi_dmem_arready && (io_axi_dmem_araddr == 32\'h87e)" --capture match'),
+                ("dmemWrites", "Which AXI DMEM writes started in this range?", "extract axi --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --include axi_dmem_aw --map aclk=clk --from 960ns --to 962ns"),
+                ("dmemTraffic", "What AXI DMEM traffic occurred in this range?", 'extract axi --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --include "io_axi_dmem_(aw|w|b|ar|r)" --map aclk=clk --from 900ns --to 901ns'),
+            ]
+            suggestions = page.locator("[data-suggestion]")
+            assert suggestions.count() == len(demo_queries)
+            assert suggestions.all_text_contents() == [query[1] for query in demo_queries]
+            assert all(button.is_visible() for button in suggestions.all())
+            for suggestion, _, command in demo_queries:
+                page.locator(f'[data-suggestion="{suggestion}"]').click()
+                assert page.locator("#command-line").input_value() == command
             assert page.locator('[data-example="extract"]').get_attribute("aria-pressed") == "true"
+            assert page.locator("#toggle-suggestions").count() == 0
             assert page.locator("#suggestions-heading").text_content() == "Demo queries"
             assert page.locator(".playground__commands-more").count() == 0
             assert page.locator("#output-description").count() == 0
@@ -437,6 +447,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "() => ({viewport: innerHeight, document: document.documentElement.scrollHeight})"
             )
             assert vertical["document"] <= vertical["viewport"], vertical
+
+            for _, _, command in demo_queries:
+                status, _, _, _ = run_browser(page, command)
+                assert status == 0, command
 
             colors = page.evaluate(
                 """async () => {

@@ -4,14 +4,17 @@ const WORKER_URL = new URL("./worker.js", import.meta.url);
 const HISTORY_LIMIT = 50;
 
 const examples = {
-  info: `info --waves ${DEMO_NAME}`,
-  scope: `scope --waves ${DEMO_NAME} --tree --max-depth 3 --max 80`,
-  signal: `signal --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --filter '.*io_axi_dmem_(arvalid|arready|araddr).*' --max 40`,
-  value: `value --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals clk,io_axi_dmem_arvalid,io_axi_dmem_arready --at 1000ps`,
-  change: `change --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals io_axi_dmem_arvalid,io_axi_dmem_arready --on 'posedge clk' --from 1ps --to 1880182ps --max 10`,
-  property: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --eval 'io_axi_dmem_arvalid && io_axi_dmem_arready' --capture match --from 1ps --to 1880182ps --max 10`,
-  generic: `extract generic --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --when 'io_axi_dmem_arvalid && io_axi_dmem_arready' --payload io_axi_dmem_araddr,io_axi_dmem_arlen --from 1ps --to 1880182ps --max 10`,
-  extract: `extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include '^io_axi_dmem_' --map aclk=clk --map aresetn=axi_rst_n --from 1ps --to 1880182ps --max 10`,
+  duration: `info --waves ${DEMO_NAME}`,
+  dutScopes: `scope --waves ${DEMO_NAME} --filter ".*i_top.*" --max-depth 3 --tree`,
+  timerValue: `value --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals i_timer.timer_val,i_timer.timer_en --at 66ns`,
+  timerClock: `change --waves ${DEMO_NAME} --to 100ns --scope TOP.scr1_top_tb_axi.i_top.i_timer --signals clk --on "*" --sample-mode native --max 10`,
+  tapFsm: `change --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top.i_core_top --signals i_tapc.tap_fsm_ff --on "posedge clk" --max 10 --row-mode sparse`,
+  resets: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top.i_core_top --on "posedge clk" --eval "sys_rst_n_o == 0" --capture deassert --from 610ns --to 660ns`,
+  mscratch: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top.i_core_top --on "posedge clk" --eval "i_pipe_top.i_pipe_csr.csr_mscratch_ff == 32'hf7ff8818" --capture match --max 1`,
+  dmemReadCount: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on "posedge clk iff axi_rst_n" --eval "io_axi_dmem_arvalid && io_axi_dmem_arready" --capture match --summary --max unlimited`,
+  dmemReadAddress: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on "posedge clk" --eval "io_axi_dmem_arvalid && io_axi_dmem_arready && (io_axi_dmem_araddr == 32'h87e)" --capture match`,
+  dmemWrites: `extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include "axi_dmem_aw" --map aclk=clk --from 960ns --to 962ns`,
+  dmemTraffic: `extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include "io_axi_dmem_(aw|w|b|ar|r)" --map aclk=clk --from 900ns --to 901ns`,
 };
 
 const commandHelp = {

@@ -81,14 +81,17 @@ hide:
       <section class="playground__suggestions" aria-labelledby="suggestions-heading">
         <h2 id="suggestions-heading">Demo queries</h2>
         <div>
-          <button type="button" data-suggestion="info">What is in this waveform?</button>
-          <button type="button" data-suggestion="scope">What scopes are under the testbench?</button>
-          <button type="button" data-suggestion="signal">Which AXI address signals were dumped?</button>
-          <button type="button" data-suggestion="value">What were the AXI controls at 1000 ps?</button>
-          <button type="button" data-suggestion="property">When did AXI read handshakes occur?</button>
-          <button type="button" data-suggestion="extract">Which AXI transactions occurred?</button>
-          <button type="button" data-suggestion="change">How did ARVALID and ARREADY change?</button>
-          <button type="button" data-suggestion="generic">Which read addresses were transferred?</button>
+          <button type="button" data-suggestion="duration">How long is this waveform?</button>
+          <button type="button" data-suggestion="dutScopes">Which DUT blocks were dumped?</button>
+          <button type="button" data-suggestion="timerValue">What was the timer value at 66 ns?</button>
+          <button type="button" data-suggestion="timerClock">What is the timer clock period?</button>
+          <button type="button" data-suggestion="tapFsm">Did the TAP controller FSM toggle?</button>
+          <button type="button" data-suggestion="resets">Were there any resets between 610 and 660 ns?</button>
+          <button type="button" data-suggestion="mscratch">When did MSCRATCH first equal f7ff8818?</button>
+          <button type="button" data-suggestion="dmemReadCount">How many AXI DMEM reads occurred during the simulation?</button>
+          <button type="button" data-suggestion="dmemReadAddress">When did AXI DMEM reads target address 0x87e?</button>
+          <button type="button" data-suggestion="dmemWrites">Which AXI DMEM writes started in this range?</button>
+          <button type="button" data-suggestion="dmemTraffic">What AXI DMEM traffic occurred in this range?</button>
         </div>
       </section>
 
