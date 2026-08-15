@@ -2,7 +2,7 @@ mod common;
 
 use serde_json::Value;
 
-use common::wavepeek_cmd;
+use common::{fixture_path, wavepeek_cmd};
 
 fn run(args: &[&str]) -> std::process::Output {
     wavepeek_cmd()
@@ -41,7 +41,7 @@ fn json_serializes_parse_and_file_failures_without_stderr() {
 }
 
 #[test]
-fn selector_after_unrelated_option_still_selects_machine_output() {
+fn selector_after_unrelated_or_missing_value_option_still_selects_machine_output() {
     let output = run(&["info", "--profile", "--json"]);
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stderr.is_empty());
@@ -49,6 +49,14 @@ fn selector_after_unrelated_option_still_selects_machine_output() {
     assert_eq!(fatal["type"], "fatal");
     assert_eq!(fatal["code"], "WPK-F0001");
     assert!(fatal["message"].as_str().unwrap().contains("--profile"));
+
+    let output = run(&["info", "--waves", "--json"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stderr.is_empty());
+    let fatal = json_stdout(&output);
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["code"], "WPK-F0001");
+    assert!(fatal["message"].as_str().unwrap().contains("--waves"));
 }
 
 #[test]
@@ -152,7 +160,7 @@ fn unsupported_helper_mode_uses_the_requested_machine_format() {
 }
 
 #[test]
-fn help_and_version_ignore_machine_selectors() {
+fn help_and_version_ignore_machine_selectors_when_successful() {
     for args in [
         &["--json", "--help"][..],
         &["info", "--jsonl", "--help"][..],
@@ -162,6 +170,70 @@ fn help_and_version_ignore_machine_selectors() {
         assert!(output.status.success());
         assert!(output.stderr.is_empty());
         assert!(serde_json::from_slice::<Value>(&output.stdout).is_err());
+    }
+
+    let invalid = run(&["info", "--version", "--json"]);
+    assert_eq!(invalid.status.code(), Some(1));
+    assert!(invalid.stderr.is_empty());
+    assert_eq!(json_stdout(&invalid)["code"], "WPK-F0001");
+}
+
+#[test]
+fn reachable_query_failures_use_stable_fatal_codes() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+    let cases = [
+        (
+            vec![
+                "value",
+                "--waves",
+                fixture.as_str(),
+                "--at",
+                "10ns",
+                "--scope",
+                "missing",
+                "--signals",
+                "clk",
+                "--json",
+            ],
+            "WPK-F0003",
+        ),
+        (
+            vec![
+                "value",
+                "--waves",
+                fixture.as_str(),
+                "--at",
+                "10ns",
+                "--signals",
+                "top.missing",
+                "--json",
+            ],
+            "WPK-F0004",
+        ),
+        (
+            vec![
+                "property",
+                "--waves",
+                fixture.as_str(),
+                "--on",
+                "posedge top.clk",
+                "--eval",
+                "(",
+                "--json",
+            ],
+            "WPK-F0005",
+        ),
+    ];
+
+    for (args, code) in cases {
+        let output = run(&args);
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stderr.is_empty());
+        let fatal = json_stdout(&output);
+        assert_eq!(fatal["type"], "fatal");
+        assert_eq!(fatal["code"], code);
+        assert!(fatal.get("seq").is_none());
     }
 }
 

@@ -42,7 +42,7 @@ pub struct PropertyArgs {
     )]
     pub sample_mode: SampleMode,
     /// Logical expression evaluated at selected event timestamps
-    #[arg(long, help_heading = "Selection options")]
+    #[arg(long, allow_hyphen_values = true, help_heading = "Selection options")]
     pub eval: String,
     /// Capture mode: level (`match`) or edge (`switch`, `assert`, `deassert`)
     #[arg(

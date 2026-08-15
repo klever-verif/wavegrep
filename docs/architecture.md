@@ -58,7 +58,7 @@ Key architectural consequences:
 ```text
 src/
 ├── lib.rs               # Crate entrypoint (`run_cli`) + module ownership
-├── main.rs              # Thin binary wrapper returning `wavepeek::run_cli()` status
+├── main.rs              # Thin binary wrapper returning `wavepeek::main_exit_code()`
 ├── cli/                 # CLI layer: argument definitions, help text, dispatch
 │   ├── mod.rs           # Top-level CLI, early output selection, failure reporting, output handoff
 │   ├── limits.rs        # Shared bounded-output flag parsing (`--max`, `--max-depth`)

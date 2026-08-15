@@ -25,7 +25,7 @@ pub enum WavepeekError {
 }
 
 impl WavepeekError {
-    pub const fn fatal_code(&self) -> Option<&'static str> {
+    pub(crate) const fn fatal_code(&self) -> Option<&'static str> {
         match self {
             Self::Args(_) => Some("WPK-F0001"),
             Self::File(_) => Some("WPK-F0002"),
@@ -38,7 +38,7 @@ impl WavepeekError {
         }
     }
 
-    pub fn message(&self) -> Option<&str> {
+    pub(crate) fn message(&self) -> Option<&str> {
         match self {
             Self::Args(message)
             | Self::File(message)

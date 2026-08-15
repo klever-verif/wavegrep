@@ -238,25 +238,26 @@ impl From<WavepeekError> for CliFailure {
     }
 }
 
-pub(crate) fn run() -> Result<(), CliFailure> {
+pub(crate) fn run(report_machine_errors: bool) -> Result<(), CliFailure> {
     let argv: Vec<_> = std::env::args_os().collect();
-    let (mut selection, argv) = extract_output_selection(argv);
-    if requests_help_or_version(&argv) {
-        selection.mode = OutputMode::Human;
-    }
+    let (selection, argv) = extract_output_selection(argv);
 
-    match execute(argv, selection) {
+    match execute(argv, selection, report_machine_errors) {
         Ok(())
         | Err(CliFailure {
             error: WavepeekError::BrokenPipe,
             ..
         }) => Ok(()),
-        Err(failure) if failure.reported => Err(failure),
+        Err(failure) if failure.reported || !report_machine_errors => Err(failure),
         Err(failure) => report_failure(selection.mode, failure.error),
     }
 }
 
-fn execute(argv: Vec<OsString>, selection: OutputSelection) -> Result<(), CliFailure> {
+fn execute(
+    argv: Vec<OsString>,
+    selection: OutputSelection,
+    report_machine_errors: bool,
+) -> Result<(), CliFailure> {
     if selection.mode != OutputMode::Human {
         if selection.json > 1 {
             return Err(WavepeekError::Args(
@@ -318,7 +319,7 @@ fn execute(argv: Vec<OsString>, selection: OutputSelection) -> Result<(), CliFai
         return Err(WavepeekError::Args("a waveform command is required".to_string()).into());
     };
 
-    dispatch(command, selection.mode)
+    dispatch(command, selection.mode, report_machine_errors)
 }
 
 fn report_failure(mode: OutputMode, error: WavepeekError) -> Result<(), CliFailure> {
@@ -385,16 +386,11 @@ fn is_known_option_value(command: &clap::Command, argv: &[OsString], index: usiz
             .unwrap_or(command)
     });
     !name.contains('=')
-        && active_command
-            .get_arguments()
-            .any(|arg| arg.get_long() == Some(name) && arg.get_action().takes_values())
-}
-
-fn requests_help_or_version(argv: &[OsString]) -> bool {
-    argv.iter()
-        .skip(1)
-        .take_while(|arg| *arg != OsStr::new("--"))
-        .any(|arg| matches!(arg.to_str(), Some("-h" | "--help" | "-V" | "--version")))
+        && active_command.get_arguments().any(|arg| {
+            arg.get_long() == Some(name)
+                && arg.get_action().takes_values()
+                && arg.is_allow_hyphen_values_set()
+        })
 }
 
 fn is_debug_mode_enabled() -> bool {
@@ -570,7 +566,11 @@ fn help_hint_for_rendered_clap_error(rendered: &str) -> String {
     format!("See 'wavepeek {} --help'.", path_tokens.join(" "))
 }
 
-fn dispatch(command: Command, output_mode: OutputMode) -> Result<(), CliFailure> {
+fn dispatch(
+    command: Command,
+    output_mode: OutputMode,
+    report_machine_errors: bool,
+) -> Result<(), CliFailure> {
     let mut engine_command = into_engine_command(command);
     if matches!(engine_command, EngineCommand::Skill(_)) && output_mode != OutputMode::Human {
         return Err(WavepeekError::Args(
@@ -586,6 +586,7 @@ fn dispatch(command: Command, output_mode: OutputMode) -> Result<(), CliFailure>
         return match engine::run_jsonl(engine_command, &mut writer) {
             Ok(()) => Ok(()),
             Err(WavepeekError::BrokenPipe) => Err(WavepeekError::BrokenPipe.into()),
+            Err(error) if !report_machine_errors => Err(error.into()),
             Err(error) => match writer.fatal(&error) {
                 Ok(()) => Err(CliFailure {
                     error,

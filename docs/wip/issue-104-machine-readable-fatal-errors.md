@@ -22,7 +22,7 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 - [x] (2026-08-15 05:26Z) Implemented early output-mode selection and centralized fatal serialization in the CLI and existing output writer.
 - [x] (2026-08-15 05:27Z) Updated normative machine-output and command-model references plus maintainer style and architecture wording.
 - [x] (2026-08-15 05:32Z) Ran focused tests and `./dev just ci`; all gates pass. Implementation commit remains.
-- [ ] Run two focused review waves and one independent control review (completed: Luna Max correctness, architecture, and contract lanes; fixed all findings; remaining: rerun CI, commit, Terra High wave, Sol High control).
+- [ ] Run two focused review waves and one independent control review (completed: Luna Max and Terra High correctness, architecture, and contract lanes; fixed all findings; remaining: rerun CI, commit Terra fixes, Sol High control).
 - [ ] Remove this branch-local plan, commit cleanup, push, and open the pull request.
 
 ## Surprises & Discoveries
@@ -41,6 +41,9 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 
 - Observation: an existing DEBUG tuning path provides a real post-`begin` JSONL failure without test-only hooks.
   Evidence: forced streaming candidate collection on a VCD emits `begin` at sequence 0 and an internal fatal at sequence 1, with no `end`.
+
+- Observation: clap treats a known option token as an option rather than a missing preceding value unless that argument explicitly permits hyphen-prefixed values.
+  Evidence: Terra High found `info --waves --json` must select JSON and report missing `--waves`; selector suppression is now limited to `allow_hyphen_values`, which is enabled for the maintainer-confirmed `--eval '--json'` case.
 
 ## Decision Log
 
@@ -61,7 +64,7 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
   Date/Author: 2026-08-15 / pi
 
 - Decision: Preserve the public `run_cli() -> Result<(), WavepeekError>` API and add a hidden process-status wrapper for the binary.
-  Rationale: Luna Max identified the initial `ExitCode` return as an unnecessary downstream API break. The result API can remain while the binary alone suppresses already-reported machine errors.
+  Rationale: Luna Max identified the initial `ExitCode` return as an unnecessary downstream API break. Terra High further identified that library callers may retain their own error reporting, so only the binary wrapper serializes machine fatal output and suppresses duplication.
   Date/Author: 2026-08-15 / pi
 
 ## Outcomes & Retrospective
@@ -187,3 +190,5 @@ Plan revision note (2026-08-15 05:16Z): Created the initial self-contained plan 
 Plan revision note (2026-08-15 05:32Z): Recorded completed implementation, documentation, focused tests, the passing full CI gate, and the generated-fixture behavior discovered during validation.
 
 Plan revision note (2026-08-15 06:05Z): Recorded the Luna Max review wave and fixes: active command-path selector scanning, public API preservation, real post-begin integration coverage, removal of a duplicate output-mode assignment, and architecture wording correction.
+
+Plan revision note (2026-08-15 06:14Z): Recorded the Terra High review wave and fixes: clap-consistent missing-value selector handling, successful-only help/version bypass, library/process reporting separation, crate-private fatal accessors, reachable fatal-code integration coverage, and corrected architecture map.
