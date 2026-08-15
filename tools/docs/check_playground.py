@@ -303,6 +303,8 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#source-status").filter(has_text="Ready").wait_for()
             assert page.locator("#source-name").text_content() == "local.vcd"
             assert page.locator("#source-format").text_content() == "VCD"
+            assert page.locator("#open-local").get_attribute("aria-pressed") == "true"
+            assert page.locator("#use-demo").get_attribute("aria-pressed") == "false"
             assert "KiB" in page.locator("#source-size").text_content()
             assert page.locator("#open-surfer").is_hidden()
             requests.clear()
@@ -385,6 +387,8 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
 
             page.locator("#use-demo").click()
             page.locator("#source-status").filter(has_text="Ready").wait_for()
+            assert page.locator("#use-demo").get_attribute("aria-pressed") == "true"
+            assert page.locator("#open-local").get_attribute("aria-pressed") == "false"
             recovered = run_browser(page, commands[0])
             assert recovered[0] == 0
 
@@ -392,22 +396,84 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             sidebar = page.locator(".playground__sidebar").bounding_box()
             assert terminal and sidebar and 0 < terminal["x"] < sidebar["x"]
             assert terminal["height"] >= 600
+            assert sidebar["height"] < terminal["height"]
             vertical = page.evaluate(
                 "() => ({viewport: innerHeight, document: document.documentElement.scrollHeight})"
             )
             assert vertical["document"] <= vertical["viewport"], vertical
 
             colors = page.evaluate(
-                """() => {
-                    const root = document.querySelector('.playground');
+                """async () => {
+                    const style = (selector) => getComputedStyle(document.querySelector(selector));
+                    const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
                     document.body.setAttribute('data-md-color-scheme', 'default');
-                    const light = getComputedStyle(root).getPropertyValue('--terminal-bg');
+                    await settle();
+                    const light = {
+                        terminal: style('.playground__terminal').backgroundColor,
+                        selectedCommand: style('.playground__commands [aria-pressed="true"]').backgroundColor,
+                        selectedDemo: style('#use-demo').backgroundColor,
+                        selectedMode: style('.playground__modes input:checked + span').backgroundColor,
+                        run: style('#run').backgroundColor,
+                        clear: style('#clear').backgroundColor,
+                        link: style('#open-surfer').color,
+                        ready: style('#source-indicator').backgroundColor,
+                    };
                     document.body.setAttribute('data-md-color-scheme', 'slate');
-                    const dark = getComputedStyle(root).getPropertyValue('--terminal-bg');
-                    return {light, dark};
+                    await settle();
+                    return {
+                        light,
+                        canvas: style('.playground').backgroundColor,
+                        panel: style('.playground__command-controls').backgroundColor,
+                        query: style('.playground__suggestions button').backgroundColor,
+                        terminal: style('.playground__terminal').backgroundColor,
+                        commandBar: style('.playground__command-line').backgroundColor,
+                        selectedCommand: style('.playground__commands [aria-pressed="true"]').backgroundColor,
+                        selectedDemo: style('#use-demo').backgroundColor,
+                        selectedMode: style('.playground__modes input:checked + span').backgroundColor,
+                        selectedForeground: style('.playground__commands [aria-pressed="true"]').color,
+                        run: style('#run').backgroundColor,
+                        clear: style('#clear').backgroundColor,
+                        link: style('#open-surfer').color,
+                        localBorder: style('#open-local').borderColor,
+                        ready: style('#source-indicator').backgroundColor,
+                        error: style('.playground').getPropertyValue('--terminal-error').trim(),
+                    };
                 }"""
             )
-            assert colors["light"] != colors["dark"]
+            assert colors["light"] == {
+                "terminal": "rgb(246, 248, 250)",
+                "selectedCommand": "rgb(20, 21, 26)",
+                "selectedDemo": "rgb(33, 33, 33)",
+                "selectedMode": "rgb(20, 21, 26)",
+                "run": "rgb(20, 21, 26)",
+                "clear": "rgb(255, 255, 255)",
+                "link": "rgb(33, 33, 33)",
+                "ready": "rgb(35, 122, 59)",
+            }, colors["light"]
+            assert colors["canvas"] == "rgb(16, 17, 20)"
+            assert colors["panel"] == "rgb(23, 25, 29)"
+            assert colors["query"] == "rgb(30, 33, 38)"
+            assert colors["terminal"] == "rgb(12, 15, 19)"
+            assert colors["commandBar"] == "rgb(19, 23, 28)"
+            for key in ("selectedCommand", "selectedDemo", "selectedMode", "run"):
+                assert colors[key] == "rgb(236, 238, 242)", colors
+            assert colors["selectedForeground"] == "rgb(17, 19, 23)"
+            assert colors["clear"] == "rgb(35, 38, 44)"
+            assert colors["link"] == "rgb(210, 215, 223)"
+            assert colors["localBorder"] == "rgba(0, 0, 0, 0)"
+            assert colors["ready"] == "rgb(99, 201, 137)"
+            assert colors["error"] == "#ef6b73"
+            page.keyboard.press("Tab")
+            page.locator('.playground__commands [aria-pressed="true"]').focus()
+            page.wait_for_timeout(100)
+            focus = page.locator('.playground__commands [aria-pressed="true"]').evaluate(
+                "element => ({ color: getComputedStyle(element).outlineColor, "
+                "style: getComputedStyle(element).outlineStyle })"
+            )
+            assert focus == {
+                "color": "rgba(236, 238, 242, 0.75)",
+                "style": "solid",
+            }, focus
 
             page.set_viewport_size({"width": 390, "height": 844})
             page.wait_for_timeout(100)

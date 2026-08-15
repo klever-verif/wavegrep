@@ -206,6 +206,7 @@ function setSource(name, bytes, kind) {
   elements["source-status"].textContent = "Ready";
   elements["source-indicator"].dataset.status = "ready";
   elements["use-demo"].setAttribute("aria-pressed", String(kind === "demo"));
+  elements["open-local"].setAttribute("aria-pressed", String(kind === "local"));
   elements["use-demo"].classList.toggle("md-button--primary", kind === "demo");
   elements["open-surfer"].hidden = kind !== "demo";
   const tokens = currentTokens();

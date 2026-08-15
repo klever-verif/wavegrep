@@ -47,7 +47,7 @@ hide:
       <h2 id="source-heading">Waveform source</h2>
       <button id="use-demo" type="button" class="md-button md-button--primary" aria-pressed="true">Demo</button>
       <div class="playground__local-source">
-        <button id="open-local" type="button" class="md-button">Local VCD/FST</button>
+        <button id="open-local" type="button" class="md-button" aria-pressed="false">Local VCD/FST</button>
         <input id="local-file" type="file" accept=".vcd,.fst" hidden>
       </div>
       <div class="playground__source-meta">
