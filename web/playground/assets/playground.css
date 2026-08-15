@@ -29,19 +29,6 @@
 }
 
 [data-md-color-scheme="slate"] .playground {
-  --wp-canvas: #101114;
-  --wp-surface: #17191d;
-  --wp-surface-raised: #1e2126;
-  --wp-control: #23262c;
-  --wp-control-hover: #2a2e35;
-  --wp-border: rgba(255, 255, 255, 0.08);
-  --wp-border-strong: rgba(255, 255, 255, 0.14);
-  --wp-text: #eceef2;
-  --wp-text-muted: #9fa6b0;
-  --wp-selected-bg: #eceef2;
-  --wp-selected-fg: #111317;
-  --wp-link: #d2d7df;
-  --wp-focus: rgba(236, 238, 242, 0.75);
   --playground-border: var(--wp-border);
   --terminal-bg: #0c0f13;
   --terminal-panel: #13171c;
@@ -99,68 +86,6 @@
 .playground [tabindex]:focus-visible {
   outline: 0.15rem solid var(--md-accent-fg-color);
   outline-offset: 0.12rem;
-}
-
-.playground__install {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.3rem 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--md-primary-fg-color) 45%, var(--playground-border));
-  border-radius: 0.3rem;
-  background: color-mix(in srgb, var(--md-primary-fg-color) 5%, var(--md-default-bg-color));
-  padding: 0.35rem 0.55rem;
-  font-size: 0.66rem;
-}
-
-.playground__install > a {
-  color: var(--md-accent-fg-color);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.playground__install > span {
-  color: var(--md-default-fg-color);
-}
-
-.playground__install .playground__copy-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.playground__install-prompt {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-width: 0;
-}
-
-.playground__install-prompt p {
-  border: 1px solid var(--playground-border);
-  border-radius: 0.25rem 0 0 0.25rem;
-  background: var(--md-code-bg-color);
-  padding: 0.3rem 0.45rem;
-  font-size: 0.64rem;
-  line-height: 1.35;
-}
-
-.playground__install-prompt code {
-  background: transparent;
-  padding: 0;
-  color: inherit;
-  font-size: inherit;
-}
-
-.playground__install-prompt button {
-  border: 1px solid var(--playground-border);
-  border-left: 0;
-  border-radius: 0 0.25rem 0.25rem 0;
-  background: var(--md-default-bg-color);
-  color: var(--md-default-fg-color);
-  padding: 0.3rem 0.55rem;
-  font-weight: 700;
 }
 
 .playground__toolbar {
@@ -609,7 +534,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
   background: #101114;
 }
 
-[data-md-color-scheme="slate"] .playground__install,
 [data-md-color-scheme="slate"] .playground__command-controls,
 [data-md-color-scheme="slate"] .playground__source,
 [data-md-color-scheme="slate"] .playground__sidebar {
@@ -617,7 +541,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
   background: var(--wp-surface);
 }
 
-[data-md-color-scheme="slate"] .playground__install-prompt p,
 [data-md-color-scheme="slate"] .playground__suggestions button {
   border-color: transparent;
   background: var(--wp-surface-raised);
@@ -627,8 +550,7 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
 [data-md-color-scheme="slate"] .playground__commands button,
 [data-md-color-scheme="slate"] .playground__command-line button,
 [data-md-color-scheme="slate"] .playground__modes span,
-[data-md-color-scheme="slate"] .playground .md-button,
-[data-md-color-scheme="slate"] .playground__install-prompt button {
+[data-md-color-scheme="slate"] .playground .md-button {
   border-color: transparent;
   background: var(--wp-control);
   color: var(--wp-text-muted);
@@ -638,7 +560,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
 [data-md-color-scheme="slate"] .playground__command-line button:hover,
 [data-md-color-scheme="slate"] .playground__modes label:hover span,
 [data-md-color-scheme="slate"] .playground .md-button:hover,
-[data-md-color-scheme="slate"] .playground__install-prompt button:hover,
 [data-md-color-scheme="slate"] .playground__suggestions button:hover {
   border-color: var(--wp-border-strong);
   background: var(--wp-control-hover);
@@ -693,7 +614,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
   color: var(--wp-text-muted);
 }
 
-[data-md-color-scheme="slate"] .playground__install > a,
 [data-md-color-scheme="slate"] .playground__surfer {
   color: var(--wp-link);
   text-decoration: underline;
@@ -701,7 +621,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
   text-underline-offset: 0.15em;
 }
 
-[data-md-color-scheme="slate"] .playground__install > a:hover,
 [data-md-color-scheme="slate"] .playground__surfer:hover {
   color: var(--wp-text);
   text-decoration-color: currentcolor;
@@ -781,14 +700,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
     display: none;
   }
 
-  .playground__install {
-    grid-template-columns: auto 1fr auto;
-  }
-
-  .playground__install-prompt {
-    grid-column: 1 / -1;
-  }
-
   .playground__toolbar {
     grid-template-columns: 1fr;
   }
@@ -840,18 +751,6 @@ body[data-md-color-scheme="slate"]:has(.playground) .md-main {
 @media (max-width: 48rem) {
   .playground {
     padding-inline: 0.6rem;
-  }
-
-  .playground__install {
-    grid-template-columns: 1fr auto;
-  }
-
-  .playground__install > span:not(.playground__copy-status) {
-    display: none;
-  }
-
-  .playground__install-prompt {
-    grid-column: 1 / -1;
   }
 
   .playground__commands {

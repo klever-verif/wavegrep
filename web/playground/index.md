@@ -7,7 +7,7 @@ hide:
 <div class="playground" data-version="@WAVEPEEK_VERSION@">
   <h1 class="playground__visually-hidden">WavePeek Playground</h1>
 
-  <section class="playground__install" aria-label="Install WavePeek">
+  <section class="playground__install" aria-label="Install wavepeek">
     <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">Installation instructions on GitHub Releases ↗</a>
     <span>or copy-paste this to your agent:</span>
     <div class="playground__install-prompt">

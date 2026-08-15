@@ -42,6 +42,7 @@ class PreparePlaygroundTests(unittest.TestCase):
             self.assertIn(f'data-version="{version}"', index)
             self.assertNotIn("@WAVEPEEK_VERSION@", index)
             self.assertTrue((output / "assets/playground/scr1_axi.fst").is_file())
+            self.assertTrue((output / "install-strip.js").is_file())
             self.assertEqual(
                 (output / "assets/playground/wasm/wavepeek_bg.wasm").read_bytes(),
                 b"wasm",

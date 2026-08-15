@@ -28,7 +28,7 @@ const commandHelp = {
 const elements = Object.fromEntries(
   [
     "source-name", "source-size", "source-format", "source-status", "source-indicator",
-    "agent-prompt", "copy-agent-prompt", "copy-status", "use-demo", "open-local",
+    "use-demo", "open-local",
     "local-file", "open-surfer", "command-line", "command-error", "run", "clear",
     "transcript",
   ].map((id) => [id, document.getElementById(id)]),
@@ -404,29 +404,6 @@ elements.run.addEventListener("click", () => {
 elements.clear.addEventListener("click", clearTranscript);
 elements["use-demo"].addEventListener("click", useDemo);
 elements["open-local"].addEventListener("click", () => elements["local-file"].click());
-function showCopyStatus(message) {
-  elements["copy-status"].textContent = message;
-  elements["copy-agent-prompt"].textContent = message;
-  setTimeout(() => {
-    if (elements["copy-status"].textContent === message) {
-      elements["copy-status"].textContent = "";
-      elements["copy-agent-prompt"].textContent = "Copy";
-    }
-  }, 2000);
-}
-
-elements["copy-agent-prompt"].addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(elements["agent-prompt"].dataset.copy);
-    showCopyStatus("Copied");
-  } catch {
-    const range = document.createRange();
-    range.selectNodeContents(elements["agent-prompt"]);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-    showCopyStatus("Press Ctrl+C");
-  }
-});
 elements["local-file"].addEventListener("change", async ({ target }) => {
   const file = target.files[0];
   if (!file) return;

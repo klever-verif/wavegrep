@@ -33,6 +33,8 @@ extra:
   scope: /wavepeek/
 extra_css:
   - monochrome.css
+extra_javascript:
+  - install-strip.js
 markdown_extensions:
   - admonition
   - toc:

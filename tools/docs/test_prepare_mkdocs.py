@@ -65,6 +65,7 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.assertTrue((self.output / "index.md").is_file())
         self.assertTrue((self.output / "change.md").is_file())
         self.assertTrue((self.output / "monochrome.css").is_file())
+        self.assertTrue((self.output / "install-strip.js").is_file())
         self.assertFalse((self.output / "docs.json").exists())
         config = yaml.safe_load(self.config.read_text(encoding="utf-8"))
         self.assertEqual(config["docs_dir"], "mkdocs-src")

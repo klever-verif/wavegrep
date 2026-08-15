@@ -150,6 +150,9 @@ def prepare_tree(
         for page in pages:
             shutil.copyfile(references / page, temp_dir / page)
         shutil.copyfile(pathlib.Path(__file__).with_name("monochrome.css"), temp_dir / "monochrome.css")
+        shutil.copyfile(
+            pathlib.Path(__file__).with_name("install-strip.js"), temp_dir / "install-strip.js"
+        )
         if output.exists():
             shutil.rmtree(output)
         temp_dir.replace(output)

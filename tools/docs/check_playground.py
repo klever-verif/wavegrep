@@ -104,9 +104,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#agent-prompt").evaluate(
                 "element => element.scrollWidth <= element.clientWidth"
             )
+            playground_install_box = page.locator(".playground__install").bounding_box()
             install_label = page.locator(".playground__install > a").bounding_box()
             install_prompt = page.locator(".playground__install-prompt").bounding_box()
-            assert install_label and install_prompt
+            assert playground_install_box and install_label and install_prompt
             assert abs(
                 install_label["y"] + install_label["height"] / 2
                 - install_prompt["y"]
@@ -143,6 +144,17 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("main").text_content().strip()
             assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
             assert page.locator(".md-search").is_visible()
+            docs_install = page.locator(".playground__install")
+            docs_install.wait_for()
+            assert docs_install.get_attribute("aria-label") == "Install wavepeek"
+            assert page.locator("#agent-prompt").get_attribute("data-copy") == prompt
+            docs_install_box = docs_install.bounding_box()
+            assert docs_install_box
+            assert abs(docs_install_box["x"] - playground_install_box["x"]) < 1
+            assert abs(docs_install_box["width"] - playground_install_box["width"]) < 1
+            page.locator("#copy-agent-prompt").click()
+            page.locator("#copy-agent-prompt").filter(has_text="Copied").wait_for()
+            assert page.evaluate("navigator.clipboard.readText()") == prompt
             page.wait_for_timeout(300)
             documentation_colors = page.evaluate(
                 """() => {

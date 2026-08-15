@@ -99,6 +99,10 @@ def prepare_tree(
             source_root / "tools" / "docs" / "monochrome.css",
             temporary_output / "monochrome.css",
         )
+        shutil.copyfile(
+            source_root / "tools" / "docs" / "install-strip.js",
+            temporary_output / "install-strip.js",
+        )
         if output.exists():
             shutil.rmtree(output)
         temporary_output.replace(output)

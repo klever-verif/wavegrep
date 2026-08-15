@@ -4,8 +4,8 @@ This directory contains helper scripts and tests for the GitHub Pages documentat
 
 ## Helpers
 
-- `prepare_mkdocs.py` validates an extracted skill and stages cumulative versioned documentation with Mike navigation.
-- `prepare_playground.py` stages the framework-free current Playground, generated WASM, and verified bundled demo for a root Material build.
+- `prepare_mkdocs.py` validates an extracted skill and stages cumulative versioned documentation with Mike navigation and the shared install strip.
+- `prepare_playground.py` stages the framework-free current Playground, generated WASM, verified bundled demo, and shared install strip for a root Material build.
 - `check_playground.py` checks the composed `/wavepeek/` and `/wavepeek/latest/` preview, compares browser and native behavior, and covers terminal interaction, install-prompt copying, local-file privacy, worker recovery, shared theme state, and responsive layout.
 - `publish_docs.py` owns local `check`, no-token `stage-deploy`, and credentialed `push-staged`. It accumulates documentation versions, replaces root Playground/installers only when promoting latest, and exports the verified `gh-pages` tree to the Pages artifact.
 - `check_deploy.py` verifies the current Playground/demo, versioned documentation, CORS, and optional GitHub Pages API state after publication.

@@ -37,12 +37,14 @@ PLAYGROUND_ROOT_PATHS = (
     "404.html",
     "assets",
     "monochrome.css",
+    "install-strip.js",
     "search",
     "sitemap.xml",
     "sitemap.xml.gz",
 )
 PLAYGROUND_REQUIRED_FILES = (
     "index.html",
+    "install-strip.js",
     "assets/playground/playground.js",
     "assets/playground/worker.js",
     "assets/playground/wasm/wavepeek.js",
@@ -594,6 +596,7 @@ def allowed_path_patterns(version: str, *, promote_latest: bool) -> list[str]:
                 "sitemap.xml.gz",
                 "assets/**",
                 "monochrome.css",
+                "install-strip.js",
                 "search/**",
                 "latest/**",
                 "install.sh",
