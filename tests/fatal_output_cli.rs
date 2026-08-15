@@ -41,6 +41,17 @@ fn json_serializes_parse_and_file_failures_without_stderr() {
 }
 
 #[test]
+fn selector_after_unrelated_option_still_selects_machine_output() {
+    let output = run(&["info", "--profile", "--json"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stderr.is_empty());
+    let fatal = json_stdout(&output);
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["code"], "WPK-F0001");
+    assert!(fatal["message"].as_str().unwrap().contains("--profile"));
+}
+
+#[test]
 fn jsonl_serializes_pre_begin_failure_at_sequence_zero() {
     let output = run(&[
         "--jsonl",
@@ -56,6 +67,50 @@ fn jsonl_serializes_pre_begin_failure_at_sequence_zero() {
     assert_eq!(fatal["code"], "WPK-F0002");
     assert!(fatal.get("command").is_none());
     assert_eq!(String::from_utf8_lossy(&output.stdout).lines().count(), 1);
+}
+
+#[test]
+fn jsonl_appends_runtime_fatal_after_begin_without_end() {
+    let output = wavepeek_cmd()
+        .env("DEBUG", "1")
+        .args([
+            "change",
+            "--waves",
+            "tests/fixtures/hand/change_property_events.vcd",
+            "--signals",
+            "top.armed",
+            "--on",
+            "*",
+            "--sample-mode",
+            "native",
+            "--tune-engine",
+            "baseline",
+            "--tune-candidates",
+            "stream",
+            "--jsonl",
+        ])
+        .output()
+        .expect("wavepeek should execute");
+    assert_eq!(output.status.code(), Some(1));
+    let records = String::from_utf8(output.stdout)
+        .expect("stdout should be UTF-8")
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).expect("record should be JSON"))
+        .collect::<Vec<_>>();
+    assert_eq!(records.len(), 2);
+    assert_eq!(records[0]["type"], "begin");
+    assert_eq!(records[0]["seq"], 0);
+    assert_eq!(records[1]["type"], "fatal");
+    assert_eq!(records[1]["seq"], 1);
+    assert_eq!(records[1]["code"], "WPK-F0006");
+    assert!(records[1].get("command").is_none());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr
+            .lines()
+            .all(|line| serde_json::from_str::<Value>(line).is_ok())
+    );
+    assert!(!stderr.contains("fatal:"));
 }
 
 #[test]

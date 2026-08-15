@@ -22,7 +22,7 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 - [x] (2026-08-15 05:26Z) Implemented early output-mode selection and centralized fatal serialization in the CLI and existing output writer.
 - [x] (2026-08-15 05:27Z) Updated normative machine-output and command-model references plus maintainer style and architecture wording.
 - [x] (2026-08-15 05:32Z) Ran focused tests and `./dev just ci`; all gates pass. Implementation commit remains.
-- [ ] Run two focused review waves and one independent control review, fix findings, rerun gates, and commit review fixes if needed.
+- [ ] Run two focused review waves and one independent control review (completed: Luna Max correctness, architecture, and contract lanes; fixed all findings; remaining: rerun CI, commit, Terra High wave, Sol High control).
 - [ ] Remove this branch-local plan, commit cleanup, push, and open the pull request.
 
 ## Surprises & Discoveries
@@ -35,6 +35,12 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 
 - Observation: `cargo test --lib` alone assumes generated waveform fixtures already exist, while `just ci` prepares them before the coverage suite.
   Evidence: the direct library run had 665 passing tests and two missing-fixture failures; `just ci` generated the fixtures and passed all source, docs, coverage, and FSDB gates.
+
+- Observation: looking up a preceding value-taking option across the entire clap tree suppresses selectors after unrelated options.
+  Evidence: the first review wave found that `info --profile --json` treated `--json` as a value because `--profile` exists on another subcommand. Restricting lookup to the argv-selected command path restores JSON fatal output.
+
+- Observation: an existing DEBUG tuning path provides a real post-`begin` JSONL failure without test-only hooks.
+  Evidence: forced streaming candidate collection on a VCD emits `begin` at sequence 0 and an internal fatal at sequence 1, with no `end`.
 
 ## Decision Log
 
@@ -52,6 +58,10 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 
 - Decision: Keep fatal code and raw message mapping on `WavepeekError`, and keep stdout rendering in `src/output.rs`.
   Rationale: `src/error.rs` already owns categories and exit codes, while `src/output.rs` owns all machine serialization. Reusing those boundaries is smaller than a new module or error hierarchy.
+  Date/Author: 2026-08-15 / pi
+
+- Decision: Preserve the public `run_cli() -> Result<(), WavepeekError>` API and add a hidden process-status wrapper for the binary.
+  Rationale: Luna Max identified the initial `ExitCode` return as an unnecessary downstream API break. The result API can remain while the binary alone suppresses already-reported machine errors.
   Date/Author: 2026-08-15 / pi
 
 ## Outcomes & Retrospective
@@ -175,3 +185,5 @@ Broken pipe is not a serializable fatal category, so these accessors may return 
 Plan revision note (2026-08-15 05:16Z): Created the initial self-contained plan after repository exploration and maintainer decisions. The plan chooses existing error and output ownership boundaries to minimize new code.
 
 Plan revision note (2026-08-15 05:32Z): Recorded completed implementation, documentation, focused tests, the passing full CI gate, and the generated-fixture behavior discovered during validation.
+
+Plan revision note (2026-08-15 06:05Z): Recorded the Luna Max review wave and fixes: active command-path selector scanning, public API preservation, real post-begin integration coverage, removal of a duplicate output-mode assignment, and architecture wording correction.

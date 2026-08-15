@@ -170,7 +170,7 @@ The current implementation status is:
 ### Principles
 
 - **Fail fast.** The first error stops execution.
-- **Machine-parseable failures and diagnostics.** Process-level failures follow a stable `fatal: <category>: <message>` shape. Successful command diagnostics use typed JSON objects and coded human lines such as `warning[WPK-W0002]: <message>`.
+- **Stable failures and diagnostics.** Human process failures follow `fatal: <category>: <message>`; JSON and JSONL failures use the typed fatal records defined in `skills/wavepeek/references/machine-output.md`. Successful command diagnostics use typed JSON objects and coded human lines such as `warning[WPK-W0002]: <message>`.
 - **No panics in production paths.** Recoverable failures use `Result<T, WavepeekError>`.
 
 ### Exit Behavior

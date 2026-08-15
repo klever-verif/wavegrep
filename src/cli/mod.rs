@@ -10,7 +10,6 @@ pub mod skill;
 pub mod value;
 
 use std::ffi::{OsStr, OsString};
-use std::process::ExitCode;
 
 use clap::error::ErrorKind;
 use clap::parser::ValueSource;
@@ -225,9 +224,9 @@ struct OutputSelection {
     jsonl: usize,
 }
 
-struct CliFailure {
-    error: WavepeekError,
-    reported: bool,
+pub(crate) struct CliFailure {
+    pub(crate) error: WavepeekError,
+    pub(crate) reported: bool,
 }
 
 impl From<WavepeekError> for CliFailure {
@@ -239,7 +238,7 @@ impl From<WavepeekError> for CliFailure {
     }
 }
 
-pub fn run() -> ExitCode {
+pub(crate) fn run() -> Result<(), CliFailure> {
     let argv: Vec<_> = std::env::args_os().collect();
     let (mut selection, argv) = extract_output_selection(argv);
     if requests_help_or_version(&argv) {
@@ -247,13 +246,13 @@ pub fn run() -> ExitCode {
     }
 
     match execute(argv, selection) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(CliFailure {
+        Ok(())
+        | Err(CliFailure {
             error: WavepeekError::BrokenPipe,
             ..
-        }) => ExitCode::SUCCESS,
-        Err(failure) if failure.reported => ExitCode::from(failure.error.exit_code()),
-        Err(failure) => finish_failure(selection.mode, failure.error),
+        }) => Ok(()),
+        Err(failure) if failure.reported => Err(failure),
+        Err(failure) => report_failure(selection.mode, failure.error),
     }
 }
 
@@ -322,24 +321,20 @@ fn execute(argv: Vec<OsString>, selection: OutputSelection) -> Result<(), CliFai
     dispatch(command, selection.mode)
 }
 
-fn finish_failure(mode: OutputMode, error: WavepeekError) -> ExitCode {
-    let exit_code = error.exit_code();
+fn report_failure(mode: OutputMode, error: WavepeekError) -> Result<(), CliFailure> {
     let reported = match mode {
-        OutputMode::Human => {
-            eprintln!("{error}");
-            return ExitCode::from(exit_code);
-        }
+        OutputMode::Human => return Err(error.into()),
         OutputMode::Json => output::write_json_fatal(&error),
         OutputMode::Jsonl => output::write_jsonl_fatal(&error),
     };
 
     match reported {
-        Ok(()) => ExitCode::from(exit_code),
-        Err(WavepeekError::BrokenPipe) => ExitCode::SUCCESS,
-        Err(write_error) => {
-            eprintln!("{write_error}");
-            ExitCode::from(write_error.exit_code())
-        }
+        Ok(()) => Err(CliFailure {
+            error,
+            reported: true,
+        }),
+        Err(WavepeekError::BrokenPipe) => Ok(()),
+        Err(write_error) => Err(write_error.into()),
     }
 }
 
@@ -384,16 +379,15 @@ fn is_known_option_value(command: &clap::Command, argv: &[OsString], index: usiz
     let Some(name) = previous.strip_prefix("--") else {
         return false;
     };
-    !name.contains('=') && command_has_value_option(command, name)
-}
-
-fn command_has_value_option(command: &clap::Command, name: &str) -> bool {
-    command
-        .get_arguments()
-        .any(|arg| arg.get_long() == Some(name) && arg.get_action().takes_values())
-        || command
-            .get_subcommands()
-            .any(|subcommand| command_has_value_option(subcommand, name))
+    let active_command = argv[1..index].iter().fold(command, |command, arg| {
+        arg.to_str()
+            .and_then(|name| command.find_subcommand(name))
+            .unwrap_or(command)
+    });
+    !name.contains('=')
+        && active_command
+            .get_arguments()
+            .any(|arg| arg.get_long() == Some(name) && arg.get_action().takes_values())
 }
 
 fn requests_help_or_version(argv: &[OsString]) -> bool {
@@ -602,8 +596,7 @@ fn dispatch(command: Command, output_mode: OutputMode) -> Result<(), CliFailure>
         };
     }
 
-    let mut result = engine::run(engine_command)?;
-    result.output_mode = output_mode;
+    let result = engine::run(engine_command)?;
     output::write(result).map_err(Into::into)
 }
 

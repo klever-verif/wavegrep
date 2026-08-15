@@ -14,6 +14,19 @@ pub mod expr;
 
 pub use crate::error::WavepeekError;
 
-pub fn run_cli() -> std::process::ExitCode {
-    cli::run()
+pub fn run_cli() -> Result<(), WavepeekError> {
+    cli::run().map_err(|failure| failure.error)
+}
+
+#[doc(hidden)]
+pub fn main_exit_code() -> std::process::ExitCode {
+    match cli::run() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(failure) => {
+            if !failure.reported {
+                eprintln!("{}", failure.error);
+            }
+            std::process::ExitCode::from(failure.error.exit_code())
+        }
+    }
 }

@@ -1,3 +1,3 @@
 fn main() -> std::process::ExitCode {
-    wavepeek::run_cli()
+    wavepeek::main_exit_code()
 }
