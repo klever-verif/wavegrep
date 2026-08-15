@@ -51,7 +51,7 @@ class PerfHelpersTest(unittest.TestCase):
 
     @staticmethod
     def _diag(
-        message: str = "careful", code: str = "WPK-W0001"
+        message: str = "careful", code: str = "WPK-W0002"
     ) -> dict[str, str]:
         return {"kind": "warning", "code": code, "message": message}
 
@@ -1741,14 +1741,14 @@ class PerfHelpersTest(unittest.TestCase):
                 revised / "sample.wavepeek.json",
                 data=[{"id": 1}],
                 diagnostics=[
-                    {"kind": "warning", "code": "WPK-W0001", "message": "revised"}
+                    {"kind": "warning", "code": "WPK-W0002", "message": "revised"}
                 ],
             )
             self._write_wavepeek_artifact(
                 golden / "sample.wavepeek.json",
                 data=[{"id": 2}],
                 diagnostics=[
-                    {"kind": "warning", "code": "WPK-W0001", "message": "golden"}
+                    {"kind": "warning", "code": "WPK-W0002", "message": "golden"}
                 ],
             )
 

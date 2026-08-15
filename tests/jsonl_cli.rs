@@ -190,6 +190,8 @@ fn change_jsonl_reports_empty_result_in_summary_without_diagnostic() {
             "clk",
             "--on",
             "negedge clk",
+            "--max",
+            "unlimited",
             "--jsonl",
         ])
         .output()
@@ -210,7 +212,90 @@ fn change_jsonl_reports_empty_result_in_summary_without_diagnostic() {
     let end = records.last().expect("stream should have an end record");
     assert_eq!(end["records"]["diagnostics"], 0);
     assert_eq!(end["summary"]["returned"], 0);
+    assert_eq!(end["summary"]["limit"], Value::Null);
     assert_eq!(end["summary"]["total"], 0);
+}
+
+#[test]
+fn empty_unlimited_jsonl_has_no_diagnostic_across_command_paths() {
+    let waves = fixture_path("m2_core.vcd").to_string_lossy().into_owned();
+    let property_fixture = write_fixture(PROPERTY_VCD, ".property-empty-jsonl.vcd");
+    let property_waves = property_fixture.path().to_string_lossy().into_owned();
+    let cases = [
+        (
+            "scope",
+            vec![
+                "scope",
+                "--waves",
+                waves.as_str(),
+                "--filter",
+                "^missing$",
+                "--max",
+                "unlimited",
+            ],
+        ),
+        (
+            "property",
+            vec![
+                "property",
+                "--waves",
+                property_waves.as_str(),
+                "--scope",
+                "top",
+                "--on",
+                "edge sig",
+                "--sample-mode",
+                "native",
+                "--eval",
+                "0",
+                "--capture",
+                "match",
+                "--max",
+                "unlimited",
+            ],
+        ),
+        (
+            "extract generic",
+            vec![
+                "extract",
+                "generic",
+                "--waves",
+                waves.as_str(),
+                "--scope",
+                "top",
+                "--on",
+                "posedge clk",
+                "--when",
+                "0",
+                "--payload",
+                "data",
+                "--max",
+                "unlimited",
+            ],
+        ),
+    ];
+
+    for (expected_command, args) in cases {
+        let output = wavepeek_cmd()
+            .args(args)
+            .arg("--jsonl")
+            .output()
+            .expect("empty unlimited JSONL command should execute");
+
+        assert!(
+            output.status.success(),
+            "{expected_command}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let records = parse_stream(&output.stdout, expected_command);
+        assert!(records.iter().all(|record| record["type"] != "data"));
+        assert!(records.iter().all(|record| record["type"] != "diagnostic"));
+        let end = records.last().expect("stream should have an end record");
+        assert_eq!(end["summary"]["returned"], 0);
+        assert_eq!(end["summary"]["limit"], Value::Null);
+        assert_eq!(end["summary"]["total"], 0);
+    }
 }
 
 #[test]

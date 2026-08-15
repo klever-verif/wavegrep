@@ -25,7 +25,7 @@ This work does not add or restore the removed `docs search` command even though 
 - [x] (2026-08-15 05:13Z) Ran focused tests, the full default test suite, and `./dev just ci`; all passed.
 - [x] (2026-08-15 05:19Z) Ran parallel Luna Max reviews by code/test, docs/contract, and simplicity/architecture focus; fixed one stale property guide sentence and two contract wording ambiguities.
 - [x] (2026-08-15 05:26Z) Ran parallel Terra High reviews over the same areas; qualified `--summary` documentation, added an empty human-summary regression test, and removed empty diagnostic-vector plumbing from generic extraction.
-- [ ] Run an independent Sol High control review; resolve findings and rerun gates.
+- [x] (2026-08-15 05:35Z) Ran an independent Sol High control review; added representative empty-unlimited JSONL coverage, replaced retired codes in benchmark fixtures, and received a clean Sol High re-review.
 - [ ] Remove this completed branch-local plan, commit cleanup, push, and open a PR for issue #102.
 
 ## Surprises & Discoveries
@@ -44,6 +44,9 @@ This work does not add or restore the removed `docs search` command even though 
 
 - Observation: the second review wave found no correctness defect, but found that command references did not consistently qualify `--summary`, the suppression lacked a direct empty human regression test, and generic extraction still forwarded an always-empty diagnostics vector.
   Evidence: Terra High code/test, docs/contract, and simplicity/architecture lanes completed; documentation now separates ordinary and summary-only output, the test locks summary-only stdout, and the vector is initialized only where truncation can add a diagnostic.
+
+- Observation: the control review found missing representative empty-unlimited JSONL coverage and retired synthetic codes in benchmark tests, then accepted the fixes without further findings.
+  Evidence: JSONL now covers change, scope, property, and generic extraction paths with zero rows, no diagnostics, and `limit: null`; all 93 benchmark E2E unit tests pass; the second Sol High pass reported `No substantive findings.`
 
 ## Decision Log
 
@@ -163,3 +166,5 @@ Revision note (2026-08-15 05:13Z): Recorded completed implementation, tests, doc
 Revision note (2026-08-15 05:19Z): Recorded the completed Luna Max review wave and its resolved documentation and help findings.
 
 Revision note (2026-08-15 05:26Z): Recorded the completed Terra High review wave and its resolved contract, regression-test, and extraction-simplification findings.
+
+Revision note (2026-08-15 05:35Z): Recorded the Sol High control findings, their JSONL and benchmark-fixture fixes, auxiliary test evidence, and the clean control re-review.
