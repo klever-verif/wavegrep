@@ -143,6 +143,28 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("main").text_content().strip()
             assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
             assert page.locator(".md-search").is_visible()
+            page.wait_for_timeout(300)
+            documentation_colors = page.evaluate(
+                """() => {
+                    const style = (selector) => getComputedStyle(document.querySelector(selector));
+                    return {
+                        canvas: style('body').backgroundColor,
+                        text: style('.md-content').color,
+                        codeBackground: style('.md-content code').backgroundColor,
+                        code: style('.md-content code').color,
+                        link: style('.md-content li a').color,
+                        footer: style('.md-footer-meta').backgroundColor,
+                    };
+                }"""
+            )
+            assert documentation_colors == {
+                "canvas": "rgb(16, 17, 20)",
+                "text": "rgb(236, 238, 242)",
+                "codeBackground": "rgb(30, 33, 38)",
+                "code": "rgb(220, 225, 232)",
+                "link": "rgb(210, 215, 223)",
+                "footer": "rgb(16, 17, 20)",
+            }, documentation_colors
             playground = page.locator("a", has_text="Playground").first
             assert playground.get_attribute("href") == "/wavepeek/"
             playground.click()

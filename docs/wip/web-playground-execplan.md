@@ -55,6 +55,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 17:14Z) Reordered narrow layouts to Install, Waveform source, Commands/Output mode, then terminal; wrapped command controls, kept source buttons inline, reduced top whitespace, and passed focused desktop/mobile checks without benchmark or push.
 - [x] (2026-08-15 17:51Z) Replaced the blue-biased dark styling with centralized graphite surface, control, terminal, text, border, link, focus, success, and error tokens; selected controls now use off-white inverse states.
 - [x] (2026-08-15 17:53Z) Stopped Demo queries at content height, added local/demo pressed-state semantics, captured light/dark/focused/narrow screenshots, completed bounded Luna plus ponytail review without unresolved actionable findings, and passed final `just ci` and `just check`.
+- [x] (2026-08-15 17:58Z) Aligned slate documentation canvas, text, code, links, and footer with the Playground graphite palette; captured the documentation comparison and added same-origin palette checks.
 
 ## Surprises & Discoveries
 
@@ -175,8 +176,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
   Rationale: This preserves the setup sequence and keeps all controls visible on phone-width screens while leaving the desktop composition unchanged.
   Date/Author: 2026-08-15 / user.
 
-- Decision: The dark Playground uses a scoped neutral graphite token hierarchy and inverse off-white selected states.
-  Rationale: The light theme remains the visual reference; neutral surfaces, restrained borders, and semantic green/red accents make slate its coherent inverse instead of a separate blue developer theme.
+- Decision: The dark Playground and documentation share the same neutral graphite canvas, text, code, and link palette.
+  Rationale: Material already shares palette state across both builds; sharing its slate tokens also makes navigation between them visually continuous while Playground-specific control and terminal tokens remain scoped.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective
@@ -195,7 +196,7 @@ Milestone 7 is complete. The purpose tagline is inline, Playground search is hid
 
 Milestone 8 is complete. Final approved text now drives the accented install prompt, browser-local privacy statement, visual Surfer link, `and more with Help` discovery hint, and dash-free tagline. All eight example queries are permanently visible, with no More/Less state or code. Focused browser checks and final `just ci` and `just check` pass.
 
-Milestone 9 is complete. The dark Playground now uses neutral graphite surfaces, off-white inverse selection, a darker integrated terminal, restrained links and focus, weak panel borders, and semantic status colors. Demo queries stop at content height. The light theme remains unchanged apart from this shared fit-content correction. Browser checks lock both light reference colors and dark tokens/states; desktop, focused-input, long-output, and narrow screenshots were reviewed directly. Bounded Luna review's test-coverage and one-line ponytail findings are addressed; its suggestion to neutralize the supplied terminal defaults further was rejected because the implemented values are the exact recommended contract values and the resulting screenshots no longer show the prior blue cast.
+Milestone 9 is complete. The dark Playground now uses neutral graphite surfaces, off-white inverse selection, a darker integrated terminal, restrained links and focus, weak panel borders, and semantic status colors. Documentation shares the same slate canvas, text, code, link, and footer palette, so same-origin navigation is visually continuous. Demo queries stop at content height. The light theme remains unchanged apart from this shared fit-content correction. Browser checks lock both light reference colors and dark tokens/states across Playground and documentation; desktop, focused-input, long-output, documentation, and narrow screenshots were reviewed directly. Bounded Luna review's test-coverage and one-line ponytail findings are addressed; its suggestion to neutralize the supplied terminal defaults further was rejected because the implemented values are the exact recommended contract values and the resulting screenshots no longer show the prior blue cast.
 
 The composed inspection server remains at `http://127.0.0.1:8000/wavepeek/`, with current source-built documentation at `http://127.0.0.1:8000/wavepeek/latest/`. Host wrapper PID `3097945` owns the serve command and listener PID `3098522`; the rebuilt files are served directly and both URLs return HTTP 200. No benchmark gate or push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
 
