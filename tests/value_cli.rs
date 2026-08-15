@@ -423,7 +423,7 @@ fn value_missing_signal_is_signal_error_and_fails_fast() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args([
             "value",
             "--waves",
@@ -434,16 +434,18 @@ fn value_missing_signal_is_signal_error_and_fails_fast() {
             "top.nope,top.clk",
             "--json",
         ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"))
-        .stderr(predicate::str::contains(
-            "no dumped signal with basename 'nope'; the RTL declaration may be optimized, aliased, or not dumped",
-        ));
+        .output()
+        .expect("value should execute");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stderr.is_empty());
+    let fatal: Value = serde_json::from_slice(&output.stdout).expect("fatal should be JSON");
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["code"], "WPK-F0004");
+    assert!(fatal["message"].as_str().unwrap().contains(
+        "no dumped signal with basename 'nope'; the RTL declaration may be optimized, aliased, or not dumped"
+    ));
 
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args([
             "value",
             "--waves",
@@ -454,11 +456,14 @@ fn value_missing_signal_is_signal_error_and_fails_fast() {
             "top.nope",
             "--jsonl",
         ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"));
+        .output()
+        .expect("value should execute");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stderr.is_empty());
+    let fatal: Value = serde_json::from_slice(&output.stdout).expect("fatal should be JSONL");
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["seq"], 0);
+    assert_eq!(fatal["code"], "WPK-F0004");
 }
 
 #[test]

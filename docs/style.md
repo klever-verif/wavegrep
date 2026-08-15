@@ -14,9 +14,9 @@ Prefer borrowing at API boundaries. Use owned `String` and `Vec` when ownership 
 
 ## Error Handling
 
-No panics in production paths. Avoid `unwrap()` and `expect()` except for true programmer bugs that are unreachable in normal operation. Errors go to stderr; stdout is reserved for command output.
+No panics in production paths. Avoid `unwrap()` and `expect()` except for true programmer bugs that are unreachable in normal operation. Human errors go to stderr. Machine-mode fatal errors and command output go to stdout according to `skills/wavepeek/references/machine-output.md`.
 
-Preserve the stable process-level failure shape:
+Preserve the stable human process-level failure shape:
 
     fatal: <category>: <message>
 

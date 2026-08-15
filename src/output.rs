@@ -8,6 +8,16 @@ use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions,
 use crate::error::WavepeekError;
 use crate::output_mode::OutputMode;
 
+#[derive(Serialize)]
+struct FatalRecord<'a> {
+    #[serde(rename = "type")]
+    record_type: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seq: Option<usize>,
+    code: &'static str,
+    message: &'a str,
+}
+
 pub struct JsonlWriter<W: Write> {
     writer: W,
     command: CommandName,
@@ -79,6 +89,11 @@ impl<W: Write> JsonlWriter<W> {
         self.write_end(Some(summary))
     }
 
+    pub fn fatal(&mut self, error: &WavepeekError) -> Result<(), WavepeekError> {
+        let record = fatal_record(error, Some(self.next_seq))?;
+        self.write_record(&record)
+    }
+
     fn write_end(&mut self, summary: Option<&ResultSummary>) -> Result<(), WavepeekError> {
         let record = stream::EndRecord::new(
             self.next_seq,
@@ -111,6 +126,43 @@ impl<W: Write> JsonlWriter<W> {
         self.next_seq += 1;
         Ok(())
     }
+}
+
+fn fatal_record(
+    error: &WavepeekError,
+    seq: Option<usize>,
+) -> Result<FatalRecord<'_>, WavepeekError> {
+    let Some(code) = error.fatal_code() else {
+        return Err(WavepeekError::Internal(
+            "broken pipe cannot be serialized as a fatal error".to_string(),
+        ));
+    };
+    let Some(message) = error.message() else {
+        return Err(WavepeekError::Internal(
+            "fatal error has no serializable message".to_string(),
+        ));
+    };
+    Ok(FatalRecord {
+        record_type: "fatal",
+        seq,
+        code,
+        message,
+    })
+}
+
+pub fn write_json_fatal(error: &WavepeekError) -> Result<(), WavepeekError> {
+    let json = serde_json::to_string(&fatal_record(error, None)?)
+        .map_err(|error| WavepeekError::Internal(format!("failed to serialize output: {error}")))?;
+    write_stdout(&json)
+}
+
+pub fn write_jsonl_fatal(error: &WavepeekError) -> Result<(), WavepeekError> {
+    let stdout = io::stdout();
+    let mut writer = stdout.lock();
+    serde_json::to_writer(&mut writer, &fatal_record(error, Some(0))?)
+        .map_err(map_jsonl_serde_error)?;
+    writer.write_all(b"\n").map_err(map_stdout_io_error)?;
+    writer.flush().map_err(map_stdout_io_error)
 }
 
 pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
@@ -761,6 +813,29 @@ mod tests {
         JsonlWriter, render_human, render_json, render_scope_tree, scope_entry_is_last_sibling,
         signal_display_name, write, write_jsonl_result,
     };
+
+    #[test]
+    fn jsonl_fatal_uses_next_sequence_number() {
+        let mut output = Vec::new();
+        let mut writer = JsonlWriter::new(&mut output, CommandName::Info);
+        writer.begin().expect("begin should serialize");
+        writer
+            .fatal(&crate::error::WavepeekError::Internal(
+                "failed after begin".into(),
+            ))
+            .expect("fatal should serialize");
+
+        let records = String::from_utf8(output).expect("records should be UTF-8");
+        let records = records
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).expect("record should be JSON"))
+            .collect::<Vec<_>>();
+        assert_eq!(records[0]["type"], "begin");
+        assert_eq!(records[1]["type"], "fatal");
+        assert_eq!(records[1]["seq"], 1);
+        assert_eq!(records[1]["code"], "WPK-F0006");
+        assert!(records[1].get("command").is_none());
+    }
 
     #[test]
     fn json_envelope_has_required_shape_for_info() {

@@ -10,7 +10,7 @@ On success, a command writes its main payload to stdout. Without `--summary`, em
 - `--json` carries non-fatal diagnostics inside one JSON result.
 - `--jsonl` writes one JSON object per stdout line and carries diagnostics as stream records.
 
-If a downstream consumer intentionally closes stdout early, `wavepeek` stops writing and exits successfully. In non-streaming modes, stdout is empty on failure and stderr carries the fatal error. A JSONL failure after `begin` can leave a partial stream without `end`; treat that stream as incomplete.
+If a downstream consumer intentionally closes stdout early, `wavepeek` stops writing and exits successfully. Human-mode failures leave stdout empty and write the fatal error to stderr. Machine-mode failures write a fatal object to stdout and do not duplicate it on stderr. With `DEBUG=1`, debug telemetry remains JSON on stderr in every mode.
 
 ## 2. JSON envelopes
 
@@ -95,7 +95,7 @@ With `--summary`, JSONL still emits `begin`, optional context, diagnostics, and 
 
 `--summary` also suppresses human result rows. Human mode retains command-wide context when present, prints the four summary fields, and writes diagnostics to stderr as usual.
 
-`--json` and `--jsonl` are mutually exclusive. JSONL is available on waveform commands only.
+`--json` and `--jsonl` are mutually exclusive selectors and may appear before or after the complete waveform command path. They are recognized only as options before the `--` option terminator, not inside another option's value. When both are present, their argument error uses JSONL. JSONL is available on waveform commands only. Help and version output remain human-readable and ignore either selector.
 
 ## 4. Diagnostics
 
@@ -113,21 +113,47 @@ With `DEBUG=1`, commands may also write JSON debug events to stderr. Debug event
 
 ## 5. Fatal errors and exit codes
 
-Process-level failures are fail-fast and use:
+Process-level failures are fail-fast. Human mode writes this form to stderr:
 
 ```text
 fatal: <category>: <message>
 ```
 
-Representative categories include `args`, `file`, `scope`, `signal`, and `expr`.
+`--json` instead writes exactly one flat object to stdout:
+
+```json
+{"type":"fatal","code":"WPK-F0002","message":"cannot open 'missing.vcd': No such file or directory"}
+```
+
+`--jsonl` writes the same flat fields plus `seq`. A failure before `begin` has `seq: 0`. A failure after records have been written uses the next sequence number, is the last record, and replaces `end`. Fatal records never contain `command`.
+
+```jsonl
+{"type":"fatal","seq":0,"code":"WPK-F0001","message":"unrecognized subcommand 'unknown'"}
+```
+
+The stable fatal codes are:
+
+| Code | Category |
+|------|----------|
+| `WPK-F0001` | arguments |
+| `WPK-F0002` | file |
+| `WPK-F0003` | scope |
+| `WPK-F0004` | signal, including a missing signal |
+| `WPK-F0005` | expression |
+| `WPK-F0006` | internal |
+| `WPK-F0007` | unimplemented operation |
+
+The `message` is the error text without the human `fatal: <category>:` prefix. Fatal objects are never wrapped in a JSON success envelope. A successful JSON invocation still emits exactly one result; a successful JSONL stream still ends with exactly one `end`.
+
+Exit codes do not depend on output mode:
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success |
-| `1` | User-facing failure such as bad arguments, missing scopes/signals, or invalid expressions |
+| `0` | Success, including an intentional downstream broken pipe |
+| `1` | User-facing or internal failure such as bad arguments, missing scopes/signals, or invalid expressions |
 | `2` | File-level failure such as open, parse, or unsupported-format failures |
 
-Fatal errors are never wrapped in a JSON success envelope.
+If stdout cannot be serialized or written, including a broken pipe, a fatal object is not guaranteed. Ordinary diagnostics retain the forms described above.
 
 ## 6. Human output flexibility
 
