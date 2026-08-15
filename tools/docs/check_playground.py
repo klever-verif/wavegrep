@@ -415,9 +415,25 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "() => ({viewport: innerWidth, document: document.documentElement.scrollWidth})"
             )
             assert overflow["document"] <= overflow["viewport"], overflow
+            install = page.locator(".playground__install").bounding_box()
+            header = page.locator(".md-header").bounding_box()
+            source = page.locator(".playground__source").bounding_box()
+            controls = page.locator(".playground__command-controls").bounding_box()
             terminal = page.locator(".playground__terminal").bounding_box()
             sidebar = page.locator(".playground__sidebar").bounding_box()
-            assert terminal and sidebar and sidebar["y"] > terminal["y"]
+            demo = page.locator("#use-demo").bounding_box()
+            local = page.locator("#open-local").bounding_box()
+            commands_row = page.locator(".playground__commands").bounding_box()
+            command_button = page.locator(".playground__commands button").first.bounding_box()
+            assert install and header and source and controls and terminal and sidebar
+            assert demo and local and commands_row and command_button
+            assert install["y"] - header["y"] - header["height"] < 15
+            assert source["y"] < controls["y"] < terminal["y"] < sidebar["y"]
+            assert abs(demo["y"] - local["y"]) < 5
+            assert commands_row["height"] > command_button["height"] * 1.5
+            assert page.locator(".playground__commands").evaluate(
+                "element => element.scrollWidth <= element.clientWidth"
+            )
             browser.close()
     finally:
         server.shutdown()

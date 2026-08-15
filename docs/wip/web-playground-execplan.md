@@ -52,6 +52,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 16:51Z) Normalized the acquisition copy, removed the repeated “get” phrasing, shortened the privacy statement, and passed focused browser checks without benchmark or push.
 - [x] (2026-08-15 17:01Z) Removed Ctrl+K behavior/help and replaced the single-line command input with a focused, wrapping, auto-growing overlay that collapses on blur; focused browser and visual checks pass without benchmark or push.
 - [x] (2026-08-15 17:05Z) Removed focused-input scrollbars and pinned the prompt and action buttons to the terminal header top while the textarea grows; focused browser and visual checks pass without benchmark or push.
+- [x] (2026-08-15 17:14Z) Reordered narrow layouts to Install, Waveform source, Commands/Output mode, then terminal; wrapped command controls, kept source buttons inline, reduced top whitespace, and passed focused desktop/mobile checks without benchmark or push.
 
 ## Surprises & Discoveries
 
@@ -166,6 +167,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: Long command input wraps and grows over the transcript only while focused.
   Rationale: Commands remain compact at rest while their full editable argv stays visible without widening or permanently enlarging the terminal header.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Narrow layouts prioritize source selection before command controls and wrap command buttons instead of scrolling them.
+  Rationale: This preserves the setup sequence and keeps all controls visible on phone-width screens while leaving the desktop composition unchanged.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective
