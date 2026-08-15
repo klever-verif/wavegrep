@@ -72,7 +72,7 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.assertEqual(
             config["nav"],
             [
-                {"Playground": "https://kleverhq.github.io/wavepeek/"},
+                {"Playground": "/wavepeek/"},
                 {
                     "Documentation": [
                         {"Start here": [{"Introduction": "index.md"}]},

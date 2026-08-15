@@ -9,7 +9,7 @@ Run container commands from the host through `./dev`.
 - `./dev just dev-setup` verifies the development container; host `./dev --install-hooks` explicitly installs reviewed hook copies.
 - `./dev just check`, `./dev just ci`, and `./dev just pre-commit` are the main quality gates.
 - `just prepare-waveform-fixtures` regenerates ignored VCD/FST fixtures under `tests/fixtures/generated/` from `tests/fixtures/source/` and documented hand-derived outputs.
-- `just playground-build`, `just playground-test`, and `just playground-serve` own local browser Playground workflows.
+- `just playground-build` builds the current browser app; `just playground-preview-build`, `just playground-test`, and `just playground-serve` compose it with current documentation under `/wavepeek/latest/` for local checks and inspection.
 - `just docs-site-build`, `just docs-site-check`, `just docs-site-stage-deploy`, `just docs-site-push-staged`, and `just docs-site-check-deploy` own GitHub Pages documentation and current-Playground publication.
 - `just bench-gate`, `just bench-capture`, and `just bench-compare` own manual performance review; generated benchmark runs are ignored and are not committed baselines.
 - `just check-fsdb-env`, `just test-fsdb`, and `just lint-fsdb` own optional Verdi/FSDB flows; see `fsdb.md` for the full contract.
@@ -28,6 +28,6 @@ Pre-commit configuration lives in `.pre-commit-config.yaml`, and the reviewed ho
 
 ## Helper Tool Layout
 
-Helper implementation code belongs in grouped root `tools/` directories with short READMEs and local tests when applicable. The stable interface remains the `just` recipe or workflow step, not an undocumented helper path. Keep helper stdout/stderr stable and return explicit non-zero exits on failure. Waveform fixture generation lives under `tools/waveform/`. Benchmark gate helpers live under `tools/bench/`. Docs-site helpers live under `tools/docs/`; `prepare_mkdocs.py` stages versioned packaged references, `prepare_playground.py` stages the current root app, `check_playground.py` runs browser parity/privacy checks, `publish_docs.py` separates local check, staged deploy, and push-only verification, and `check_deploy.py` verifies published Pages state after deployment.
+Helper implementation code belongs in grouped root `tools/` directories with short READMEs and local tests when applicable. The stable interface remains the `just` recipe or workflow step, not an undocumented helper path. Keep helper stdout/stderr stable and return explicit non-zero exits on failure. Waveform fixture generation lives under `tools/waveform/`. Benchmark gate helpers live under `tools/bench/`. Docs-site helpers live under `tools/docs/`; `prepare_mkdocs.py` stages versioned packaged references, `prepare_playground.py` stages the current root app, `check_playground.py` checks the composed local site plus browser parity/privacy, `publish_docs.py` separates local check, staged deploy, and push-only verification, and `check_deploy.py` verifies published Pages state after deployment.
 
 During path moves, update `justfile`, affected workflow YAML, hooks, docs, and helper tests in the same change.

@@ -39,7 +39,7 @@ class PreparePlaygroundTests(unittest.TestCase):
             )
 
             index = (output / "index.md").read_text(encoding="utf-8")
-            self.assertIn(f"WavePeek {version}", index)
+            self.assertIn(f"WavePeek Playground <span>v{version}</span>", index)
             self.assertNotIn("@WAVEPEEK_VERSION@", index)
             self.assertTrue((output / "assets/playground/scr1_axi.fst").is_file())
             self.assertEqual(
@@ -51,9 +51,7 @@ class PreparePlaygroundTests(unittest.TestCase):
                 generated["nav"],
                 [
                     {"Playground": "index.md"},
-                    {
-                        "Documentation": "https://kleverhq.github.io/wavepeek/latest/"
-                    },
+                    {"Documentation": "/wavepeek/latest/"},
                 ],
             )
             self.assertNotIn("extra", generated)

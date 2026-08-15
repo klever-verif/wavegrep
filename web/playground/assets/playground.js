@@ -1,33 +1,38 @@
 const DEMO_NAME = "scr1_axi.fst";
 const DEMO_URL = new URL("./scr1_axi.fst", import.meta.url);
 const WORKER_URL = new URL("./worker.js", import.meta.url);
-const HISTORY_LIMIT = 20;
+const HISTORY_LIMIT = 50;
 
-const examples = [
-  ["Metadata", `wavepeek info --waves ${DEMO_NAME}`],
-  ["Hierarchy", `wavepeek scope --waves ${DEMO_NAME} --tree --max-depth 3 --max 80`],
-  ["AXI signals", `wavepeek signal --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --filter '.*io_axi_dmem_(arvalid|arready|araddr).*' --max 40`],
-  ["Point values", `wavepeek value --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals clk,io_axi_dmem_arvalid,io_axi_dmem_arready --at 1000ps`],
-  ["Clocked changes", `wavepeek change --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals io_axi_dmem_arvalid,io_axi_dmem_arready --on 'posedge clk' --from 1ps --to 1880182ps --max 10`],
-  ["Property matches", `wavepeek property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --eval 'io_axi_dmem_arvalid && io_axi_dmem_arready' --capture match --from 1ps --to 1880182ps --max 10`],
-  ["Generic extraction", `wavepeek extract generic --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --when 'io_axi_dmem_arvalid && io_axi_dmem_arready' --payload io_axi_dmem_araddr,io_axi_dmem_arlen --from 1ps --to 1880182ps --max 10`],
-  ["AXI extraction", `wavepeek extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include '^io_axi_dmem_' --map aclk=clk --map aresetn=axi_rst_n --from 1ps --to 1880182ps --max 10`],
-];
+const examples = {
+  info: `info --waves ${DEMO_NAME}`,
+  scope: `scope --waves ${DEMO_NAME} --tree --max-depth 3 --max 80`,
+  signal: `signal --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --filter '.*io_axi_dmem_(arvalid|arready|araddr).*' --max 40`,
+  value: `value --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals clk,io_axi_dmem_arvalid,io_axi_dmem_arready --at 1000ps`,
+  change: `change --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --signals io_axi_dmem_arvalid,io_axi_dmem_arready --on 'posedge clk' --from 1ps --to 1880182ps --max 10`,
+  property: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --eval 'io_axi_dmem_arvalid && io_axi_dmem_arready' --capture match --from 1ps --to 1880182ps --max 10`,
+  generic: `extract generic --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --when 'io_axi_dmem_arvalid && io_axi_dmem_arready' --payload io_axi_dmem_araddr,io_axi_dmem_arlen --from 1ps --to 1880182ps --max 10`,
+  extract: `extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include '^io_axi_dmem_' --map aclk=clk --map aresetn=axi_rst_n --from 1ps --to 1880182ps --max 10`,
+};
 
 const elements = Object.fromEntries(
   [
-    "source-status", "use-demo", "local-file", "open-surfer", "surfer-note",
-    "example", "command-kind", "output-mode", "command-line", "command-error",
-    "run", "stop", "exit-status", "stdout", "stderr", "history",
+    "source-name", "source-size", "source-format", "source-status", "source-indicator",
+    "use-demo", "local-file", "open-surfer", "command-line", "command-error",
+    "run", "stop", "clear", "transcript", "output-description", "more-suggestions",
+    "toggle-suggestions",
   ].map((id) => [id, document.getElementById(id)]),
 );
-const optionInputs = [...document.querySelectorAll("[data-option]")];
+const outputModes = [...document.querySelectorAll('input[name="output-mode"]')];
 
 let activeSource;
 let worker;
 let runningId = 0;
 let runningCommand = "";
-let history = [];
+let runningEntry;
+let runningStarted = 0;
+let commandHistory = [];
+let historyIndex = null;
+let historyDraft = "";
 let sourceGeneration = 0;
 
 export function tokenize(command) {
@@ -78,13 +83,6 @@ function renderCommand(tokens) {
   return tokens.map(quoteArgument).join(" ");
 }
 
-function optionValue(tokens, option) {
-  const index = tokens.indexOf(option);
-  if (index >= 0) return tokens[index + 1] ?? "";
-  const prefix = `${option}=`;
-  return tokens.find((token) => token.startsWith(prefix))?.slice(prefix.length) ?? "";
-}
-
 function setOption(tokens, option, value) {
   let insertion = tokens.length;
   for (let index = tokens.length - 1; index >= 1; index -= 1) {
@@ -99,67 +97,56 @@ function setOption(tokens, option, value) {
   if (value) tokens.splice(Math.min(insertion, tokens.length), 0, option, value);
 }
 
-function commandLocation(tokens) {
-  const commands = new Set(["info", "scope", "signal", "value", "change", "property", "extract"]);
-  const index = tokens.findIndex((token, position) => position > 0 && commands.has(token));
-  if (index < 0) return { index: 1, length: 0, value: "" };
-  const length = tokens[index] === "extract" && tokens[index + 1] ? 2 : 1;
-  return { index, length, value: tokens.slice(index, index + length).join(" ") };
-}
-
 function currentTokens() {
-  const tokens = tokenize(elements["command-line"].value);
-  if (!tokens.length) tokens.push("wavepeek");
-  return tokens;
+  return ["wavepeek", ...tokenize(elements["command-line"].value)];
 }
 
 function writeTokens(tokens) {
-  elements["command-line"].value = renderCommand(tokens);
-  synchronizeControls();
+  elements["command-line"].value = renderCommand(tokens.slice(1));
+  synchronizeOutputMode();
 }
 
-function synchronizeControls() {
+function synchronizeOutputMode() {
   try {
     const tokens = currentTokens();
-    const command = commandLocation(tokens).value;
-    if ([...elements["command-kind"].options].some((option) => option.value === command)) {
-      elements["command-kind"].value = command;
-    }
-    elements["output-mode"].value = tokens.includes("--jsonl")
-      ? "jsonl"
-      : tokens.includes("--json") ? "json" : "human";
-    for (const input of optionInputs) input.value = optionValue(tokens, input.dataset.option);
+    const value = tokens.includes("--jsonl") ? "jsonl" : tokens.includes("--json") ? "json" : "human";
+    outputModes.find((input) => input.value === value).checked = true;
+    elements["output-description"].textContent = {
+      human: "Human-readable output for exploration.",
+      json: "One structured JSON document.",
+      jsonl: "Streaming JSON Lines records.",
+    }[value];
     elements["command-error"].textContent = "";
   } catch (error) {
     elements["command-error"].textContent = error.message;
   }
 }
 
-function updateControlledOption(input) {
+function selectOutput(value) {
   try {
-    const tokens = currentTokens();
-    setOption(tokens, input.dataset.option, input.value.trim());
+    const tokens = currentTokens().filter((token) => token !== "--json" && token !== "--jsonl");
+    if (value !== "human") tokens.push(`--${value}`);
     writeTokens(tokens);
   } catch (error) {
     elements["command-error"].textContent = error.message;
   }
 }
 
-function selectCommand(value) {
-  const tokens = currentTokens();
-  const current = commandLocation(tokens);
-  tokens.splice(current.index, current.length, ...value.split(" "));
+function installExample(name) {
+  const mode = outputModes.find((input) => input.checked).value;
+  const tokens = ["wavepeek", ...tokenize(examples[name])];
+  if (mode !== "human") tokens.push(`--${mode}`);
   writeTokens(tokens);
-}
-
-function selectOutput(value) {
-  const tokens = currentTokens().filter((token) => token !== "--json" && token !== "--jsonl");
-  if (value !== "human") tokens.push(`--${value}`);
-  writeTokens(tokens);
+  elements["command-line"].focus();
 }
 
 function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
+}
+
+function formatDuration(milliseconds) {
+  return milliseconds < 1000 ? `${Math.round(milliseconds)} ms` : `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
 function stopWorker() {
@@ -172,11 +159,14 @@ function stopWorker() {
 function setSource(name, bytes, kind) {
   stopWorker();
   activeSource = { name, bytes: new Uint8Array(bytes), kind };
-  elements["source-status"].textContent = `${name} · ${formatBytes(bytes.byteLength)} · ${kind === "demo" ? "bundled demo" : "local file"}`;
+  elements["source-name"].textContent = name;
+  elements["source-size"].textContent = formatBytes(bytes.byteLength);
+  elements["source-format"].textContent = name.split(".").pop().toUpperCase();
+  elements["source-status"].textContent = "Ready";
+  elements["source-indicator"].dataset.status = "ready";
+  elements["use-demo"].setAttribute("aria-pressed", String(kind === "demo"));
+  elements["use-demo"].classList.toggle("md-button--primary", kind === "demo");
   elements["open-surfer"].hidden = kind !== "demo";
-  elements["surfer-note"].textContent = kind === "demo"
-    ? "Surfer opens the same public demo for visual exploration."
-    : "Local files are never sent to Surfer. Open Surfer separately and load the file there yourself.";
   const tokens = currentTokens();
   setOption(tokens, "--waves", name);
   writeTokens(tokens);
@@ -184,7 +174,11 @@ function setSource(name, bytes, kind) {
 
 async function useDemo() {
   const generation = ++sourceGeneration;
-  elements["source-status"].textContent = "Loading bundled demo…";
+  elements["source-name"].textContent = DEMO_NAME;
+  elements["source-size"].textContent = "—";
+  elements["source-format"].textContent = "FST";
+  elements["source-status"].textContent = "Loading…";
+  elements["source-indicator"].dataset.status = "loading";
   try {
     const response = await fetch(DEMO_URL);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -192,7 +186,8 @@ async function useDemo() {
     if (generation === sourceGeneration) setSource(DEMO_NAME, bytes, "demo");
   } catch (error) {
     if (generation === sourceGeneration) {
-      elements["source-status"].textContent = `Could not load bundled demo: ${error.message}`;
+      elements["source-status"].textContent = `Could not load: ${error.message}`;
+      elements["source-indicator"].dataset.status = "error";
     }
   }
 }
@@ -206,43 +201,76 @@ function ensureWorker() {
   return worker;
 }
 
-function showResult(result) {
-  elements.stdout.textContent = result.stdout || "";
-  elements.stderr.textContent = result.stderr || "";
-  elements["exit-status"].textContent = `Exit ${result.status}`;
-  elements["exit-status"].dataset.status = result.status === 0 ? "ok" : "error";
+function clearTranscript() {
+  elements.transcript.replaceChildren();
+  const empty = document.createElement("p");
+  empty.className = "playground__empty";
+  empty.textContent = "Terminal cleared.";
+  elements.transcript.append(empty);
 }
 
-function addHistory(command, result) {
-  history.unshift({ command, result });
-  history = history.slice(0, HISTORY_LIMIT);
-  elements.history.replaceChildren(...history.map((entry) => {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = `Exit ${entry.result.status} · ${entry.command}`;
-    button.addEventListener("click", () => {
-      elements["command-line"].value = entry.command;
-      synchronizeControls();
-      showResult(entry.result);
-    });
-    item.append(button);
-    return item;
-  }));
+function startTranscriptEntry(command) {
+  const empty = elements.transcript.querySelector(".playground__empty");
+  if (empty) empty.remove();
+  const entry = document.createElement("article");
+  entry.className = "playground__entry";
+  entry.dataset.status = "running";
+
+  const header = document.createElement("header");
+  const prompt = document.createElement("code");
+  prompt.textContent = `$ ${command}`;
+  const status = document.createElement("span");
+  status.className = "playground__duration";
+  status.textContent = "Running…";
+  header.append(prompt, status);
+
+  const stdout = document.createElement("pre");
+  stdout.className = "playground__stdout";
+  const stderr = document.createElement("pre");
+  stderr.className = "playground__stderr";
+  stderr.hidden = true;
+  entry.append(header, stdout, stderr);
+  elements.transcript.append(entry);
+
+  while (elements.transcript.querySelectorAll(".playground__entry").length > HISTORY_LIMIT) {
+    elements.transcript.querySelector(".playground__entry").remove();
+  }
+  elements.transcript.scrollTop = elements.transcript.scrollHeight;
+  return entry;
+}
+
+function finishTranscriptEntry(entry, result, duration) {
+  if (!entry.isConnected) {
+    elements.transcript.querySelector(".playground__empty")?.remove();
+    elements.transcript.append(entry);
+  }
+  entry.dataset.status = result.status === 0 ? "ok" : "error";
+  entry.dataset.exitStatus = String(result.status);
+  entry.querySelector(".playground__duration").textContent = formatDuration(duration);
+  entry.querySelector(".playground__duration").title = result.status === 0 ? "Succeeded" : "Failed";
+  entry.querySelector(".playground__stdout").textContent = result.stdout || "";
+  const stderr = entry.querySelector(".playground__stderr");
+  stderr.textContent = result.stderr || "";
+  stderr.hidden = !result.stderr;
+  elements.transcript.scrollTop = elements.transcript.scrollHeight;
 }
 
 function finishWithError(message) {
-  const result = { stdout: "", stderr: `fatal: browser: ${message}\n`, status: 1 };
-  showResult(result);
-  addHistory(runningCommand, result);
+  if (!runningEntry) return;
+  finishTranscriptEntry(
+    runningEntry,
+    { stdout: "", stderr: `fatal: browser: ${message}\n`, status: 1 },
+    performance.now() - runningStarted,
+  );
+  runningEntry = undefined;
   stopWorker();
 }
 
 function handleWorkerMessage({ data }) {
-  if (data.id !== runningId) return;
+  if (data.id !== runningId || !runningEntry) return;
   if (data.type === "result") {
-    showResult(data.result);
-    addHistory(runningCommand, data.result);
+    finishTranscriptEntry(runningEntry, data.result, performance.now() - runningStarted);
+    runningEntry = undefined;
     elements.run.disabled = false;
     elements.stop.disabled = true;
   } else if (data.type === "error") {
@@ -263,47 +291,87 @@ function runCommand() {
     elements["command-error"].textContent = error.message;
     return;
   }
+
   runningId += 1;
-  runningCommand = elements["command-line"].value;
+  runningCommand = renderCommand(argv);
+  if (commandHistory.at(-1) !== elements["command-line"].value) {
+    commandHistory.push(elements["command-line"].value);
+    commandHistory = commandHistory.slice(-HISTORY_LIMIT);
+  }
+  historyIndex = null;
+  runningStarted = performance.now();
+  runningEntry = startTranscriptEntry(runningCommand);
   elements.run.disabled = true;
   elements.stop.disabled = false;
-  elements["exit-status"].textContent = "Running…";
   ensureWorker().postMessage({ type: "run", id: runningId, argv });
 }
 
 function stopCommand() {
-  if (!worker) return;
+  if (!worker || !runningEntry) return;
   runningId += 1;
+  finishTranscriptEntry(
+    runningEntry,
+    { stdout: "", stderr: "Command stopped. Run again to start a fresh worker.\n", status: 1 },
+    performance.now() - runningStarted,
+  );
+  runningEntry = undefined;
   stopWorker();
-  elements["exit-status"].textContent = "Stopped";
-  elements.stderr.textContent = "Command stopped. Run again to start a fresh worker.\n";
 }
 
-for (const [label, command] of examples) {
-  const option = document.createElement("option");
-  option.textContent = label;
-  option.value = command;
-  elements.example.append(option);
+function navigateHistory(direction) {
+  if (!commandHistory.length) return;
+  if (historyIndex === null) {
+    historyDraft = elements["command-line"].value;
+    historyIndex = commandHistory.length;
+  }
+  historyIndex = Math.max(0, Math.min(commandHistory.length, historyIndex + direction));
+  elements["command-line"].value = historyIndex === commandHistory.length
+    ? historyDraft
+    : commandHistory[historyIndex];
+  synchronizeOutputMode();
 }
-elements.example.addEventListener("change", () => {
-  elements["command-line"].value = elements.example.value;
-  synchronizeControls();
+
+for (const button of document.querySelectorAll("[data-example], [data-suggestion]")) {
+  button.addEventListener("click", () => installExample(button.dataset.example ?? button.dataset.suggestion));
+}
+for (const input of outputModes) input.addEventListener("change", () => selectOutput(input.value));
+elements["command-line"].addEventListener("input", synchronizeOutputMode);
+elements["command-line"].addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    runCommand();
+  } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    navigateHistory(event.key === "ArrowUp" ? -1 : 1);
+  } else if (event.ctrlKey && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    clearTranscript();
+  }
 });
-elements["command-kind"].addEventListener("change", (event) => selectCommand(event.target.value));
-elements["output-mode"].addEventListener("change", (event) => selectOutput(event.target.value));
-for (const input of optionInputs) input.addEventListener("change", () => updateControlledOption(input));
-elements["command-line"].addEventListener("input", synchronizeControls);
 elements.run.addEventListener("click", runCommand);
 elements.stop.addEventListener("click", stopCommand);
+elements.clear.addEventListener("click", clearTranscript);
 elements["use-demo"].addEventListener("click", useDemo);
+elements["toggle-suggestions"].addEventListener("click", () => {
+  const expanded = elements["toggle-suggestions"].getAttribute("aria-expanded") === "true";
+  elements["toggle-suggestions"].setAttribute("aria-expanded", String(!expanded));
+  elements["toggle-suggestions"].textContent = expanded ? "More…" : "Less";
+  elements["more-suggestions"].hidden = expanded;
+});
 elements["local-file"].addEventListener("change", async ({ target }) => {
   const file = target.files[0];
   if (!file) return;
   if (!/\.(vcd|fst)$/i.test(file.name)) {
-    elements["source-status"].textContent = "Choose a .vcd or .fst file.";
+    elements["source-status"].textContent = "Choose a .vcd or .fst file";
+    elements["source-indicator"].dataset.status = "error";
     return;
   }
   const generation = ++sourceGeneration;
+  elements["source-name"].textContent = file.name;
+  elements["source-size"].textContent = formatBytes(file.size);
+  elements["source-format"].textContent = file.name.split(".").pop().toUpperCase();
+  elements["source-status"].textContent = "Loading…";
+  elements["source-indicator"].dataset.status = "loading";
   const bytes = await file.arrayBuffer();
   if (generation === sourceGeneration) setSource(file.name, bytes, "local");
   target.value = "";
@@ -312,6 +380,6 @@ elements["local-file"].addEventListener("change", async ({ target }) => {
 const surfer = new URL("https://app.surfer-project.org/");
 surfer.searchParams.set("load_url", DEMO_URL.href);
 elements["open-surfer"].href = surfer.href;
-elements["command-line"].value = examples[0][1];
-synchronizeControls();
+elements["command-line"].value = examples.info;
+synchronizeOutputMode();
 useDemo();

@@ -27,7 +27,11 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 11:31Z) Updated maintainer architecture, environment, automation, testing, quality, release, and tooling documentation.
 - [x] (2026-08-15 12:42Z) Passed focused checks, post-review `just ci`, and post-review `just check`. The manual benchmark gate is explicitly deferred until the maintainer selects suitable benchmark conditions.
 - [x] (2026-08-15 12:39Z) Completed GPT-5.6 Luna max-thinking review and a bounded GPT-5.6 Sol high-thinking control review, then fixed all confirmed findings.
-- [x] (2026-08-15 12:43Z) Retained the proposal and this completed plan as branch handoff context, committed the final reviewed code, opened the local Playground, and left its server running without pushing.
+- [x] (2026-08-15 12:43Z) Retained the proposal and this completed plan as branch handoff context, committed the reviewed first implementation, opened the local Playground, and left its server running without pushing.
+- [x] (2026-08-15 13:34Z) Replaced the form-heavy interface with the approved compact source bar, exact CLI example buttons, theme-aware transcript terminal, and problem-oriented examples.
+- [x] (2026-08-15 13:34Z) Preserved in-tab command navigation while making Clear and Ctrl+K erase only the visible transcript.
+- [x] (2026-08-15 13:34Z) Composed the locally built Playground and current documentation into one preview under `/wavepeek/`, with same-origin navigation matching production.
+- [ ] Update browser/publication checks and durable maintainer documentation, run review and quality gates, commit, and replace the inspection server without pushing. Browser checks and documentation are updated; review and final gates remain.
 
 ## Surprises & Discoveries
 
@@ -58,6 +62,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - Observation: Deployed versioned-asset absence checks must use the generated WASM subdirectory.
   Evidence: The built artifact is `assets/playground/wasm/wavepeek_bg.wasm`; the control review caught an initial check missing `wasm/`.
 
+- Observation: A terminal with an optional hidden error row cannot rely on implicit placement in fixed CSS Grid rows.
+  Evidence: Hiding the empty error moved the transcript into the auto row and stretched the shortcut footer across the remaining height. A column flex layout keeps the command and footer intrinsic while the transcript owns the scrollable remainder.
+
 ## Decision Log
 
 - Decision: Publish exactly one replaceable Playground at the site root; accumulate only documentation through Mike.
@@ -86,6 +93,18 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: Treat FSDB, `skill`, and extraction `--source` as explicit browser-unsupported inputs and hide them from browser help.
   Rationale: The browser has one waveform byte source and no general filesystem. Clear rejection is truthful and avoids a virtual filesystem.
+  Date/Author: 2026-08-15 / user and implementation agent.
+
+- Decision: Replace structured command fields with one fixed `$ wavepeek` prompt, an editable argument line, exact CLI command buttons, and a scrollable transcript.
+  Rationale: The structured form obscures the CLI and consumes the space needed for readable output. Examples provide discoverability while the argument line remains directly editable.
+  Date/Author: 2026-08-15 / user and implementation agent.
+
+- Decision: Clear erases only the visible transcript; command navigation remains in memory until the tab closes or reloads.
+  Rationale: This matches terminal clear semantics while preserving the user's short-lived working history without persistence.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Keep separate Playground and Mike documentation builds, but compose them into one local preview and use same-origin `/wavepeek/` links.
+  Rationale: Separate builds preserve the current-only app/versioned-doc publication model, while one preview makes local navigation match the deployed Pages artifact.
   Date/Author: 2026-08-15 / user and implementation agent.
 
 ## Outcomes & Retrospective
@@ -155,6 +174,14 @@ Update `docs/architecture.md`, `docs/environment.md`, `docs/testing.md`, `docs/q
 Request a read-only multi-focus review using GPT-5.6 Luna with max thinking. Every reviewer prompt must explicitly enforce KISS, YAGNI, the repository's Ponytail policy, and the `ponytail-review` skill's delete-first format in addition to correctness. Apply confirmed findings and rerun affected checks. Spawn GPT-5.6 Sol at high thinking for an independent control opinion if findings are ambiguous or a second review is needed.
 
 Commit coherent slices with conventional messages and active hooks. Do not push. Finally run the local serve recipe in a persistent host-visible process, open the URL with the host browser, verify the process remains alive, and report the URL and server PID.
+
+### Milestone 5: Redesign the terminal workspace and unify local preview
+
+Replace `web/playground/index.md`, `playground.css`, and the UI state in `playground.js` without changing the worker or Rust execution boundary. The source bar stays compact and reports name, size, extension-derived format, and loading state. Exact command buttons and problem-oriented suggestions install proven demo commands but never run automatically. The fixed `$ wavepeek` prefix is not editable. Each run appends command, stdout, highlighted stderr, and a green or red duration badge to one scrollable transcript. Enter runs, Up and Down navigate in-tab commands, and Clear or Ctrl+K clears only transcript nodes.
+
+Change generated nav links to same-origin `/wavepeek/` paths. Add a Just composition recipe that copies the root Playground build under a preview `wavepeek/` directory and the current generated docs under `wavepeek/latest/`, then serve that static tree. Browser checks use this exact composed layout, click both navigation directions, and validate command insertion, output modes, transcript accumulation, clear/history semantics, source metadata, Stop recovery, local privacy, theme colors, and responsive ordering.
+
+At the end of this milestone, `./dev just playground-test` passes and `./dev just playground-serve` opens `http://127.0.0.1:8000/wavepeek/`; Documentation stays on the same local origin and displays docs built from the current source tree.
 
 ### Concrete Steps
 
@@ -243,3 +270,5 @@ Use target-specific `wasm-bindgen = "=0.2.127"`. Do not add a JavaScript framewo
 The browser test dependency is Python `playwright==1.62.0` with its Chromium headless shell. It is development infrastructure only and must not appear in runtime frontend assets.
 
 The publication helper owns these generated roots under its existing work directory: one extracted skill tree, one versioned-doc MkDocs tree/config/site, and one current-Playground MkDocs tree/config/site. Generated names must be explicit in `Paths`; do not introduce a generic artifact registry or plugin abstraction.
+
+Revision note (2026-08-15): Reopened the completed plan for the user-approved terminal redesign and a same-origin composed local preview. The Rust/WASM engine and production publication model remain unchanged.

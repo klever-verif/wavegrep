@@ -15,7 +15,7 @@ import yaml
 
 
 DEMO_SHA256 = "aad73e9b0d2b244b67a96b254371ff29a2ac2e54077176376f6361570789e884"
-DOCUMENTATION_URL = "https://kleverhq.github.io/wavepeek/latest/"
+DOCUMENTATION_URL = "/wavepeek/latest/"
 
 
 class PrepareError(Exception):

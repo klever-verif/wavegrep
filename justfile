@@ -9,6 +9,7 @@ wavepeek_fsdb_release_bin := "./target/fsdb/release/wavepeek"
 python := "python3 -B"
 docs_site_dir := "tmp/docs-site"
 playground_dir := "tmp/playground"
+playground_preview_dir := playground_dir + "/preview"
 docs_pages_url := "https://kleverhq.github.io/wavepeek"
 docs_repository := env_var_or_default("DOCS_REPOSITORY", "")
 docs_version := `python3 -B -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["package"]["version"])'`
@@ -251,15 +252,22 @@ playground-build: require-container
         --force
     mkdocs build --strict --config-file "{{ playground_dir }}/mkdocs.yml"
 
-# Test the current browser Playground against native WavePeek
-playground-test: playground-build build-release
+# Compose the current Playground and documentation as one local Pages preview
+playground-preview-build: playground-build docs-site-build
+    rm -rf "{{ playground_preview_dir }}"
+    mkdir -p "{{ playground_preview_dir }}/wavepeek/latest"
+    cp -a "{{ playground_dir }}/site/." "{{ playground_preview_dir }}/wavepeek/"
+    cp -a "{{ docs_site_dir }}/mkdocs-site/." "{{ playground_preview_dir }}/wavepeek/latest/"
+
+# Test the composed browser Playground against native WavePeek
+playground-test: playground-preview-build build-release
     {{ python }} tools/docs/check_playground.py \
-        --site "{{ playground_dir }}/site" \
+        --site "{{ playground_preview_dir }}" \
         --native-bin "{{ wavepeek_release_bin }}"
 
-# Serve the current browser Playground locally
-playground-serve: playground-build
-    mkdocs serve --config-file "{{ playground_dir }}/mkdocs.yml" --dev-addr 0.0.0.0:8000
+# Serve the composed Playground and current documentation locally
+playground-serve: playground-preview-build
+    cd "{{ playground_preview_dir }}" && {{ python }} -m http.server 8000 --bind 0.0.0.0
 
 # Build the generated MkDocs site from the bundled skill references
 docs-site-build: require-container

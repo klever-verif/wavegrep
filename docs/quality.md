@@ -18,7 +18,7 @@ Use `./dev just pre-commit` to run every Pre-commit check across the repository.
 - `just check-actions` runs `actionlint` for `.github/workflows/`.
 - `just docs-site-build` stages packaged skill references under `tmp/docs-site/`, generates a MkDocs config, and builds the site in strict mode.
 - `just docs-site-check` runs the full local docs and current-Playground publication check without touching `gh-pages`.
-- `just playground-build`, `just playground-test`, and `just playground-serve` build, test, or serve the current root Playground.
+- `just playground-build` builds the current root app; `just playground-preview-build`, `just playground-test`, and `just playground-serve` compose it with current documentation, test it, or serve it locally.
 - `just bench-gate`, `just bench-capture`, and `just bench-compare` support manual performance review and are not part of the standard pre-handoff gates.
 - `just coverage-src` reports source coverage without enforcing thresholds.
 - `just coverage-src-check` enforces the current `90%` minimum on lines, regions, and functions for `src/**`.

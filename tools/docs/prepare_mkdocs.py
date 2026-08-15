@@ -12,7 +12,7 @@ from typing import Any
 import yaml
 
 
-PLAYGROUND_URL = "https://kleverhq.github.io/wavepeek/"
+PLAYGROUND_URL = "/wavepeek/"
 
 
 class PrepareError(Exception):

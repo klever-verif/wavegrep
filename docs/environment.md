@@ -29,7 +29,7 @@ The workspace is mounted at `/workspaces/<worktree-name>`. For linked worktrees,
 
 Recipes in `justfile` require `WAVEPEEK_IN_CONTAINER=1`. Do not set it on the host to bypass the guard; use `./dev` instead.
 
-Run `./dev just dev-setup` after creating or rebuilding the container to verify tool availability. It does not install or rewrite host hooks. Use `./dev just playground-build`, `playground-test`, or `playground-serve` for the browser build, reproducible headless checks, or local inspection.
+Run `./dev just dev-setup` after creating or rebuilding the container to verify tool availability. It does not install or rewrite host hooks. Use `./dev just playground-build` for the standalone browser build. `playground-preview-build`, `playground-test`, and `playground-serve` compose the Playground at `/wavepeek/` with current documentation at `/wavepeek/latest/` for local checks and inspection.
 
 ## Fixture Location
 

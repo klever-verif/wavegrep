@@ -7,100 +7,94 @@ hide:
 <div class="playground" data-version="@WAVEPEEK_VERSION@">
   <header class="playground__intro">
     <div>
-      <p class="playground__eyebrow">WavePeek @WAVEPEEK_VERSION@</p>
-      <h1>Inspect waveforms in your browser</h1>
-      <p>Run the real WavePeek CLI against the bundled AXI demo or a local VCD/FST. Local files stay in this tab.</p>
+      <h1>WavePeek Playground <span>v@WAVEPEEK_VERSION@</span></h1>
+      <p>Run waveform queries locally in your browser.</p>
     </div>
-    <div class="playground__privacy" role="note">
-      <strong>Local by design</strong>
-      <span>No upload, account, backend, telemetry, or persistence.</span>
-    </div>
+    <p class="playground__privacy">Local files stay on your machine. No uploads, backend, telemetry, or persistence.</p>
   </header>
 
   <section class="playground__source" aria-labelledby="source-heading">
-    <div>
-      <h2 id="source-heading">Waveform</h2>
-      <p id="source-status" class="playground__status" aria-live="polite">Loading bundled demo…</p>
-    </div>
-    <div class="playground__actions">
-      <button id="use-demo" type="button" class="md-button">Use bundled demo</button>
-      <label for="local-file" class="md-button md-button--primary">Choose local VCD/FST</label>
+    <div class="playground__source-actions">
+      <h2 id="source-heading">Waveform source</h2>
+      <button id="use-demo" type="button" class="md-button md-button--primary" aria-pressed="true">Use demo waveform</button>
+      <label for="local-file" class="md-button">Open local VCD/FST</label>
       <input id="local-file" type="file" accept=".vcd,.fst" hidden>
-      <a id="open-surfer" class="md-button" target="_blank" rel="noopener noreferrer">Open demo in Surfer</a>
     </div>
-    <p id="surfer-note" class="playground__hint">Surfer opens the same public demo for visual exploration.</p>
+    <div class="playground__source-meta">
+      <span id="source-indicator" class="playground__source-indicator" aria-hidden="true"></span>
+      <div>
+        <strong id="source-name">Loading demo…</strong>
+        <p><span id="source-size">—</span> · <span id="source-format">FST</span> · <span id="source-status" aria-live="polite">Loading…</span></p>
+      </div>
+      <a id="open-surfer" class="playground__surfer" target="_blank" rel="noopener noreferrer">Open visually in Surfer ↗</a>
+    </div>
   </section>
+
+  <nav class="playground__commands" aria-label="Example WavePeek commands">
+    <span>Commands</span>
+    <button type="button" data-example="info">Info</button>
+    <button type="button" data-example="scope">Scope</button>
+    <button type="button" data-example="signal">Signal</button>
+    <button type="button" data-example="value">Value</button>
+    <button type="button" data-example="change">Change</button>
+    <button type="button" data-example="property">Property</button>
+    <button type="button" data-example="extract">Extract AXI</button>
+  </nav>
 
   <div class="playground__workspace">
-    <section class="playground__panel playground__controls" aria-labelledby="controls-heading">
-      <h2 id="controls-heading">Command</h2>
-
-      <label for="example">Example</label>
-      <select id="example"></select>
-
-      <div class="playground__control-grid">
-        <label>Command
-          <select id="command-kind">
-            <option value="info">info</option>
-            <option value="scope">scope</option>
-            <option value="signal">signal</option>
-            <option value="value">value</option>
-            <option value="change">change</option>
-            <option value="property">property</option>
-            <option value="extract generic">extract generic</option>
-            <option value="extract ahb">extract ahb</option>
-            <option value="extract apb">extract apb</option>
-            <option value="extract atb">extract atb</option>
-            <option value="extract axi">extract axi</option>
-            <option value="extract axistream">extract axistream</option>
-          </select>
-        </label>
-        <label>Output
-          <select id="output-mode">
-            <option value="human">human</option>
-            <option value="json">JSON</option>
-            <option value="jsonl">JSONL</option>
-          </select>
-        </label>
-        <label>Scope <input id="scope" type="text" data-option="--scope"></label>
-        <label>Signals <input id="signals" type="text" data-option="--signals"></label>
-        <label>At <input id="at" type="text" data-option="--at"></label>
-        <label>From <input id="from" type="text" data-option="--from"></label>
-        <label>To <input id="to" type="text" data-option="--to"></label>
-        <label>On <input id="on" type="text" data-option="--on"></label>
-        <label>Eval <input id="eval" type="text" data-option="--eval"></label>
-        <label>When <input id="when" type="text" data-option="--when"></label>
-        <label>Payload <input id="payload" type="text" data-option="--payload"></label>
-        <label>Include <input id="include" type="text" data-option="--include"></label>
-        <label>Max <input id="max" type="text" inputmode="numeric" data-option="--max"></label>
+    <section class="playground__terminal" aria-label="WavePeek terminal">
+      <div class="playground__command-line">
+        <label for="command-line"><span aria-hidden="true">$</span> wavepeek</label>
+        <input id="command-line" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="command-error terminal-shortcuts">
+        <button id="run" type="button" class="playground__run">Run</button>
+        <button id="stop" type="button" disabled>Stop</button>
+        <button id="clear" type="button">Clear</button>
       </div>
-
-      <label for="command-line">Editable CLI command</label>
-      <textarea id="command-line" rows="5" spellcheck="false" autocapitalize="off"></textarea>
       <p id="command-error" class="playground__error" aria-live="polite"></p>
-
-      <div class="playground__actions">
-        <button id="run" type="button" class="md-button md-button--primary">Run</button>
-        <button id="stop" type="button" class="md-button" disabled>Stop</button>
+      <div id="transcript" class="playground__transcript" role="log" aria-live="polite" tabindex="0">
+        <p class="playground__empty">Run a command to see its output.</p>
       </div>
+      <p id="terminal-shortcuts" class="playground__terminal-tip">Enter to run · ↑/↓ for command history · Ctrl+K to clear</p>
     </section>
 
-    <section class="playground__panel playground__result" aria-labelledby="result-heading">
-      <div class="playground__result-heading">
-        <h2 id="result-heading">Result</h2>
-        <output id="exit-status" class="playground__exit" aria-live="polite">Not run</output>
-      </div>
-      <h3>stdout</h3>
-      <pre id="stdout" tabindex="0">Run a command to see output.</pre>
-      <h3>stderr</h3>
-      <pre id="stderr" tabindex="0"></pre>
-    </section>
+    <aside class="playground__sidebar" aria-label="Playground options">
+      <fieldset class="playground__modes">
+        <legend>Output mode</legend>
+        <div>
+          <label><input type="radio" name="output-mode" value="human" checked><span>Human</span></label>
+          <label><input type="radio" name="output-mode" value="json"><span>JSON</span></label>
+          <label><input type="radio" name="output-mode" value="jsonl"><span>JSONL</span></label>
+        </div>
+        <p id="output-description">Human-readable output for exploration.</p>
+      </fieldset>
+
+      <section class="playground__suggestions" aria-labelledby="suggestions-heading">
+        <h2 id="suggestions-heading">Ask the waveform</h2>
+        <div>
+          <button type="button" data-suggestion="info">What is in this waveform?</button>
+          <button type="button" data-suggestion="scope">What scopes are under the testbench?</button>
+          <button type="button" data-suggestion="signal">Which AXI address signals were dumped?</button>
+          <button type="button" data-suggestion="value">What were the AXI controls at 1000 ps?</button>
+          <button type="button" data-suggestion="property">When did AXI read handshakes occur?</button>
+          <button type="button" data-suggestion="extract">Which AXI transactions occurred?</button>
+        </div>
+        <div id="more-suggestions" hidden>
+          <button type="button" data-suggestion="change">How did ARVALID and ARREADY change?</button>
+          <button type="button" data-suggestion="generic">Which read addresses were transferred?</button>
+        </div>
+        <button id="toggle-suggestions" type="button" class="playground__more" aria-expanded="false" aria-controls="more-suggestions">More…</button>
+      </section>
+
+      <section class="playground__shortcuts" aria-labelledby="shortcuts-heading">
+        <h2 id="shortcuts-heading">Shortcuts</h2>
+        <dl>
+          <div><dt><kbd>Enter</kbd></dt><dd>Run command</dd></div>
+          <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Navigate history</dd></div>
+          <div><dt><kbd>Ctrl</kbd>+<kbd>K</kbd></dt><dd>Clear terminal</dd></div>
+        </dl>
+      </section>
+    </aside>
   </div>
-
-  <section class="playground__history" aria-labelledby="history-heading">
-    <h2 id="history-heading">History</h2>
-    <ol id="history"><li class="playground__empty">Commands run in this tab appear here.</li></ol>
-  </section>
 </div>
 
 <script type="module" src="assets/playground/playground.js"></script>
