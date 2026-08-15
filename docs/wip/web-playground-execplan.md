@@ -31,7 +31,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 13:34Z) Replaced the form-heavy interface with the approved compact source bar, exact CLI example buttons, theme-aware transcript terminal, and problem-oriented examples.
 - [x] (2026-08-15 13:34Z) Preserved in-tab command navigation while making Clear and Ctrl+K erase only the visible transcript.
 - [x] (2026-08-15 13:34Z) Composed the locally built Playground and current documentation into one preview under `/wavepeek/`, with same-origin navigation matching production.
-- [ ] Update browser/publication checks and durable maintainer documentation, run review and quality gates, commit, and replace the inspection server without pushing. Browser checks and documentation are updated; bounded Luna review passed KISS/YAGNI and all six confirmed findings are fixed. Final gates and server handoff remain.
+- [x] (2026-08-15 13:45Z) Updated browser/publication checks and durable maintainer documentation, completed bounded Luna review with KISS/YAGNI pass, fixed all six confirmed findings, passed post-review `just ci` and `just check`, committed, and replaced the inspection server without pushing.
 
 ## Surprises & Discoveries
 
@@ -118,7 +118,9 @@ Milestones 2 and 3 are complete. The current Playground builds as a root Materia
 
 Milestone 4 is complete. Maintainer documentation records the browser and publication workflows. Luna review found stale async source selection, incomplete browser help/restrictions, and incomplete deployed historical-asset checks; all were fixed. A bounded Sol control review found the actual `--waves` FSDB path and generated WASM subdirectory cases; both were fixed. KISS/YAGNI passed. Post-review `just ci` and `just check` pass, including 93.08% region, 92.51% function, and 93.66% line coverage, strict docs builds, Playwright parity/privacy checks, and native FSDB checks. The benchmark gate is deferred by maintainer direction until conditions are suitable.
 
-The inspection server is running at `http://127.0.0.1:8000/wavepeek/`. Host wrapper PID `2973169` owns the devcontainer serve command and listener PID `2973720`; `xdg-open` was invoked and an HTTP request followed the root redirect to a 200 response. No push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
+Milestone 5 is complete. The structured form is replaced by a compact source bar, immutable `$ wavepeek` prompt, exact command examples, problem-oriented suggestions, output selector, and one theme-aware scrollable transcript. Clear and Ctrl+K remove only visible entries; Up and Down retain in-tab command navigation. A bounded Luna review passed KISS/YAGNI and found repeat-Enter, clear-during-run, source-replacement, file-picker keyboard, outcome-label, and standalone docs-serve issues; focused browser checks cover every fix. Post-review `just ci` and `just check` pass with the unchanged 93.08% region, 92.51% function, and 93.66% line coverage minimums.
+
+The composed inspection server is running at `http://127.0.0.1:8000/wavepeek/`, with current source-built documentation at `http://127.0.0.1:8000/wavepeek/latest/`. Host wrapper PID `3097945` owns the serve command and listener PID `3098522`; both URLs return HTTP 200. No benchmark gate or push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
 
 ## Context and Orientation
 
