@@ -45,6 +45,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 15:25Z) Passed focused browser checks, committed, and refreshed the inspection server without benchmark or push.
 - [x] (2026-08-15 16:18Z) Moved Output mode beneath Commands with its description inline, reduced the sidebar to Demo queries, and moved transient copy feedback onto the Copy button.
 - [x] (2026-08-15 16:18Z) Passed focused browser checks and visually inspected the desktop layout without benchmark or push.
+- [x] (2026-08-15 16:26Z) Framed Commands and Output mode as one panel matching Waveform source height, normalized their button styling, grouped commands with separators, and added command-aware selection.
+- [x] (2026-08-15 16:26Z) Made command buttons insert command help, reduced Extract AXI to Extract, removed output explanatory copy, and passed focused browser and visual checks without benchmark or push.
 
 ## Surprises & Discoveries
 
@@ -147,6 +149,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: Output mode belongs beneath Commands, while the sidebar contains only Demo queries.
   Rationale: Output mode directly changes command construction; moving it beside command controls clarifies that relationship and leaves the sidebar focused on query discovery.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Command buttons expose command help and mirror the command currently in the input.
+  Rationale: The Demo queries already provide complete runnable recipes; the compact command row is more useful as command-level discovery and orientation.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective

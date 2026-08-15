@@ -172,14 +172,18 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "info "
             )
             assert page.locator(".playground__commands button").all_text_contents() == [
-                "Info", "Scope", "Signal", "Value", "Change", "Property", "Extract AXI", "Help"
+                "Info", "Scope", "Signal", "Value", "Change", "Property", "Extract", "Help"
             ]
+            assert page.locator(".playground__command-separator").count() == 2
+            assert page.locator('[data-example="info"]').get_attribute("aria-pressed") == "true"
             initial_entries = page.locator("#transcript .playground__entry").count()
             page.locator('[data-example="scope"]').click()
-            assert page.locator("#command-line").input_value().startswith("scope ")
+            assert page.locator("#command-line").input_value() == "scope --help"
+            assert page.locator('[data-example="scope"]').get_attribute("aria-pressed") == "true"
             assert page.locator("#transcript .playground__entry").count() == initial_entries
             page.locator('[data-suggestion="property"]').click()
             assert page.locator("#command-line").input_value().startswith("property ")
+            assert page.locator('[data-example="property"]').get_attribute("aria-pressed") == "true"
             assert page.locator("#toggle-suggestions").count() == 0
             assert page.locator("[data-suggestion]").count() == 8
             assert all(
@@ -188,24 +192,31 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             )
             page.locator('[data-suggestion="generic"]').click()
             assert page.locator("#command-line").input_value().startswith("extract generic ")
+            assert page.locator('[data-example="extract"]').get_attribute("aria-pressed") == "true"
             assert page.locator("#suggestions-heading").text_content() == "Demo queries"
-            assert page.locator(".playground__commands-more").text_content() == "and more with"
+            assert page.locator(".playground__commands-more").count() == 0
+            assert page.locator("#output-description").count() == 0
             assert page.locator(".playground__shortcuts").count() == 0
             assert page.locator(".playground__sidebar .playground__modes").count() == 0
             assert page.locator(".playground__sidebar > section").count() == 1
-            toolbar = page.locator(".playground__toolbar").bounding_box()
+            controls_box = page.locator(".playground__command-controls").bounding_box()
             commands_box = page.locator(".playground__commands").bounding_box()
             modes_box = page.locator(".playground__modes").bounding_box()
-            mode_buttons = page.locator(".playground__modes > div").bounding_box()
-            mode_description = page.locator("#output-description").bounding_box()
             source_box = page.locator(".playground__source").bounding_box()
-            assert toolbar and commands_box and modes_box and mode_buttons
-            assert mode_description and source_box
+            command_button = page.locator('[data-example="info"]').bounding_box()
+            mode_button = page.locator('.playground__modes span').first.bounding_box()
+            assert controls_box and commands_box and modes_box and source_box
+            assert command_button and mode_button
             assert modes_box["y"] > commands_box["y"]
-            assert mode_description["x"] > mode_buttons["x"]
-            assert source_box["x"] > commands_box["x"]
+            assert source_box["x"] > controls_box["x"]
+            assert abs(source_box["height"] - controls_box["height"]) < 1
+            assert abs(command_button["height"] - mode_button["height"]) < 1
+            assert page.locator(".playground__command-controls").evaluate(
+                "element => getComputedStyle(element).borderTopStyle"
+            ) == "solid"
             page.locator('[data-example="help"]').click()
-            assert page.locator("#command-line").input_value() == "--help"
+            assert page.locator("#command-line").input_value() == "help"
+            assert page.locator('[data-example="help"]').get_attribute("aria-pressed") == "true"
             assert page.locator("#transcript .playground__entry").count() == initial_entries
 
             page.locator('input[name="output-mode"][value="json"]').check()

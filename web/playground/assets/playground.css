@@ -150,20 +150,24 @@
 .playground__toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(34rem, 0.85fr);
-  align-items: center;
-  gap: 0.35rem 0.7rem;
+  align-items: stretch;
+  gap: 0.7rem;
   min-width: 0;
 }
 
-.playground__commands {
-  grid-column: 1;
-  grid-row: 1;
+.playground__command-controls {
+  display: grid;
+  align-content: center;
+  gap: 0.35rem;
+  min-width: 0;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.3rem;
+  background: var(--md-default-bg-color);
+  padding: 0.3rem 0.45rem;
 }
 
 .playground__source {
   display: grid;
-  grid-column: 2;
-  grid-row: 1 / span 2;
   grid-template-columns: auto auto minmax(7rem, auto) minmax(7rem, 1fr) auto;
   align-items: center;
   gap: 0.5rem;
@@ -268,16 +272,17 @@
   scrollbar-width: thin;
 }
 
-.playground__commands > span:first-child {
-  flex: 0 0 auto;
-  margin-right: 0.15rem;
+.playground__commands > span:first-child,
+.playground__modes h2 {
+  flex: 0 0 4rem;
+  white-space: nowrap;
 }
 
-.playground__commands .playground__commands-more {
-  flex: 0 0 auto;
-  color: var(--md-default-fg-color--light);
-  font-size: 0.62rem;
-  white-space: nowrap;
+.playground__command-separator {
+  flex: 0 0 1px;
+  align-self: stretch;
+  margin: 0.2rem 0.1rem;
+  background: var(--playground-border);
 }
 
 .playground__commands button,
@@ -293,6 +298,12 @@
   flex: 0 0 auto;
   padding: 0.3rem 0.55rem;
   font-size: 0.66rem;
+}
+
+.playground__commands button[aria-pressed="true"] {
+  border-color: var(--md-primary-fg-color);
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
 }
 
 .playground__commands button:hover,
@@ -476,24 +487,12 @@
   padding: 0.75rem;
 }
 
-.playground__modes {
-  display: grid;
-  grid-column: 1;
-  grid-row: 2;
-  grid-template-columns: auto minmax(15rem, 1fr) auto;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.playground__modes h2,
-.playground__modes p {
-  white-space: nowrap;
-}
-
+.playground__modes,
 .playground__modes > div {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .playground__modes label {
@@ -510,22 +509,11 @@
 .playground__modes span {
   display: block;
   border: 1px solid var(--playground-border);
-  padding: 0.42rem 0.25rem;
+  border-radius: 0.28rem;
+  padding: 0.3rem 0.55rem;
   font-size: 0.66rem;
   text-align: center;
   cursor: pointer;
-}
-
-.playground__modes label:first-child span {
-  border-radius: 0.3rem 0 0 0.3rem;
-}
-
-.playground__modes label:last-child span {
-  border-radius: 0 0.3rem 0.3rem 0;
-}
-
-.playground__modes label + label span {
-  border-left: 0;
 }
 
 .playground__modes input:checked + span {
@@ -537,11 +525,6 @@
 .playground__modes input:focus-visible + span {
   outline: 0.15rem solid var(--md-accent-fg-color);
   outline-offset: 0.12rem;
-}
-
-.playground__modes p {
-  color: var(--md-default-fg-color--light);
-  font-size: 0.64rem;
 }
 
 .playground__suggestions {
@@ -622,13 +605,6 @@
     grid-template-columns: 1fr;
   }
 
-  .playground__commands,
-  .playground__modes,
-  .playground__source {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
   .playground__source {
     grid-template-columns: auto auto minmax(0, 1fr);
   }
@@ -687,10 +663,6 @@
   }
 
   .playground__modes {
-    grid-template-columns: 1fr;
-  }
-
-  .playground__modes p {
-    white-space: normal;
+    overflow-x: auto;
   }
 }

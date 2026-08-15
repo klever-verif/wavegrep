@@ -18,27 +18,29 @@ hide:
   </section>
 
   <div class="playground__toolbar">
-    <nav class="playground__commands" aria-label="Example WavePeek commands">
-      <span>Commands</span>
-      <button type="button" data-example="info">Info</button>
-      <button type="button" data-example="scope">Scope</button>
-      <button type="button" data-example="signal">Signal</button>
-      <button type="button" data-example="value">Value</button>
-      <button type="button" data-example="change">Change</button>
-      <button type="button" data-example="property">Property</button>
-      <button type="button" data-example="extract">Extract AXI</button>
-      <span class="playground__commands-more">and more with</span>
-      <button type="button" data-example="help">Help</button>
-    </nav>
+    <section class="playground__command-controls" aria-label="Command controls">
+      <nav class="playground__commands" aria-label="WavePeek command help">
+        <span>Commands</span>
+        <button type="button" data-example="info">Info</button>
+        <button type="button" data-example="scope">Scope</button>
+        <button type="button" data-example="signal">Signal</button>
+        <span class="playground__command-separator" aria-hidden="true"></span>
+        <button type="button" data-example="value">Value</button>
+        <button type="button" data-example="change">Change</button>
+        <button type="button" data-example="property">Property</button>
+        <button type="button" data-example="extract">Extract</button>
+        <span class="playground__command-separator" aria-hidden="true"></span>
+        <button type="button" data-example="help">Help</button>
+      </nav>
 
-    <section class="playground__modes" aria-labelledby="modes-heading">
-      <h2 id="modes-heading">Output mode</h2>
-      <div>
-        <label><input type="radio" name="output-mode" value="human" checked><span>Human</span></label>
-        <label><input type="radio" name="output-mode" value="json"><span>JSON</span></label>
-        <label><input type="radio" name="output-mode" value="jsonl"><span>JSONL</span></label>
-      </div>
-      <p id="output-description">Human-readable output for exploration.</p>
+      <section class="playground__modes" aria-labelledby="modes-heading">
+        <h2 id="modes-heading">Output mode</h2>
+        <div>
+          <label><input type="radio" name="output-mode" value="human" checked><span>Human</span></label>
+          <label><input type="radio" name="output-mode" value="json"><span>JSON</span></label>
+          <label><input type="radio" name="output-mode" value="jsonl"><span>JSONL</span></label>
+        </div>
+      </section>
     </section>
 
     <section class="playground__source" aria-labelledby="source-heading">

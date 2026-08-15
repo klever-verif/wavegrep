@@ -12,7 +12,17 @@ const examples = {
   property: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --eval 'io_axi_dmem_arvalid && io_axi_dmem_arready' --capture match --from 1ps --to 1880182ps --max 10`,
   generic: `extract generic --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --when 'io_axi_dmem_arvalid && io_axi_dmem_arready' --payload io_axi_dmem_araddr,io_axi_dmem_arlen --from 1ps --to 1880182ps --max 10`,
   extract: `extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include '^io_axi_dmem_' --map aclk=clk --map aresetn=axi_rst_n --from 1ps --to 1880182ps --max 10`,
-  help: "--help",
+};
+
+const commandHelp = {
+  info: "info --help",
+  scope: "scope --help",
+  signal: "signal --help",
+  value: "value --help",
+  change: "change --help",
+  property: "property --help",
+  extract: "extract --help",
+  help: "help",
 };
 
 const elements = Object.fromEntries(
@@ -20,7 +30,7 @@ const elements = Object.fromEntries(
     "source-name", "source-size", "source-format", "source-status", "source-indicator",
     "agent-prompt", "copy-agent-prompt", "copy-status", "use-demo", "open-local",
     "local-file", "open-surfer", "command-line", "command-error", "run", "clear",
-    "transcript", "output-description",
+    "transcript",
   ].map((id) => [id, document.getElementById(id)]),
 );
 const outputModes = [...document.querySelectorAll('input[name="output-mode"]')];
@@ -107,16 +117,25 @@ function writeTokens(tokens) {
   synchronizeOutputMode();
 }
 
+function synchronizeCommandSelection() {
+  let selected;
+  try {
+    [selected] = tokenize(elements["command-line"].value);
+    if (selected === "--help") selected = "help";
+  } catch {
+    selected = undefined;
+  }
+  for (const button of document.querySelectorAll("[data-example]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.example === selected));
+  }
+}
+
 function synchronizeOutputMode() {
+  synchronizeCommandSelection();
   try {
     const tokens = currentTokens();
     const value = tokens.includes("--jsonl") ? "jsonl" : tokens.includes("--json") ? "json" : "human";
     outputModes.find((input) => input.value === value).checked = true;
-    elements["output-description"].textContent = {
-      human: "Human-readable output for exploration.",
-      json: "One structured JSON document.",
-      jsonl: "Streaming JSON Lines records.",
-    }[value];
     elements["command-error"].textContent = "";
   } catch (error) {
     elements["command-error"].textContent = error.message;
@@ -136,8 +155,13 @@ function selectOutput(value) {
 function installExample(name) {
   const mode = outputModes.find((input) => input.checked).value;
   const tokens = ["wavepeek", ...tokenize(examples[name])];
-  if (name !== "help" && mode !== "human") tokens.push(`--${mode}`);
+  if (mode !== "human") tokens.push(`--${mode}`);
   writeTokens(tokens);
+  elements["command-line"].focus();
+}
+
+function installCommandHelp(name) {
+  writeTokens(["wavepeek", ...tokenize(commandHelp[name])]);
   elements["command-line"].focus();
 }
 
@@ -174,7 +198,7 @@ function setSource(name, bytes, kind) {
   elements["use-demo"].classList.toggle("md-button--primary", kind === "demo");
   elements["open-surfer"].hidden = kind !== "demo";
   const tokens = currentTokens();
-  if (!tokens.includes("--help")) setOption(tokens, "--waves", name);
+  if (tokens[1] !== "help" && !tokens.includes("--help")) setOption(tokens, "--waves", name);
   writeTokens(tokens);
 }
 
@@ -335,8 +359,11 @@ function navigateHistory(direction) {
   synchronizeOutputMode();
 }
 
-for (const button of document.querySelectorAll("[data-example], [data-suggestion]")) {
-  button.addEventListener("click", () => installExample(button.dataset.example ?? button.dataset.suggestion));
+for (const button of document.querySelectorAll("[data-example]")) {
+  button.addEventListener("click", () => installCommandHelp(button.dataset.example));
+}
+for (const button of document.querySelectorAll("[data-suggestion]")) {
+  button.addEventListener("click", () => installExample(button.dataset.suggestion));
 }
 for (const input of outputModes) input.addEventListener("change", () => selectOutput(input.value));
 elements["command-line"].addEventListener("input", synchronizeOutputMode);
