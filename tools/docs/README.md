@@ -4,9 +4,11 @@ This directory contains helper scripts and tests for the GitHub Pages documentat
 
 ## Helpers
 
-- `prepare_mkdocs.py` validates an extracted skill, stages its flat references under `tmp/docs-site/`, and writes MkDocs navigation/config from `references/docs.json`.
-- `publish_docs.py` owns the publication workflow split: local `check`, no-token `stage-deploy`, and credentialed `push-staged` verification/push. It publishes root installer aliases only when the staged version owns `latest`. The push path exports the complete verified `gh-pages` tree to `tmp/docs-site/pages-artifact/` for `actions/deploy-pages`, preserving historical files already on the branch. Packaged skills remain available through `wavepeek skill` for the installed CLI.
-- `check_deploy.py` verifies deployed documentation endpoints and optional GitHub Pages API state after publication. The API check runs only when `--repository` is provided and requires an authenticated `gh` CLI.
+- `prepare_mkdocs.py` validates an extracted skill and stages cumulative versioned documentation with Mike navigation.
+- `prepare_playground.py` stages the framework-free current Playground, generated WASM, and verified bundled demo for a root Material build.
+- `check_playground.py` compares browser and native behavior and checks local-file privacy, worker recovery, navigation, and responsive layout.
+- `publish_docs.py` owns local `check`, no-token `stage-deploy`, and credentialed `push-staged`. It accumulates documentation versions, replaces root Playground/installers only when promoting latest, and exports the verified `gh-pages` tree to the Pages artifact.
+- `check_deploy.py` verifies the current Playground/demo, versioned documentation, CORS, and optional GitHub Pages API state after publication.
 - `workflow_docs.py` keeps GitHub Actions glue testable: dispatch validation, release preflight, and workflow environment translation for stage/push jobs.
 
 ## Tests

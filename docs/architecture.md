@@ -34,6 +34,7 @@ The repository ships agent-facing workflow assets plus deterministic `--json` an
 | Serialization | `serde` + `serde_json` | Standard JSON and JSONL rendering for machine output |
 | Pattern matching | `regex` | Shared filtering surface for hierarchy and signal discovery |
 | Error handling | `thiserror` | Typed error enums without runtime boxing |
+| Browser adapter | `wasm-bindgen` + Web Worker | Reuses the Rust CLI and isolates cancellable waveform work without a frontend framework |
 | Build automation | Cargo + just | Cargo owns compilation; the root `justfile` exposes repository quality gates |
 
 ### High-Level Execution Layers
@@ -45,10 +46,11 @@ wavepeek is organized as three execution layers plus two shared support modules.
 3. **Waveform layer** (`src/waveform/`) is the backend-neutral facade for file opening, format detection, hierarchy traversal, sampled-value access, and candidate-time queries. Default builds dispatch VCD/FST work to the Wellen backend; feature-enabled FSDB builds can dispatch `.fsdb` inputs to the FSDB backend and native shim. FSDB-specific build and SDK details live in `fsdb.md`.
 4. **Embedded skill runtime** (`src/skill.rs`) extracts the packaged agent skill from repository assets.
 5. **Output module** (`src/output.rs`) owns stdout rendering for human mode, strict JSON result and fatal values, and JSONL stream records.
+6. **Browser adapter** (`src/browser.rs`) supplies explicit argv, output buffers, and one invocation-scoped VCD/FST byte source to the same CLI and waveform layers. It rejects FSDB, `skill`, and extraction `--source` before dispatch.
 
 Key architectural consequences:
 
-- Execution is stateless. Every command opens the dump, runs once, and exits.
+- Execution is stateless. Every command opens the dump and runs once; the native wrapper exits, while the browser worker returns stdout, stderr, and status.
 - The engine is format-agnostic for waveform commands. VCD/FST Wellen handling and optional FSDB Reader handling stay behind the waveform facade.
 - The skill helper keeps its source of truth in packaged files instead of duplicated Rust string tables.
 - JSON and JSONL contracts are covered by direct serialization and command-runtime tests.
@@ -59,6 +61,7 @@ Key architectural consequences:
 src/
 ├── lib.rs               # Crate entrypoint (`run_cli`) + module ownership
 ├── main.rs              # Thin binary wrapper returning `wavepeek::main_exit_code()`
+├── browser.rs           # WASM adapter for argv, output buffers, status, and waveform bytes
 ├── cli/                 # CLI layer: argument definitions, help text, dispatch
 │   ├── mod.rs           # Top-level CLI, early output selection, failure reporting, output handoff
 │   ├── limits.rs        # Shared bounded-output flag parsing (`--max`, `--max-depth`)

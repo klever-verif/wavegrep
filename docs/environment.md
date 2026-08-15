@@ -23,13 +23,13 @@ If an existing container's linked-worktree Git mount or optional Verdi mount no 
 
 ## Container Contract
 
-The image includes Rust, Cargo tools, C/C++ compilers, Python, documentation tooling, actionlint, hooks, GitHub CLI, Icarus Verilog, waveform converters, benchmark tooling, and command-line Verdi integration. It does not include coding agents, Node.js, a nested Devcontainer CLI, Surfer, GUI forwarding, or local GitHub credential setup.
+The image includes Rust and its WASM target, `wasm-bindgen`, Cargo tools, C/C++ compilers, Python, Material/Mike, Playwright's headless Chromium for Playground checks, actionlint, hooks, GitHub CLI, Icarus Verilog, waveform converters, benchmark tooling, and command-line Verdi integration. It does not include coding agents, Node.js, a nested Devcontainer CLI, Surfer, GUI forwarding, or local GitHub credential setup.
 
 The workspace is mounted at `/workspaces/<worktree-name>`. For linked worktrees, `./dev` also mounts the Git common directory at the same absolute host and container path so Git follows the worktree's `.git` pointer correctly. No agent state, host GitHub configuration, or local token file is mounted.
 
 Recipes in `justfile` require `WAVEPEEK_IN_CONTAINER=1`. Do not set it on the host to bypass the guard; use `./dev` instead.
 
-Run `./dev just dev-setup` after creating or rebuilding the container to verify tool availability. It does not install or rewrite host hooks.
+Run `./dev just dev-setup` after creating or rebuilding the container to verify tool availability. It does not install or rewrite host hooks. Use `./dev just playground-build`, `playground-test`, or `playground-serve` for the browser build, reproducible headless checks, or local inspection.
 
 ## Fixture Location
 

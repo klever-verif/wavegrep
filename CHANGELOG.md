@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added a framework-free browser Playground at the GitHub Pages root with the native WavePeek parser and engine compiled to WebAssembly, a bundled AXI FST demo, local VCD/FST processing, Surfer handoff, and native/browser parity checks.
 - Added flat trailing `[msb:lsb]` projections to `value --signals`, `change --signals`, and `extract generic` payloads, including source-file payloads, projected change detection, and ordered duplicate entries ([issue #94](https://github.com/kleverhq/wavepeek/issues/94)).
 - Added result completeness metadata to bounded JSON and JSONL output, plus `--summary` to suppress result rows while retaining available context and diagnostics ([issue #92](https://github.com/kleverhq/wavepeek/issues/92)).
 - Added exact scope context and scope-relative paths to scoped `signal`, `value`, `change`, and `extract generic` JSON and JSONL output while retaining canonical paths ([issue #114](https://github.com/kleverhq/wavepeek/issues/114)).
