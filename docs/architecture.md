@@ -44,7 +44,7 @@ wavepeek is organized as three execution layers plus two shared support modules.
 2. **Engine layer** (`src/engine/`) implements command behavior, shared time handling, shared value formatting, expression-runtime helpers, and command dispatch.
 3. **Waveform layer** (`src/waveform/`) is the backend-neutral facade for file opening, format detection, hierarchy traversal, sampled-value access, and candidate-time queries. Default builds dispatch VCD/FST work to the Wellen backend; feature-enabled FSDB builds can dispatch `.fsdb` inputs to the FSDB backend and native shim. FSDB-specific build and SDK details live in `fsdb.md`.
 4. **Embedded skill runtime** (`src/skill.rs`) extracts the packaged agent skill from repository assets.
-5. **Output module** (`src/output.rs`) owns stdout rendering for human mode, strict JSON envelope mode, and JSONL stream records.
+5. **Output module** (`src/output.rs`) owns stdout rendering for human mode, strict JSON result and fatal values, and JSONL stream records.
 
 Key architectural consequences:
 
@@ -58,9 +58,9 @@ Key architectural consequences:
 ```text
 src/
 ├── lib.rs               # Crate entrypoint (`run_cli`) + module ownership
-├── main.rs              # Thin binary wrapper around `wavepeek::run_cli()`
+├── main.rs              # Thin binary wrapper returning `wavepeek::run_cli()` status
 ├── cli/                 # CLI layer: argument definitions, help text, dispatch
-│   ├── mod.rs           # Top-level CLI struct, parse-error normalization, output handoff
+│   ├── mod.rs           # Top-level CLI, early output selection, failure reporting, output handoff
 │   ├── limits.rs        # Shared bounded-output flag parsing (`--max`, `--max-depth`)
 │   ├── info.rs          # `info` command args + clap help
 │   ├── scope.rs         # `scope` command args + clap help

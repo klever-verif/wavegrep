@@ -9,6 +9,9 @@ pub mod signal;
 pub mod skill;
 pub mod value;
 
+use std::ffi::{OsStr, OsString};
+use std::process::ExitCode;
+
 use clap::error::ErrorKind;
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, CommandFactory, FromArgMatches, Parser, Subcommand};
@@ -215,9 +218,68 @@ fn root_after_long_help() -> String {
     help
 }
 
-pub fn run() -> Result<(), WavepeekError> {
+#[derive(Clone, Copy)]
+struct OutputSelection {
+    mode: OutputMode,
+    json: usize,
+    jsonl: usize,
+}
+
+struct CliFailure {
+    error: WavepeekError,
+    reported: bool,
+}
+
+impl From<WavepeekError> for CliFailure {
+    fn from(error: WavepeekError) -> Self {
+        Self {
+            error,
+            reported: false,
+        }
+    }
+}
+
+pub fn run() -> ExitCode {
     let argv: Vec<_> = std::env::args_os().collect();
-    let parse_argv = if argv.len() == 1 {
+    let (mut selection, argv) = extract_output_selection(argv);
+    if requests_help_or_version(&argv) {
+        selection.mode = OutputMode::Human;
+    }
+
+    match execute(argv, selection) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(CliFailure {
+            error: WavepeekError::BrokenPipe,
+            ..
+        }) => ExitCode::SUCCESS,
+        Err(failure) if failure.reported => ExitCode::from(failure.error.exit_code()),
+        Err(failure) => finish_failure(selection.mode, failure.error),
+    }
+}
+
+fn execute(argv: Vec<OsString>, selection: OutputSelection) -> Result<(), CliFailure> {
+    if selection.mode != OutputMode::Human {
+        if selection.json > 1 {
+            return Err(WavepeekError::Args(
+                "the argument '--json' cannot be used multiple times".to_string(),
+            )
+            .into());
+        }
+        if selection.jsonl > 1 {
+            return Err(WavepeekError::Args(
+                "the argument '--jsonl' cannot be used multiple times".to_string(),
+            )
+            .into());
+        }
+        if selection.json > 0 && selection.jsonl > 0 {
+            return Err(WavepeekError::Args(
+                "the argument '--json' cannot be used with '--jsonl'".to_string(),
+            )
+            .into());
+        }
+    }
+
+    let parse_argv = if argv.len() == 1 && selection.mode == OutputMode::Human {
         vec![argv[0].clone(), "-h".into()]
     } else if argv.len() == 2 && matches!(argv[1].to_str(), Some("extract")) {
         vec![argv[0].clone(), argv[1].clone(), "-h".into()]
@@ -227,19 +289,20 @@ pub fn run() -> Result<(), WavepeekError> {
 
     let matches = match build_cli_command().try_get_matches_from(parse_argv) {
         Ok(matches) => matches,
-        Err(error) => return handle_parse_error(error),
+        Err(error) => return handle_parse_error(error).map_err(Into::into),
     };
 
     if change_tune_overrides_requested(&matches) && !is_debug_mode_enabled() {
         return Err(WavepeekError::Args(
             "internal tuning overrides (--tune-*) require DEBUG=1. Set DEBUG=1 only for local diagnostics or CI debugging."
                 .to_string(),
-        ));
+        )
+        .into());
     }
 
     let cli = match Cli::from_arg_matches(&matches) {
         Ok(cli) => cli,
-        Err(error) => return handle_parse_error(error),
+        Err(error) => return handle_parse_error(error).map_err(Into::into),
     };
 
     if cli.version_semver {
@@ -253,10 +316,91 @@ pub fn run() -> Result<(), WavepeekError> {
     }
 
     let Some(command) = cli.command else {
-        return Ok(());
+        return Err(WavepeekError::Args("a waveform command is required".to_string()).into());
     };
 
-    dispatch(command)
+    dispatch(command, selection.mode)
+}
+
+fn finish_failure(mode: OutputMode, error: WavepeekError) -> ExitCode {
+    let exit_code = error.exit_code();
+    let reported = match mode {
+        OutputMode::Human => {
+            eprintln!("{error}");
+            return ExitCode::from(exit_code);
+        }
+        OutputMode::Json => output::write_json_fatal(&error),
+        OutputMode::Jsonl => output::write_jsonl_fatal(&error),
+    };
+
+    match reported {
+        Ok(()) => ExitCode::from(exit_code),
+        Err(WavepeekError::BrokenPipe) => ExitCode::SUCCESS,
+        Err(write_error) => {
+            eprintln!("{write_error}");
+            ExitCode::from(write_error.exit_code())
+        }
+    }
+}
+
+fn extract_output_selection(argv: Vec<OsString>) -> (OutputSelection, Vec<OsString>) {
+    let command = build_cli_command();
+    let mut json = 0;
+    let mut jsonl = 0;
+    let mut options_ended = false;
+    let mut parse_argv = Vec::with_capacity(argv.len());
+
+    for (index, arg) in argv.iter().enumerate() {
+        if index == 0 {
+            parse_argv.push(arg.clone());
+            continue;
+        }
+        if arg == OsStr::new("--") {
+            options_ended = true;
+            parse_argv.push(arg.clone());
+            continue;
+        }
+        if !options_ended && !is_known_option_value(&command, &argv, index) {
+            if arg == OsStr::new("--json") {
+                json += 1;
+                continue;
+            }
+            if arg == OsStr::new("--jsonl") {
+                jsonl += 1;
+                continue;
+            }
+        }
+        parse_argv.push(arg.clone());
+    }
+
+    let mode = OutputMode::from_json_flags(json > 0, jsonl > 0);
+    (OutputSelection { mode, json, jsonl }, parse_argv)
+}
+
+fn is_known_option_value(command: &clap::Command, argv: &[OsString], index: usize) -> bool {
+    let Some(previous) = index.checked_sub(1).and_then(|index| argv[index].to_str()) else {
+        return false;
+    };
+    let Some(name) = previous.strip_prefix("--") else {
+        return false;
+    };
+    !name.contains('=') && command_has_value_option(command, name)
+}
+
+fn command_has_value_option(command: &clap::Command, name: &str) -> bool {
+    command
+        .get_arguments()
+        .any(|arg| arg.get_long() == Some(name) && arg.get_action().takes_values())
+        || command
+            .get_subcommands()
+            .any(|subcommand| command_has_value_option(subcommand, name))
+}
+
+fn requests_help_or_version(argv: &[OsString]) -> bool {
+    argv.iter()
+        .skip(1)
+        .take_while(|arg| *arg != OsStr::new("--"))
+        .any(|arg| matches!(arg.to_str(), Some("-h" | "--help" | "-V" | "--version")))
 }
 
 fn is_debug_mode_enabled() -> bool {
@@ -432,16 +576,35 @@ fn help_hint_for_rendered_clap_error(rendered: &str) -> String {
     format!("See 'wavepeek {} --help'.", path_tokens.join(" "))
 }
 
-fn dispatch(command: Command) -> Result<(), WavepeekError> {
-    let engine_command = into_engine_command(command);
-    if engine_command.output_mode() == OutputMode::Jsonl {
+fn dispatch(command: Command, output_mode: OutputMode) -> Result<(), CliFailure> {
+    let mut engine_command = into_engine_command(command);
+    if matches!(engine_command, EngineCommand::Skill(_)) && output_mode != OutputMode::Human {
+        return Err(WavepeekError::Args(
+            "--json and --jsonl are available only for waveform commands".to_string(),
+        )
+        .into());
+    }
+    engine_command.set_output_mode(output_mode);
+
+    if output_mode == OutputMode::Jsonl {
         let stdout = std::io::stdout();
         let mut writer = JsonlWriter::new(stdout.lock(), engine_command.name());
-        return engine::run_jsonl(engine_command, &mut writer);
+        return match engine::run_jsonl(engine_command, &mut writer) {
+            Ok(()) => Ok(()),
+            Err(WavepeekError::BrokenPipe) => Err(WavepeekError::BrokenPipe.into()),
+            Err(error) => match writer.fatal(&error) {
+                Ok(()) => Err(CliFailure {
+                    error,
+                    reported: true,
+                }),
+                Err(write_error) => Err(write_error.into()),
+            },
+        };
     }
 
-    let result = engine::run(engine_command)?;
-    output::write(result)
+    let mut result = engine::run(engine_command)?;
+    result.output_mode = output_mode;
+    output::write(result).map_err(Into::into)
 }
 
 fn into_engine_command(command: Command) -> EngineCommand {

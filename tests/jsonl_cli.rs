@@ -2,8 +2,6 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::process::Stdio;
 
-use assert_cmd::prelude::*;
-use predicates::prelude::*;
 use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
@@ -408,7 +406,7 @@ fn json_and_jsonl_flags_conflict_on_waveform_commands() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args([
             "change",
             "--waves",
@@ -418,22 +416,30 @@ fn json_and_jsonl_flags_conflict_on_waveform_commands() {
             "--json",
             "--jsonl",
         ])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains("cannot be used with"))
-        .stderr(predicate::str::contains("--json"))
-        .stderr(predicate::str::contains("--jsonl"));
+        .output()
+        .expect("change should execute");
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let fatal: Value = serde_json::from_slice(&output.stdout).expect("fatal should be JSONL");
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["seq"], 0);
+    assert_eq!(fatal["code"], "WPK-F0001");
+    assert!(fatal["message"].as_str().unwrap().contains("--json"));
+    assert!(fatal["message"].as_str().unwrap().contains("--jsonl"));
 }
 
 #[test]
 fn helper_commands_do_not_accept_jsonl_output_mode() {
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args(["skill", "unused", "--jsonl"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains("unexpected argument '--jsonl'"));
+        .output()
+        .expect("skill should execute");
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let fatal: Value = serde_json::from_slice(&output.stdout).expect("fatal should be JSONL");
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["seq"], 0);
+    assert_eq!(fatal["code"], "WPK-F0001");
 }
 
 #[test]

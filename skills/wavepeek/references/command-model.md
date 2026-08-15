@@ -53,11 +53,11 @@ If distinct FSDB records map to one canonical signal path, wavepeek quarantines 
 
 ## 5. Human-Readable and Machine-Readable Modes
 
-Waveform commands default to human-readable output. Machine-readable output is enabled explicitly with `--json` for a complete JSON envelope or `--jsonl` for a newline-delimited stream of records.
+Waveform commands default to human-readable output. Machine-readable output is enabled explicitly with `--json` for a complete JSON value or `--jsonl` for a newline-delimited stream of records. Either selector may appear before or after the complete waveform command path; exact placement and fatal-error behavior are defined in [Machine output](machine-output.md).
 
-Human-readable output is optimized for compact operator use and may vary when formatting improves. Machine-readable behavior is documented in [Machine output](machine-output.md) and covered by direct runtime tests. Use `--json` when a client wants one complete result document. Use `--jsonl` when a client wants to consume waveform rows incrementally.
+Human-readable output is optimized for compact operator use and may vary when formatting improves. Machine-readable behavior is covered by direct runtime tests. Use `--json` when a client wants one complete result or fatal document. Use `--jsonl` when a client wants to consume waveform rows incrementally while retaining a decodable terminal fatal record.
 
-The human-only `help` and `skill` commands do not support `--json` or `--jsonl`.
+Help and version output remain human-readable and ignore machine selectors. The human-only `skill` command rejects `--json` or `--jsonl` using the requested machine fatal format.
 
 ## 6. Bounded Output and Diagnostic Semantics
 

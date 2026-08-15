@@ -483,7 +483,7 @@ fn change_requires_on_flag() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args([
             "change",
             "--waves",
@@ -496,13 +496,20 @@ fn change_requires_on_flag() {
             "top.clk,top.data",
             "--json",
         ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("--on <ON>"))
-        .stderr(predicate::str::contains("See 'wavepeek change --help'."));
+        .output()
+        .expect("change should execute");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stderr.is_empty());
+    let fatal = parse_json(&output.stdout);
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["code"], "WPK-F0001");
+    assert!(fatal["message"].as_str().unwrap().contains("--on <ON>"));
+    assert!(
+        fatal["message"]
+            .as_str()
+            .unwrap()
+            .contains("See 'wavepeek change --help'.")
+    );
 }
 
 #[test]

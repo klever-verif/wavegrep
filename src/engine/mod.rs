@@ -93,21 +93,26 @@ impl Command {
         }
     }
 
-    pub const fn output_mode(&self) -> OutputMode {
+    pub fn set_output_mode(&mut self, mode: OutputMode) {
+        let (json, jsonl) = match mode {
+            OutputMode::Human => (false, false),
+            OutputMode::Json => (true, false),
+            OutputMode::Jsonl => (false, true),
+        };
         match self {
-            Self::Info(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Scope(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Signal(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Value(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Change(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Property(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAhb(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractApb(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAtb(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAxi(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAxiStream(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractGeneric(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Skill(_) => OutputMode::Human,
+            Self::Info(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Scope(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Signal(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Value(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Change(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Property(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAhb(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractApb(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAtb(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAxi(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAxiStream(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractGeneric(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Skill(_) => {}
         }
     }
 }

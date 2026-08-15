@@ -14,6 +14,6 @@ pub mod expr;
 
 pub use crate::error::WavepeekError;
 
-pub fn run_cli() -> Result<(), crate::error::WavepeekError> {
+pub fn run_cli() -> std::process::ExitCode {
     cli::run()
 }
