@@ -8,6 +8,7 @@ wavepeek_release_bin := "./target/release/wavepeek"
 wavepeek_fsdb_release_bin := "./target/fsdb/release/wavepeek"
 python := "python3 -B"
 docs_site_dir := "tmp/docs-site"
+playground_dir := "tmp/playground"
 docs_pages_url := "https://kleverhq.github.io/wavepeek"
 docs_repository := env_var_or_default("DOCS_REPOSITORY", "")
 docs_version := `python3 -B -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["package"]["version"])'`
@@ -87,6 +88,8 @@ dev-setup: require-container
     fst2vcd --help >/dev/null
     mkdocs --version
     mike --version
+    wasm-bindgen --version
+    playwright --version
     just --version
     cz version
     pre-commit --version
@@ -231,6 +234,33 @@ test-aux: require-container
     {{ python }} -m unittest discover -s tools/fsdb -p "test_*.py"
     {{ python }} -m unittest discover -s tools/repo -p "test_*.py"
 
+# Build the current browser Playground
+playground-build: require-container
+    @rm -rf "{{ playground_dir }}"
+    cargo build --locked --release --target wasm32-unknown-unknown --lib
+    mkdir -p "{{ playground_dir }}/wasm"
+    wasm-bindgen --target web --no-typescript \
+        --out-dir "{{ playground_dir }}/wasm" \
+        target/wasm32-unknown-unknown/release/wavepeek.wasm
+    {{ python }} tools/docs/prepare_playground.py . \
+        --wasm-dir "{{ playground_dir }}/wasm" \
+        --output "{{ playground_dir }}/mkdocs-src" \
+        --config-output "{{ playground_dir }}/mkdocs.yml" \
+        --site-output "{{ playground_dir }}/site" \
+        --version "{{ docs_version }}" \
+        --force
+    mkdocs build --strict --config-file "{{ playground_dir }}/mkdocs.yml"
+
+# Test the current browser Playground against native WavePeek
+playground-test: playground-build build-release
+    {{ python }} tools/docs/check_playground.py \
+        --site "{{ playground_dir }}/site" \
+        --native-bin "{{ wavepeek_release_bin }}"
+
+# Serve the current browser Playground locally
+playground-serve: playground-build
+    mkdocs serve --config-file "{{ playground_dir }}/mkdocs.yml" --dev-addr 0.0.0.0:8000
+
 # Build the generated MkDocs site from the bundled skill references
 docs-site-build: require-container
     @rm -rf "{{ docs_site_dir }}/skill"
@@ -348,11 +378,11 @@ check-commit message=`git rev-parse --git-path COMMIT_EDITMSG`: require-containe
     cz check --commit-msg-file {{ quote(message) }}
 
 # Check everything
-check: format-check lint check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check check-commit
+check: format-check lint check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check playground-test check-commit
     @just run-if-verdi check-fsdb-build
 
 # CI quality gate (no commit-msg hook)
-ci: format-check lint check-actions test-aux coverage-src-check check-build docs-site-check
+ci: format-check lint check-actions test-aux coverage-src-check check-build docs-site-check playground-test
     @just run-if-verdi test-fsdb
 
 # Fix everything

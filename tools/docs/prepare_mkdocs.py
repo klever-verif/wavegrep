@@ -12,6 +12,9 @@ from typing import Any
 import yaml
 
 
+PLAYGROUND_URL = "https://kleverhq.github.io/wavepeek/"
+
+
 class PrepareError(Exception):
     pass
 
@@ -105,7 +108,11 @@ def write_generated_config(
         ).as_posix(),
         "docs_dir": pathlib.Path(os.path.relpath(output.resolve(), config_parent)).as_posix(),
         "site_dir": "mkdocs-site",
-        "nav": nav,
+        "nav": [
+            {"Playground": PLAYGROUND_URL},
+            {"Documentation": nav},
+        ],
+        "extra": {"version": {"provider": "mike"}},
     }
     config_output.parent.mkdir(parents=True, exist_ok=True)
     config_output.write_text(

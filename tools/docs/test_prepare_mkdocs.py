@@ -72,10 +72,16 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.assertEqual(
             config["nav"],
             [
-                {"Start here": [{"Introduction": "index.md"}]},
-                {"Commands": [{"Change": "change.md"}]},
+                {"Playground": "https://kleverhq.github.io/wavepeek/"},
+                {
+                    "Documentation": [
+                        {"Start here": [{"Introduction": "index.md"}]},
+                        {"Commands": [{"Change": "change.md"}]},
+                    ]
+                },
             ],
         )
+        self.assertEqual(config["extra"], {"version": {"provider": "mike"}})
 
     def test_force_is_required_to_replace_outputs(self) -> None:
         self.prepare()

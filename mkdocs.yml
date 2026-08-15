@@ -23,7 +23,7 @@ theme:
         icon: material/brightness-4
         name: Switch to system preference
   features:
-    - navigation.instant
+    - navigation.tabs
     - navigation.sections
     - navigation.expand
 plugins:
@@ -34,6 +34,3 @@ markdown_extensions:
   - admonition
   - toc:
       permalink: true
-extra:
-  version:
-    provider: mike

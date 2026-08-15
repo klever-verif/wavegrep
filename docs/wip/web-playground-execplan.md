@@ -21,9 +21,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 10:42Z) Confirmed `tmp/scr1_axi.fst` is 3,648,879 bytes with SHA-256 `aad73e9b0d2b244b67a96b254371ff29a2ac2e54077176376f6361570789e884` and exercises WavePeek's AXI-facing hierarchy.
 - [x] (2026-08-15 10:56Z) Proved `wavepeek info --waves scr1_axi.fst` through generated WASM in headless Chrome; status was zero and the expected 1 ps bounds were returned.
 - [x] (2026-08-15 10:56Z) Added explicit argv/output writers, invocation-scoped waveform bytes, byte-backed Wellen parsing/streaming, truthful browser help, and the minimal WASM binding while preserving focused native tests.
-- [ ] Build the framework-free worker-based Playground, bundled demo, and responsive Material page.
-- [ ] Change MkDocs/Mike staging so only documentation accumulates and the root Playground is replaced only by the latest stable release.
-- [ ] Add reproducible WASM/browser tooling, focused browser tests, publication tests, and deployment checks.
+- [x] (2026-08-15 11:28Z) Built the framework-free worker-based Playground, committed demo source, editable synchronized CLI, local-file flow, Surfer link, history, Stop recovery, and responsive Material page.
+- [x] (2026-08-15 11:28Z) Changed MkDocs/Mike staging so only documentation accumulates and promoted releases replace the root Playground while historical repairs preserve it.
+- [x] (2026-08-15 11:28Z) Added pinned WASM/Playwright tooling, native-browser parity and privacy checks, publication tests, deployment asset/CORS checks, and a pre-v3 tree guard.
 - [ ] Update maintainer architecture, environment, automation, testing, and quality documentation.
 - [ ] Run focused checks, `just ci`, `just check`, and the manual benchmark gate where applicable.
 - [ ] Request read-only KISS/YAGNI correctness and complexity review with GPT-5.6 Luna at max thinking, apply confirmed findings, and request a GPT-5.6 Sol high-thinking control opinion if needed.
@@ -45,6 +45,12 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Observation: The supplied FST parses and returns metadata in ordinary single-threaded browser WASM without cross-origin isolation or WASM threads.
   Evidence: A generated `wasm-bindgen` module run in headless Chrome returned status 0 with `time_unit: 1ps`, `time_start: 1ps`, and `time_end: 1880182ps`.
+
+- Observation: Byte-backed FST streaming also works in browser WASM; no fallback extractor path is needed.
+  Evidence: Playwright compared browser and native AXI extraction output byte-for-byte for the supplied demo, including stderr and status.
+
+- Observation: Material's default grid track and content-box buttons allowed mobile children to create horizontal overflow even after the workspace switched to one column.
+  Evidence: At 390 px the document initially measured 917 px wide; constraining the Playground grid to `minmax(0, 1fr)` and clipping its outer overflow reduced it to the viewport while retaining scrollable output panes.
 
 ## Decision Log
 
@@ -79,6 +85,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 ## Outcomes & Retrospective
 
 Milestone 1 is complete. The same Clap parser, engines, renderers, diagnostics, and status mapping now run with explicit argv, writers, and invocation-scoped waveform bytes. Native CLI contract tests, all 670 library tests, strict Clippy, and the WASM target check pass. A scratch headless-Chrome probe successfully ran the real bundled FST through the generated binding.
+
+Milestones 2 and 3 are functionally complete. The current Playground builds as a root Material site with no version selector, and browser checks cover native parity in human/JSON/JSONL modes, AXI streaming extraction, unsupported options, command synchronization, local-file privacy, reload clearing, Stop recovery, Surfer linking, and desktop/mobile layout. Documentation generation now owns Mike versioning separately; publication replaces root app assets only when promoting latest.
 
 ## Context and Orientation
 
