@@ -9,10 +9,10 @@ hide:
 
   <section class="playground__install" aria-label="Install WavePeek">
     <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">Get WavePeek on GitHub Releases ↗</a>
-    <span>Copy-paste this to your agent:</span>
+    <span>or copy-paste this to your agent:</span>
     <span id="copy-status" class="playground__copy-status" aria-live="polite"></span>
     <div class="playground__install-prompt">
-      <p id="agent-prompt" data-copy="Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Run wavepeek skill ./wavepeek-skill; install the skill per your harness instructions.">Get latest WavePeek from Releases. Run <code>wavepeek skill ./wavepeek-skill</code>; install the skill per your harness instructions.</p>
+      <p id="agent-prompt" data-copy="Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Use 'wavepeek skill' to get the skill.">Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Use <code>'wavepeek skill'</code> to get the skill.</p>
       <button id="copy-agent-prompt" type="button">Copy</button>
     </div>
   </section>
@@ -27,7 +27,7 @@ hide:
       <button type="button" data-example="change">Change</button>
       <button type="button" data-example="property">Property</button>
       <button type="button" data-example="extract">Extract AXI</button>
-      <span class="playground__commands-more">and more…</span>
+      <span class="playground__commands-more">and more with</span>
       <button type="button" data-example="help">Help</button>
     </nav>
 
@@ -36,7 +36,6 @@ hide:
       <button id="use-demo" type="button" class="md-button md-button--primary" aria-pressed="true">Demo</button>
       <div class="playground__local-source">
         <button id="open-local" type="button" class="md-button">Local VCD/FST</button>
-        <small>Local only. No uploads.</small>
         <input id="local-file" type="file" accept=".vcd,.fst" hidden>
       </div>
       <div class="playground__source-meta">
@@ -46,7 +45,8 @@ hide:
           <p><span id="source-size">—</span> · <span id="source-format">FST</span> · <span id="source-status" aria-live="polite">Loading…</span></p>
         </div>
       </div>
-      <a id="open-surfer" class="playground__surfer" target="_blank" rel="noopener noreferrer">Surfer ↗</a>
+      <a id="open-surfer" class="playground__surfer" target="_blank" rel="noopener noreferrer">Open visually in Surfer ↗</a>
+      <p class="playground__source-privacy">Waveform data never leaves your browser. All processing happens locally.</p>
     </section>
   </div>
 
@@ -86,12 +86,9 @@ hide:
           <button type="button" data-suggestion="value">What were the AXI controls at 1000 ps?</button>
           <button type="button" data-suggestion="property">When did AXI read handshakes occur?</button>
           <button type="button" data-suggestion="extract">Which AXI transactions occurred?</button>
-        </div>
-        <div id="more-suggestions" hidden>
           <button type="button" data-suggestion="change">How did ARVALID and ARREADY change?</button>
           <button type="button" data-suggestion="generic">Which read addresses were transferred?</button>
         </div>
-        <button id="toggle-suggestions" type="button" class="playground__more" aria-expanded="false" aria-controls="more-suggestions">More…</button>
       </section>
 
     </aside>

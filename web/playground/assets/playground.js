@@ -20,7 +20,7 @@ const elements = Object.fromEntries(
     "source-name", "source-size", "source-format", "source-status", "source-indicator",
     "agent-prompt", "copy-agent-prompt", "copy-status", "use-demo", "open-local",
     "local-file", "open-surfer", "command-line", "command-error", "run", "stop",
-    "clear", "transcript", "output-description", "more-suggestions", "toggle-suggestions",
+    "clear", "transcript", "output-description",
   ].map((id) => [id, document.getElementById(id)]),
 );
 const outputModes = [...document.querySelectorAll('input[name="output-mode"]')];
@@ -366,12 +366,6 @@ elements["copy-agent-prompt"].addEventListener("click", async () => {
     window.getSelection().addRange(range);
     elements["copy-status"].textContent = "Press Ctrl+C to copy";
   }
-});
-elements["toggle-suggestions"].addEventListener("click", () => {
-  const expanded = elements["toggle-suggestions"].getAttribute("aria-expanded") === "true";
-  elements["toggle-suggestions"].setAttribute("aria-expanded", String(!expanded));
-  elements["toggle-suggestions"].textContent = expanded ? "More…" : "Less";
-  elements["more-suggestions"].hidden = expanded;
 });
 elements["local-file"].addEventListener("change", async ({ target }) => {
   const file = target.files[0];

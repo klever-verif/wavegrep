@@ -5,7 +5,7 @@
 }
 
 .md-header__topic:first-child .md-ellipsis::after {
-  content: " — deterministic RTL waveform inspection for scripts, CI, and agents";
+  content: " deterministic RTL waveform inspection for scripts, CI, and agents";
   margin-left: 0.35rem;
   font-size: 0.58rem;
   font-weight: 400;

@@ -39,6 +39,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:50Z) Put the header tagline inline, hid Playground search, and shortened the copy-to-agent panel so its entire visible prompt wraps without horizontal scrolling.
 - [x] (2026-08-15 14:50Z) Combined Commands and waveform source into one toolbar, removed duplicate sidebar shortcuts, and normalized headings, controls, radii, and terminal typography.
 - [x] (2026-08-15 14:57Z) Extended browser checks, completed bounded Luna review with KISS/YAGNI pass, fixed both findings, passed post-review `just ci` and `just check`, committed, and refreshed the inspection server without benchmark or push.
+- [x] (2026-08-15 15:09Z) Applied the final approved copy for installation, privacy, Surfer, command discovery, and the dash-free inline tagline.
+- [ ] Show every example query without More/Less, verify the UI, run gates, commit, and refresh the server without benchmark or push. All queries are visible and focused browser checks pass; final gates remain.
 
 ## Surprises & Discoveries
 

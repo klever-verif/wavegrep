@@ -93,8 +93,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             heading = page.locator(".playground__visually-hidden").bounding_box()
             assert heading and heading["width"] <= 1 and heading["height"] <= 1
             prompt = page.locator("#agent-prompt").get_attribute("data-copy")
-            assert "github.com/kleverhq/wavepeek/releases" in prompt
-            assert "wavepeek skill ./wavepeek-skill" in prompt
+            assert prompt == (
+                "Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. "
+                "Use 'wavepeek skill' to get the skill."
+            )
             assert page.locator("#agent-prompt").evaluate(
                 "element => element.scrollWidth <= element.clientWidth"
             )
@@ -147,6 +149,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert urllib.parse.parse_qs(surfer_url.query)["load_url"] == [
                 f"{base_url}assets/playground/scr1_axi.fst"
             ]
+            assert page.locator("#open-surfer").text_content() == "Open visually in Surfer ↗"
+            assert page.locator(".playground__source-privacy").text_content() == (
+                "Waveform data never leaves your browser. All processing happens locally."
+            )
 
             prefix = page.locator(".playground__command-line label").text_content()
             assert "wavepeek" in prefix and page.locator("#command-line").input_value().startswith(
@@ -161,11 +167,16 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#transcript .playground__entry").count() == initial_entries
             page.locator('[data-suggestion="property"]').click()
             assert page.locator("#command-line").input_value().startswith("property ")
-            page.locator("#toggle-suggestions").click()
-            assert page.locator("#more-suggestions").is_visible()
+            assert page.locator("#toggle-suggestions").count() == 0
+            assert page.locator("[data-suggestion]").count() == 8
+            assert all(
+                button.is_visible()
+                for button in page.locator("[data-suggestion]").all()
+            )
             page.locator('[data-suggestion="generic"]').click()
             assert page.locator("#command-line").input_value().startswith("extract generic ")
             assert page.locator("#suggestions-heading").text_content() == "Example queries"
+            assert page.locator(".playground__commands-more").text_content() == "and more with"
             assert page.locator(".playground__shortcuts").count() == 0
             toolbar = page.locator(".playground__toolbar").bounding_box()
             commands_box = page.locator(".playground__commands").bounding_box()
