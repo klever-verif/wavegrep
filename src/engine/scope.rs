@@ -51,11 +51,33 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
             "format": waveform.format_name(),
         })
     });
-    let mut entries = waveform
-        .scopes_depth_first(max_depth.numeric())?
+    let scopes = waveform.scopes_depth_first(max_depth.numeric())?;
+    let include_ancestors = tree && !json && !jsonl;
+    let mut included = vec![false; scopes.len()];
+    let mut ancestors = Vec::new();
+    let mut total = 0;
+
+    for (index, entry) in scopes.iter().enumerate() {
+        ancestors.truncate(entry.depth);
+        if filter.is_match(entry.path.as_str()) {
+            total += 1;
+            if max.numeric().is_none_or(|limit| total <= limit) {
+                included[index] = true;
+                if include_ancestors {
+                    for &ancestor in &ancestors {
+                        included[ancestor] = true;
+                    }
+                }
+            }
+        }
+        ancestors.push(index);
+    }
+
+    let entries = scopes
         .into_iter()
-        .filter(|entry| filter.is_match(entry.path.as_str()))
-        .map(|entry| ScopeEntry {
+        .zip(included)
+        .filter(|(_, included)| *included)
+        .map(|(entry, _)| ScopeEntry {
             path: entry.path,
             depth: entry.depth,
             kind: entry.kind,
@@ -66,14 +88,16 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         || serde_json::json!({"scopes": entries.len()}),
     );
 
-    let total = entries.len();
-    if let Some(max_entries) = max.numeric()
-        && entries.len() > max_entries
-    {
-        entries.truncate(max_entries);
+    let returned = max.numeric().map_or(total, |limit| total.min(limit));
+    if returned < total {
+        let entries = if include_ancestors {
+            "matching entries"
+        } else {
+            "entries"
+        };
         diagnostics.push(Diagnostic::warning(
             WarningDiagnosticCode::OutputTruncated,
-            format!("truncated output to {max_entries} entries (use --max to increase limit)"),
+            format!("truncated output to {returned} {entries} (use --max to increase limit)"),
         ));
     }
 
@@ -87,8 +111,8 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         scope: None,
         summary_only: summary,
         summary: Some(ResultSummary {
-            complete: entries.len() == total,
-            returned: entries.len(),
+            complete: returned == total,
+            returned,
             limit: max.numeric(),
             total: Some(total),
         }),

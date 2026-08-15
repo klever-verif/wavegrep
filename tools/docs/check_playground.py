@@ -448,9 +448,13 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             )
             assert vertical["document"] <= vertical["viewport"], vertical
 
-            for _, _, command in demo_queries:
-                status, _, _, _ = run_browser(page, command)
+            for suggestion, _, command in demo_queries:
+                status, stdout, _, _ = run_browser(page, command)
                 assert status == 0, command
+                if suggestion == "dutScopes":
+                    assert stdout.startswith(
+                        "TOP kind=module\n└── scr1_top_tb_axi kind=module\n"
+                    ), stdout
 
             colors = page.evaluate(
                 """async () => {

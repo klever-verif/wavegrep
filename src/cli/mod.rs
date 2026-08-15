@@ -79,7 +79,7 @@ Behavior:
 - Finds all scopes matching `--filter` and displays scope name, depth, and kind.
 - Traversal order is stable: pre-order depth-first, with lexicographic child ordering.
 - Includes stable scope kind aliases from hierarchy data (not only modules); excluded backend-specific spellings are normalized to the stable contract surface.
-- `--tree` switches from flat list to visual hierarchy rendering.
+- `--tree` switches from flat list to visual hierarchy rendering and includes filtered matches' ancestors up to the root.
 - Truncation emits a coded diagnostic; without `--summary`, an empty valid human result prints a short message on stdout.
 - `--json` emits the standard machine-readable envelope.
 

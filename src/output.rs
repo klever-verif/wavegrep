@@ -745,7 +745,6 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
         }
 
         ancestor_last.truncate(entry.depth);
-        ancestor_last.resize(entry.depth, true);
         ancestor_last.push(is_last);
     }
 
@@ -1124,38 +1123,6 @@ mod tests {
         assert_eq!(
             rendered,
             "top kind=module\n├── cpu kind=module\n│   ├── alu kind=function\n│   └── regs kind=module\n└── mem kind=module"
-        );
-    }
-
-    #[test]
-    fn scope_tree_render_preserves_sparse_ancestor_depths() {
-        let rendered = render_human(
-            &CommandData::Scope(vec![
-                crate::engine::scope::ScopeEntry {
-                    path: "top.dut".to_string(),
-                    depth: 2,
-                    kind: "module".to_string(),
-                },
-                crate::engine::scope::ScopeEntry {
-                    path: "top.dut.core".to_string(),
-                    depth: 3,
-                    kind: "module".to_string(),
-                },
-                crate::engine::scope::ScopeEntry {
-                    path: "top.dut.timer".to_string(),
-                    depth: 3,
-                    kind: "module".to_string(),
-                },
-            ]),
-            HumanRenderOptions {
-                scope_tree: true,
-                signals_abs: false,
-            },
-        );
-
-        assert_eq!(
-            rendered,
-            "    └── dut kind=module\n        ├── core kind=module\n        └── timer kind=module"
         );
     }
 

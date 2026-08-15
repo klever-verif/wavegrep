@@ -467,6 +467,28 @@ fn scope_tree_mode_renders_visual_hierarchy() {
 }
 
 #[test]
+fn scope_filtered_tree_includes_ancestors_to_root() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "scope",
+            "--waves",
+            fixture.as_str(),
+            "--filter",
+            "^top\\.cpu$",
+            "--tree",
+            "--max",
+            "1",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::eq("top kind=module\n└── cpu kind=module\n"))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
 fn scope_json_ignores_tree_flag_without_extra_warning() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
