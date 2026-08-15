@@ -24,7 +24,7 @@ This work does not add or restore the removed `docs search` command even though 
 - [x] (2026-08-15 05:13Z) Updated CLI help, changelog, public contracts, and bundled skill references.
 - [x] (2026-08-15 05:13Z) Ran focused tests, the full default test suite, and `./dev just ci`; all passed.
 - [x] (2026-08-15 05:19Z) Ran parallel Luna Max reviews by code/test, docs/contract, and simplicity/architecture focus; fixed one stale property guide sentence and two contract wording ambiguities.
-- [ ] Run parallel Terra High reviews over the same areas; resolve findings.
+- [x] (2026-08-15 05:26Z) Ran parallel Terra High reviews over the same areas; qualified `--summary` documentation, added an empty human-summary regression test, and removed empty diagnostic-vector plumbing from generic extraction.
 - [ ] Run an independent Sol High control review; resolve findings and rerun gates.
 - [ ] Remove this completed branch-local plan, commit cleanup, push, and open a PR for issue #102.
 
@@ -41,6 +41,9 @@ This work does not add or restore the removed `docs search` command even though 
 
 - Observation: the first review wave found no code, test, simplicity, or architecture defects, but found one stale `WPK-W0001` sentence and wording that could overstate empty-result diagnostic suppression and normal-human output under `--summary`.
   Evidence: Luna Max code/test, docs/contract, and simplicity/architecture lanes completed; the stale and ambiguous statements were corrected in the property guide, machine-output contract, CLI help, and help tests.
+
+- Observation: the second review wave found no correctness defect, but found that command references did not consistently qualify `--summary`, the suppression lacked a direct empty human regression test, and generic extraction still forwarded an always-empty diagnostics vector.
+  Evidence: Terra High code/test, docs/contract, and simplicity/architecture lanes completed; documentation now separates ordinary and summary-only output, the test locks summary-only stdout, and the vector is initialized only where truncation can add a diagnostic.
 
 ## Decision Log
 
@@ -158,3 +161,5 @@ Revision note (2026-08-15 04:58Z): Created the initial self-contained execution 
 Revision note (2026-08-15 05:13Z): Recorded completed implementation, tests, documentation, full CI evidence, and the minimal centralized human-rendering decision before peer review.
 
 Revision note (2026-08-15 05:19Z): Recorded the completed Luna Max review wave and its resolved documentation and help findings.
+
+Revision note (2026-08-15 05:26Z): Recorded the completed Terra High review wave and its resolved contract, regression-test, and extraction-simplification findings.

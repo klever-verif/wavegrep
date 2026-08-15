@@ -100,5 +100,5 @@ top kind=module
 └── worker kind=task
 ```
 
-- An empty match is still success. Human output prints `no scopes found`; machine output returns an empty data array and zero-result summary without a diagnostic.
+- An empty match is still success. Without `--summary`, human output prints `no scopes found` and machine output returns an empty data array. The zero-result summary remains available without an empty-result diagnostic.
 - Once you have the right path, the next step is usually `wavepeek signal --scope <that-path> ...`.

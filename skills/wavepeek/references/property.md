@@ -164,7 +164,7 @@ Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or whe
 ## Non-obvious behavior
 
 - VCD and FST work in default builds. FSDB works only in binaries built with the `fsdb` Cargo feature and a local Verdi FSDB Reader SDK. FSDB `property` supports digital bit-vector/integral expressions, including raw event triggers when the FSDB contains event occurrences; unsupported real or string values fail with a `signal` error.
-- No output is still success and usually means no selected timestamp satisfied the requested capture mode. Human output says so on stdout; machine output uses an empty data array and zero-result summary without a diagnostic.
+- No output is still success and usually means no selected timestamp satisfied the requested capture mode. Without `--summary`, human output says so on stdout and machine output uses an empty data array. The zero-result summary remains available without an empty-result diagnostic.
 - Output is limited to 50 captured rows by default. `--max unlimited` disables truncation without a diagnostic; machine summaries report `limit: null`.
 - The default capture mode is `switch`, not `match`.
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.

@@ -67,7 +67,7 @@ wavepeek is designed to avoid flooding terminals and LLM context windows. Comman
 - depth limits such as `--max-depth`,
 - the finite size of the requested input set.
 
-When a command truncates output because of an active limit, it emits a warning diagnostic. `change`, `property`, and `extract` use `--max` for event-row limits and default to 50 rows. Explicitly unlimited bounds and valid empty results are normal outcomes, not diagnostics. Human output identifies an empty result on stdout; machine output represents emptiness through its data and summary fields.
+When a command truncates output because of an active limit, it emits a warning diagnostic. `change`, `property`, and `extract` use `--max` for event-row limits and default to 50 rows. Explicitly unlimited bounds and valid empty results are normal outcomes, not diagnostics. Without `--summary`, human output identifies an empty result on stdout and machine output represents emptiness through its data and summary fields. With `--summary`, the result counts identify it.
 
 Every successful command with numeric or unlimited `--max` reports `complete`, `returned`, `limit`, and `total` in machine output. Unlimited `--max` is represented by `limit: null`. A numeric result becomes incomplete only after the command finds another matching public item beyond the limit. Reaching the selected result-set end makes `total` exact; otherwise `total` remains unknown unless the command already collected the full selected set. `--max unlimited` completes the scan and reports an exact total. Depth options such as `--max-depth` define the selected set and do not count as incomplete results.
 

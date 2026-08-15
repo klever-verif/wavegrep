@@ -318,6 +318,25 @@ fn summary_only_suppresses_data_but_preserves_query_results() {
 }
 
 #[test]
+fn human_empty_summary_suppresses_empty_message() {
+    let waves = fixture_path("m2_core.vcd").to_string_lossy().into_owned();
+    let args = vec![
+        "scope".to_string(),
+        "--waves".to_string(),
+        waves,
+        "--filter".to_string(),
+        "^missing$".to_string(),
+    ];
+    let output = run(&args, "--summary", false);
+
+    assert_eq!(
+        String::from_utf8(output.stdout).expect("UTF-8 stdout"),
+        "complete: true\nreturned: 0\nlimit: 50\ntotal: 0\n"
+    );
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn human_summary_only_preserves_protocol_context_and_diagnostics() {
     let waves = fixture_path("extract_ahb_lite.vcd")
         .to_string_lossy()

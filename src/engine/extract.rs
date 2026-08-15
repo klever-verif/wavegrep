@@ -308,7 +308,6 @@ pub(crate) fn run_plan_with_sink<S: ExtractRowSink + ?Sized>(
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let max_entries = max_entries(&args.max)?;
-    let diagnostics = Vec::new();
 
     let debug = DebugTrace::for_command(args.command);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -323,7 +322,7 @@ pub(crate) fn run_plan_with_sink<S: ExtractRowSink + ?Sized>(
         });
     }
 
-    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, diagnostics, sink)
+    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, sink)
 }
 
 pub(crate) fn run_plan_with_waveform_sink<S: ExtractRowSink + ?Sized>(
@@ -334,8 +333,7 @@ pub(crate) fn run_plan_with_waveform_sink<S: ExtractRowSink + ?Sized>(
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let max_entries = max_entries(&args.max)?;
-    let diagnostics = Vec::new();
-    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, diagnostics, sink)
+    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, sink)
 }
 
 fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
@@ -344,7 +342,6 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
     waveform: SharedWaveform,
     debug: DebugTrace,
     max_entries: Option<usize>,
-    mut diagnostics: Vec<Diagnostic>,
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let source_count = plan.source_count();
@@ -498,6 +495,7 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
         })
     });
 
+    let mut diagnostics = Vec::new();
     if let Some(max_entries) = max_entries
         && stats.truncated
     {

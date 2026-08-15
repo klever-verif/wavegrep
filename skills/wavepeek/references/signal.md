@@ -130,4 +130,4 @@ $ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --filter '^cp
 - Recursive human output is scope-relative by default. In JSON and JSONL, `path` stays canonical while `relative_path` is relative to the exact `--scope` value.
 - Signal kinds are not limited to wires. You may see `reg`, `parameter`, and other stable signal kind aliases; backend-specific VHDL spellings are normalized to the stable contract surface.
 - `--max-depth` requires `--recursive`.
-- An empty match is a valid result, not an error. Human output prints `no signals found in selected scope`; machine output returns an empty data array and zero-result summary without a diagnostic.
+- An empty match is a valid result, not an error. Without `--summary`, human output prints `no signals found in selected scope` and machine output returns an empty data array. The zero-result summary remains available without an empty-result diagnostic.

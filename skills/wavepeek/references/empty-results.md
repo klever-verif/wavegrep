@@ -8,7 +8,7 @@ In `wavepeek`, many queries are allowed to succeed even when nothing matched. Th
 
 A real failure prints `fatal: ...` on stderr and exits non-zero.
 
-An empty-but-valid query stays successful. Human output identifies the empty result on stdout: discovery and row commands print a short command-specific message, while protocol extractors retain their context and empty event or transfer section. JSON returns `data: []`, a zero-result summary, and no diagnostic. JSONL emits no data or diagnostic records and carries the zero-result summary in its terminal `end` record.
+An empty-but-valid query stays successful. Without `--summary`, human output identifies the empty result on stdout: discovery and row commands print a short command-specific message, while protocol extractors retain their context and empty event or transfer section. JSON returns `data: []`, a zero-result summary, and no empty-result diagnostic. JSONL emits no data or empty-result diagnostic records and carries the zero-result summary in its terminal `end` record. With `--summary`, the result counts identify emptiness while ordinary rows and messages are suppressed.
 
 ## `scope` and `signal` can return empty matches
 

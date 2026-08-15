@@ -192,6 +192,6 @@ warning[WPK-W0002]: truncated output to 3 entries (use --max to increase limit)
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were printed.
 - In scoped mode, `--signals` and `--on` accept relative names and canonical paths inside the scope, including both forms in one request. `--signals` also accepts one trailing static `[msb:lsb]` projection. Without `--scope`, use canonical full paths.
-- Empty output is valid. If the query is well-formed but nothing matched, human output prints `no change rows found in selected time range`. JSON returns `data: []` and an empty `diagnostics` array; JSONL emits no data or diagnostic records. The result summary reports zero returned rows.
+- Empty output is valid. Without `--summary`, a well-formed query with no matches prints `no change rows found in selected time range` in human mode; JSON returns `data: []`; and JSONL emits no data records. No empty-result diagnostic is emitted, and the summary reports zero returned rows.
 
 When a query keeps coming back empty, widen one dimension at a time: start with the time window, then the trigger, then the signal list.
