@@ -31,7 +31,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 13:34Z) Replaced the form-heavy interface with the approved compact source bar, exact CLI example buttons, theme-aware transcript terminal, and problem-oriented examples.
 - [x] (2026-08-15 13:34Z) Preserved in-tab command navigation while making Clear and Ctrl+K erase only the visible transcript.
 - [x] (2026-08-15 13:34Z) Composed the locally built Playground and current documentation into one preview under `/wavepeek/`, with same-origin navigation matching production.
-- [ ] Update browser/publication checks and durable maintainer documentation, run review and quality gates, commit, and replace the inspection server without pushing. Browser checks and documentation are updated; review and final gates remain.
+- [ ] Update browser/publication checks and durable maintainer documentation, run review and quality gates, commit, and replace the inspection server without pushing. Browser checks and documentation are updated; bounded Luna review passed KISS/YAGNI and all six confirmed findings are fixed. Final gates and server handoff remain.
 
 ## Surprises & Discoveries
 
@@ -64,6 +64,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Observation: A terminal with an optional hidden error row cannot rely on implicit placement in fixed CSS Grid rows.
   Evidence: Hiding the empty error moved the transcript into the auto row and stretched the shortcut footer across the remaining height. A column flex layout keeps the command and footer intrinsic while the transcript owns the scrollable remainder.
+
+- Observation: Disabling the Run button does not disable the Enter shortcut, and worker termination alone does not finalize a transcript entry.
+  Evidence: Bounded review found that a second Enter could orphan the first running entry and source replacement could terminate its worker without changing its status. `runCommand` now guards the shared running state and source replacement uses the existing stop path.
 
 ## Decision Log
 

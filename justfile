@@ -280,9 +280,8 @@ docs-site-build: require-container
         --force
     mkdocs build --strict --config-file "{{ docs_site_dir }}/mkdocs.yml"
 
-# Serve the generated docs site locally
-docs-site-serve: docs-site-build
-    mkdocs serve --config-file "{{ docs_site_dir }}/mkdocs.yml"
+# Serve current documentation inside the composed local Pages preview
+docs-site-serve: playground-serve
 
 # Check docs site generation and root Pages artifacts without touching gh-pages
 docs-site-check: require-container

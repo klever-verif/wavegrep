@@ -97,6 +97,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#source-status").filter(has_text="Ready").wait_for()
 
             assert page.locator("#source-name").text_content() == "scr1_axi.fst"
+            assert page.locator("#open-local").evaluate("element => element.tagName") == "BUTTON"
             assert page.locator("#source-format").text_content() == "FST"
             assert "MiB" in page.locator("#source-size").text_content()
             assert page.locator("#source-indicator").get_attribute("data-status") == "ready"
@@ -146,6 +147,9 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 status, stdout, stderr, entry = run_browser(page, command)
                 assert (status, stdout, stderr) == run_native(native_bin, demo_dir, command)
                 assert entry.get_attribute("data-status") == "ok"
+                assert entry.locator(".playground__duration").get_attribute(
+                    "aria-label"
+                ).startswith("Succeeded in ")
                 assert "Exit" not in entry.text_content()
 
             status, _, stderr, failed = run_browser(
@@ -195,12 +199,33 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#source-status").filter(has_text="Ready").wait_for()
             assert page.locator("#transcript .playground__entry").count() == 0
 
-            page.locator("#command-line").fill(commands[-1].replace("--max 3", "--max unlimited"))
+            long_command = commands[-1].replace("--max 3", "--max unlimited")
+            page.locator("#command-line").fill(long_command)
+            entries = page.locator("#transcript .playground__entry")
+            before = entries.count()
             page.locator("#run").click()
+            page.locator("#command-line").press("Enter")
+            assert entries.count() == before + 1
             page.locator("#stop").click()
-            assert page.locator("#transcript .playground__entry").last.get_attribute(
-                "data-status"
-            ) == "error"
+            assert entries.last.get_attribute("data-status") == "error"
+
+            page.locator("#command-line").fill(long_command)
+            page.locator("#run").click()
+            page.locator("#clear").click()
+            page.locator("#run").wait_for(state="visible")
+            page.wait_for_function("!document.querySelector('#run').disabled")
+            assert entries.count() == 0
+            assert page.locator("#command-line").input_value() == long_command
+
+            page.locator("#run").click()
+            page.locator("#local-file").set_input_files(
+                {"name": "replacement.vcd", "mimeType": "text/plain", "buffer": VCD}
+            )
+            page.locator("#source-status").filter(has_text="Ready").wait_for()
+            assert page.locator('[data-status="running"]').count() == 0
+
+            page.locator("#use-demo").click()
+            page.locator("#source-status").filter(has_text="Ready").wait_for()
             recovered = run_browser(page, commands[0])
             assert recovered[0] == 0
 

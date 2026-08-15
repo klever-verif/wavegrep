@@ -17,7 +17,7 @@ const examples = {
 const elements = Object.fromEntries(
   [
     "source-name", "source-size", "source-format", "source-status", "source-indicator",
-    "use-demo", "local-file", "open-surfer", "command-line", "command-error",
+    "use-demo", "open-local", "local-file", "open-surfer", "command-line", "command-error",
     "run", "stop", "clear", "transcript", "output-description", "more-suggestions",
     "toggle-suggestions",
   ].map((id) => [id, document.getElementById(id)]),
@@ -157,7 +157,8 @@ function stopWorker() {
 }
 
 function setSource(name, bytes, kind) {
-  stopWorker();
+  if (runningEntry) stopCommand();
+  else stopWorker();
   activeSource = { name, bytes: new Uint8Array(bytes), kind };
   elements["source-name"].textContent = name;
   elements["source-size"].textContent = formatBytes(bytes.byteLength);
@@ -240,14 +241,13 @@ function startTranscriptEntry(command) {
 }
 
 function finishTranscriptEntry(entry, result, duration) {
-  if (!entry.isConnected) {
-    elements.transcript.querySelector(".playground__empty")?.remove();
-    elements.transcript.append(entry);
-  }
   entry.dataset.status = result.status === 0 ? "ok" : "error";
   entry.dataset.exitStatus = String(result.status);
-  entry.querySelector(".playground__duration").textContent = formatDuration(duration);
-  entry.querySelector(".playground__duration").title = result.status === 0 ? "Succeeded" : "Failed";
+  const durationBadge = entry.querySelector(".playground__duration");
+  const outcome = result.status === 0 ? "Succeeded" : "Failed";
+  durationBadge.textContent = formatDuration(duration);
+  durationBadge.title = outcome;
+  durationBadge.setAttribute("aria-label", `${outcome} in ${formatDuration(duration)}`);
   entry.querySelector(".playground__stdout").textContent = result.stdout || "";
   const stderr = entry.querySelector(".playground__stderr");
   stderr.textContent = result.stderr || "";
@@ -279,6 +279,7 @@ function handleWorkerMessage({ data }) {
 }
 
 function runCommand() {
+  if (runningEntry) return;
   if (!activeSource) {
     elements["command-error"].textContent = "Choose a waveform first";
     return;
@@ -352,6 +353,7 @@ elements.run.addEventListener("click", runCommand);
 elements.stop.addEventListener("click", stopCommand);
 elements.clear.addEventListener("click", clearTranscript);
 elements["use-demo"].addEventListener("click", useDemo);
+elements["open-local"].addEventListener("click", () => elements["local-file"].click());
 elements["toggle-suggestions"].addEventListener("click", () => {
   const expanded = elements["toggle-suggestions"].getAttribute("aria-expanded") === "true";
   elements["toggle-suggestions"].setAttribute("aria-expanded", String(!expanded));
