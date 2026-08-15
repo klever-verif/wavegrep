@@ -213,7 +213,10 @@ async function useDemo() {
     const response = await fetch(DEMO_URL);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
-    if (generation === sourceGeneration) setSource(DEMO_NAME, bytes, "demo");
+    if (generation === sourceGeneration) {
+      setSource(DEMO_NAME, bytes, "demo");
+      return true;
+    }
   } catch (error) {
     if (generation === sourceGeneration) {
       elements["source-status"].textContent = `Could not load: ${error.message}`;
@@ -431,6 +434,8 @@ elements["local-file"].addEventListener("change", async ({ target }) => {
 const surfer = new URL("https://app.surfer-project.org/");
 surfer.searchParams.set("load_url", DEMO_URL.href);
 elements["open-surfer"].href = surfer.href;
-elements["command-line"].value = examples.info;
+elements["command-line"].value = commandHelp.help;
 synchronizeOutputMode();
-useDemo();
+useDemo().then((loaded) => {
+  if (loaded && elements["command-line"].value === commandHelp.help) runCommand();
+});

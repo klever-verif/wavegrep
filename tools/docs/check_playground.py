@@ -167,16 +167,23 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert privacy.evaluate("element => getComputedStyle(element).borderTopStyle") == "none"
             assert privacy.evaluate("element => getComputedStyle(element).textAlign") == "center"
 
+            initial_help = page.locator(
+                '#transcript .playground__entry[data-status="ok"]'
+            ).first
+            initial_help.wait_for()
             prefix = page.locator(".playground__command-line label").text_content()
-            assert "wavepeek" in prefix and page.locator("#command-line").input_value().startswith(
-                "info "
-            )
+            assert "wavepeek" in prefix
+            assert page.locator("#command-line").input_value() == "help"
+            assert initial_help.locator("code").text_content() == "$ wavepeek help"
+            assert "Usage: wavepeek" in initial_help.locator(".playground__stdout").text_content()
             assert page.locator(".playground__commands button").all_text_contents() == [
                 "Info", "Scope", "Signal", "Value", "Change", "Property", "Extract", "Help"
             ]
             assert page.locator(".playground__command-separator").count() == 2
-            assert page.locator('[data-example="info"]').get_attribute("aria-pressed") == "true"
+            assert page.locator('[data-example="help"]').get_attribute("aria-pressed") == "true"
+            assert page.locator('[data-example="info"]').get_attribute("aria-pressed") == "false"
             initial_entries = page.locator("#transcript .playground__entry").count()
+            assert initial_entries == 1
             page.locator('[data-example="scope"]').click()
             assert page.locator("#command-line").input_value() == "scope --help"
             assert page.locator('[data-example="scope"]').get_attribute("aria-pressed") == "true"
@@ -293,7 +300,8 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
 
             page.reload(wait_until="networkidle")
             page.locator("#source-status").filter(has_text="Ready").wait_for()
-            assert page.locator("#transcript .playground__entry").count() == 0
+            page.locator('#transcript .playground__entry[data-status="ok"]').wait_for()
+            assert page.locator("#transcript .playground__entry").count() == 1
 
             long_command = commands[-1].replace("--max 3", "--max unlimited")
             page.locator("#command-line").fill(long_command)

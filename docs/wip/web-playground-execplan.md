@@ -47,6 +47,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 16:18Z) Passed focused browser checks and visually inspected the desktop layout without benchmark or push.
 - [x] (2026-08-15 16:26Z) Framed Commands and Output mode as one panel matching Waveform source height, normalized their button styling, grouped commands with separators, and added command-aware selection.
 - [x] (2026-08-15 16:26Z) Made command buttons insert command help, reduced Extract AXI to Extract, removed output explanatory copy, and passed focused browser and visual checks without benchmark or push.
+- [x] (2026-08-15 16:42Z) Made `help` the selected default command and automatically displayed its successful browser output after the demo source loads; focused browser and visual checks pass.
 
 ## Surprises & Discoveries
 
@@ -153,6 +154,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: Command buttons expose command help and mirror the command currently in the input.
   Rationale: The Demo queries already provide complete runnable recipes; the compact command row is more useful as command-level discovery and orientation.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: The Playground opens with `help` selected and its output already rendered.
+  Rationale: The first screen explains browser conventions and available commands without requiring an initial action.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective
