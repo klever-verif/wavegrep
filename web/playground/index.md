@@ -66,7 +66,7 @@ hide:
     <section class="playground__terminal" aria-label="WavePeek terminal">
       <div class="playground__command-line">
         <label for="command-line"><span aria-hidden="true">$</span> wavepeek</label>
-        <input id="command-line" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="command-error terminal-shortcuts">
+        <textarea id="command-line" rows="1" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="command-error terminal-shortcuts"></textarea>
         <button id="run" type="button" class="playground__run">Run</button>
         <button id="clear" type="button">Clear</button>
       </div>
@@ -74,7 +74,7 @@ hide:
       <div id="transcript" class="playground__transcript" role="log" aria-live="polite" tabindex="0">
         <p class="playground__empty">Run a command to see its output.</p>
       </div>
-      <p id="terminal-shortcuts" class="playground__terminal-tip">Enter to run · ↑/↓ for command history · Ctrl+K to clear</p>
+      <p id="terminal-shortcuts" class="playground__terminal-tip">Enter to run · ↑/↓ for command history</p>
     </section>
 
     <aside class="playground__sidebar" aria-label="Demo queries">

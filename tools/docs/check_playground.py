@@ -184,6 +184,9 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             initial_help.wait_for()
             prefix = page.locator(".playground__command-line label").text_content()
             assert "wavepeek" in prefix
+            assert page.locator("#terminal-shortcuts").text_content() == (
+                "Enter to run · ↑/↓ for command history"
+            )
             assert page.locator("#command-line").input_value() == "help"
             assert initial_help.locator("code").text_content() == "$ wavepeek help"
             assert "Usage: wavepeek" in initial_help.locator(".playground__stdout").text_content()
@@ -285,8 +288,6 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#command-line").input_value() == "info --waves scr1_axi.fst"
             page.locator("#command-line").press("ArrowUp")
             assert "--source config.json" in page.locator("#command-line").input_value()
-            page.locator("#command-line").press("Control+k")
-            assert page.locator("#transcript .playground__entry").count() == 0
 
             tokenized = page.evaluate(
                 "async () => (await import('/wavepeek/assets/playground/playground.js')).tokenize("
@@ -315,7 +316,34 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#transcript .playground__entry").count() == 1
 
             long_command = commands[-1].replace("--max 3", "--max unlimited")
-            page.locator("#command-line").fill(long_command)
+            command_line = page.locator("#command-line")
+            command_header = page.locator(".playground__command-line")
+            command_line.fill(" ".join([long_command] * 3))
+            focused_line = command_line.bounding_box()
+            focused_header = command_header.bounding_box()
+            assert focused_line and focused_header
+            assert focused_line["height"] > 32
+            assert focused_line["y"] + focused_line["height"] > (
+                focused_header["y"] + focused_header["height"]
+            )
+            assert command_line.evaluate(
+                "element => getComputedStyle(element).whiteSpace"
+            ) == "pre-wrap"
+            assert command_line.evaluate(
+                "element => getComputedStyle(element).boxShadow"
+            ) != "none"
+            command_line.blur()
+            collapsed_line = command_line.bounding_box()
+            collapsed_header = command_header.bounding_box()
+            assert collapsed_line and collapsed_header
+            assert collapsed_line["height"] < focused_line["height"]
+            assert collapsed_line["height"] <= collapsed_header["height"]
+            assert collapsed_header["height"] == focused_header["height"]
+            assert command_line.evaluate(
+                "element => getComputedStyle(element).whiteSpace"
+            ) == "nowrap"
+            command_line.fill(long_command)
+            command_line.blur()
             entries = page.locator("#transcript .playground__entry")
             before = entries.count()
             page.locator("#run").click()

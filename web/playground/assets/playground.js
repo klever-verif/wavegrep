@@ -112,9 +112,20 @@ function currentTokens() {
   return ["wavepeek", ...tokenize(elements["command-line"].value)];
 }
 
+function resizeCommandLine() {
+  elements["command-line"].style.height = "";
+  if (document.activeElement === elements["command-line"]) {
+    elements["command-line"].style.height = `${Math.min(
+      elements["command-line"].scrollHeight,
+      window.innerHeight * 0.4,
+    )}px`;
+  }
+}
+
 function writeTokens(tokens) {
   elements["command-line"].value = renderCommand(tokens.slice(1));
   synchronizeOutputMode();
+  resizeCommandLine();
 }
 
 function synchronizeCommandSelection() {
@@ -360,6 +371,7 @@ function navigateHistory(direction) {
     ? historyDraft
     : commandHistory[historyIndex];
   synchronizeOutputMode();
+  resizeCommandLine();
 }
 
 for (const button of document.querySelectorAll("[data-example]")) {
@@ -369,7 +381,12 @@ for (const button of document.querySelectorAll("[data-suggestion]")) {
   button.addEventListener("click", () => installExample(button.dataset.suggestion));
 }
 for (const input of outputModes) input.addEventListener("change", () => selectOutput(input.value));
-elements["command-line"].addEventListener("input", synchronizeOutputMode);
+elements["command-line"].addEventListener("focus", resizeCommandLine);
+elements["command-line"].addEventListener("blur", resizeCommandLine);
+elements["command-line"].addEventListener("input", () => {
+  synchronizeOutputMode();
+  resizeCommandLine();
+});
 elements["command-line"].addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -377,9 +394,6 @@ elements["command-line"].addEventListener("keydown", (event) => {
   } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     event.preventDefault();
     navigateHistory(event.key === "ArrowUp" ? -1 : 1);
-  } else if (event.ctrlKey && event.key.toLowerCase() === "k") {
-    event.preventDefault();
-    clearTranscript();
   }
 });
 elements.run.addEventListener("click", () => {

@@ -347,10 +347,15 @@
 }
 
 .playground__command-line {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto minmax(8rem, 1fr) auto auto;
   align-items: center;
   gap: 0.45rem;
+  box-sizing: border-box;
+  height: 3rem;
+  flex: 0 0 3rem;
   border-bottom: 1px solid var(--playground-border);
   background: var(--terminal-panel);
   padding: 0.45rem;
@@ -366,14 +371,33 @@
   color: var(--terminal-ok);
 }
 
-.playground__command-line input {
+.playground__command-line textarea {
+  position: relative;
+  z-index: 3;
+  align-self: start;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
+  height: 2rem;
+  overflow: hidden;
+  resize: none;
   border: 1px solid var(--playground-border);
   border-radius: 0.28rem;
   background: var(--terminal-bg);
   color: var(--terminal-fg);
   padding: 0.4rem 0.48rem;
-  font: 0.68rem var(--md-code-font-family);
+  font: 0.68rem/1.25 var(--md-code-font-family);
+  white-space: nowrap;
+}
+
+.playground__command-line textarea:focus {
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-color: var(--md-default-fg-color);
+  outline: 0;
+  box-shadow: 0 0 0 1px var(--md-default-fg-color);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .playground__command-line button {
@@ -705,10 +729,12 @@
 
   .playground__command-line {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+    flex-basis: auto;
   }
 
   .playground__command-line label,
-  .playground__command-line input {
+  .playground__command-line textarea {
     grid-column: 1 / -1;
   }
 
