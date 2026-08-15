@@ -97,7 +97,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "wavepeek on GitHub Releases ↗"
             )
             assert prompt == (
-                "Install the latest wavepeek release from "
+                "Install the latest release from "
                 "https://github.com/kleverhq/wavepeek/releases. "
                 "Run 'wavepeek skill' to get the skill."
             )

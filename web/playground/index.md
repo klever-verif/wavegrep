@@ -11,7 +11,7 @@ hide:
     <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">wavepeek on GitHub Releases ↗</a>
     <span>or copy-paste this to your agent:</span>
     <div class="playground__install-prompt">
-      <p id="agent-prompt" data-copy="Install the latest wavepeek release from https://github.com/kleverhq/wavepeek/releases. Run 'wavepeek skill' to get the skill.">Install the latest wavepeek release from https://github.com/kleverhq/wavepeek/releases. Run <code>'wavepeek skill'</code> to get the skill.</p>
+      <p id="agent-prompt" data-copy="Install the latest release from https://github.com/kleverhq/wavepeek/releases. Run 'wavepeek skill' to get the skill.">Install the latest release from https://github.com/kleverhq/wavepeek/releases. Run <code>'wavepeek skill'</code> to get the skill.</p>
       <span id="copy-status" class="playground__copy-status" aria-live="polite"></span>
       <button id="copy-agent-prompt" type="button">Copy</button>
     </div>
