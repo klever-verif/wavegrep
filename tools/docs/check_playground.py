@@ -109,13 +109,15 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 - install_prompt["height"] / 2
             ) < 10
             page.locator("#copy-agent-prompt").click()
-            page.locator("#copy-status").filter(has_text="Copied").wait_for()
+            page.locator("#copy-agent-prompt").filter(has_text="Copied").wait_for()
+            assert page.locator("#copy-status").text_content() == "Copied"
             assert page.evaluate("navigator.clipboard.readText()") == prompt
             page.evaluate(
                 "() => { navigator.clipboard.writeText = () => Promise.reject(new Error('denied')); }"
             )
             page.locator("#copy-agent-prompt").click()
-            page.locator("#copy-status").filter(has_text="Press Ctrl+C").wait_for()
+            page.locator("#copy-agent-prompt").filter(has_text="Press Ctrl+C").wait_for()
+            assert page.locator("#copy-status").text_content() == "Press Ctrl+C"
             assert "WavePeek" in page.evaluate("getSelection().toString()")
             tagline = page.locator(
                 ".md-header__topic:first-child .md-ellipsis"
@@ -186,19 +188,22 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             )
             page.locator('[data-suggestion="generic"]').click()
             assert page.locator("#command-line").input_value().startswith("extract generic ")
-            assert page.locator("#suggestions-heading").text_content() == "Example queries"
+            assert page.locator("#suggestions-heading").text_content() == "Demo queries"
             assert page.locator(".playground__commands-more").text_content() == "and more with"
             assert page.locator(".playground__shortcuts").count() == 0
+            assert page.locator(".playground__sidebar .playground__modes").count() == 0
+            assert page.locator(".playground__sidebar > section").count() == 1
             toolbar = page.locator(".playground__toolbar").bounding_box()
             commands_box = page.locator(".playground__commands").bounding_box()
+            modes_box = page.locator(".playground__modes").bounding_box()
+            mode_buttons = page.locator(".playground__modes > div").bounding_box()
+            mode_description = page.locator("#output-description").bounding_box()
             source_box = page.locator(".playground__source").bounding_box()
-            assert toolbar and commands_box and source_box
+            assert toolbar and commands_box and modes_box and mode_buttons
+            assert mode_description and source_box
+            assert modes_box["y"] > commands_box["y"]
+            assert mode_description["x"] > mode_buttons["x"]
             assert source_box["x"] > commands_box["x"]
-            assert abs(
-                source_box["y"] + source_box["height"] / 2
-                - commands_box["y"]
-                - commands_box["height"] / 2
-            ) < 10
             page.locator('[data-example="help"]').click()
             assert page.locator("#command-line").input_value() == "--help"
             assert page.locator("#transcript .playground__entry").count() == initial_entries

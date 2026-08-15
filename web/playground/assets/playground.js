@@ -359,16 +359,27 @@ elements.run.addEventListener("click", () => {
 elements.clear.addEventListener("click", clearTranscript);
 elements["use-demo"].addEventListener("click", useDemo);
 elements["open-local"].addEventListener("click", () => elements["local-file"].click());
+function showCopyStatus(message) {
+  elements["copy-status"].textContent = message;
+  elements["copy-agent-prompt"].textContent = message;
+  setTimeout(() => {
+    if (elements["copy-status"].textContent === message) {
+      elements["copy-status"].textContent = "";
+      elements["copy-agent-prompt"].textContent = "Copy";
+    }
+  }, 2000);
+}
+
 elements["copy-agent-prompt"].addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements["agent-prompt"].dataset.copy);
-    elements["copy-status"].textContent = "Copied";
+    showCopyStatus("Copied");
   } catch {
     const range = document.createRange();
     range.selectNodeContents(elements["agent-prompt"]);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(range);
-    elements["copy-status"].textContent = "Press Ctrl+C to copy";
+    showCopyStatus("Press Ctrl+C");
   }
 });
 elements["local-file"].addEventListener("change", async ({ target }) => {

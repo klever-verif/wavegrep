@@ -43,6 +43,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 15:17Z) Showed every example query without More/Less, centered the borderless privacy line, placed the installation prompt inline with normal text color, passed focused browser checks plus final `just ci` and `just check`, committed, and refreshed the server without benchmark or push.
 - [x] (2026-08-15 15:25Z) Made the inline installation prompt consume all space immediately after its label and replaced separate Run/Stop controls with one stateful button.
 - [x] (2026-08-15 15:25Z) Passed focused browser checks, committed, and refreshed the inspection server without benchmark or push.
+- [x] (2026-08-15 16:18Z) Moved Output mode beneath Commands with its description inline, reduced the sidebar to Demo queries, and moved transient copy feedback onto the Copy button.
+- [x] (2026-08-15 16:18Z) Passed focused browser checks and visually inspected the desktop layout without benchmark or push.
 
 ## Surprises & Discoveries
 
@@ -141,6 +143,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: Run and Stop are one stateful button.
   Rationale: A separate disabled Stop control permanently reduced editable command width even though only one action is available at a time.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Output mode belongs beneath Commands, while the sidebar contains only Demo queries.
+  Rationale: Output mode directly changes command construction; moving it beside command controls clarifies that relationship and leaves the sidebar focused on query discovery.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective

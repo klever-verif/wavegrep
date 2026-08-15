@@ -31,6 +31,16 @@ hide:
       <button type="button" data-example="help">Help</button>
     </nav>
 
+    <section class="playground__modes" aria-labelledby="modes-heading">
+      <h2 id="modes-heading">Output mode</h2>
+      <div>
+        <label><input type="radio" name="output-mode" value="human" checked><span>Human</span></label>
+        <label><input type="radio" name="output-mode" value="json"><span>JSON</span></label>
+        <label><input type="radio" name="output-mode" value="jsonl"><span>JSONL</span></label>
+      </div>
+      <p id="output-description">Human-readable output for exploration.</p>
+    </section>
+
     <section class="playground__source" aria-labelledby="source-heading">
       <h2 id="source-heading">Waveform source</h2>
       <button id="use-demo" type="button" class="md-button md-button--primary" aria-pressed="true">Demo</button>
@@ -65,19 +75,9 @@ hide:
       <p id="terminal-shortcuts" class="playground__terminal-tip">Enter to run · ↑/↓ for command history · Ctrl+K to clear</p>
     </section>
 
-    <aside class="playground__sidebar" aria-label="Playground options">
-      <fieldset class="playground__modes">
-        <legend>Output mode</legend>
-        <div>
-          <label><input type="radio" name="output-mode" value="human" checked><span>Human</span></label>
-          <label><input type="radio" name="output-mode" value="json"><span>JSON</span></label>
-          <label><input type="radio" name="output-mode" value="jsonl"><span>JSONL</span></label>
-        </div>
-        <p id="output-description">Human-readable output for exploration.</p>
-      </fieldset>
-
+    <aside class="playground__sidebar" aria-label="Demo queries">
       <section class="playground__suggestions" aria-labelledby="suggestions-heading">
-        <h2 id="suggestions-heading">Example queries</h2>
+        <h2 id="suggestions-heading">Demo queries</h2>
         <div>
           <button type="button" data-suggestion="info">What is in this waveform?</button>
           <button type="button" data-suggestion="scope">What scopes are under the testbench?</button>
