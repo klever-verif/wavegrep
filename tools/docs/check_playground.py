@@ -165,7 +165,16 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "Waveform data never leaves your browser. All processing happens locally."
             )
             assert privacy.evaluate("element => getComputedStyle(element).borderTopStyle") == "none"
-            assert privacy.evaluate("element => getComputedStyle(element).textAlign") == "center"
+            assert privacy.evaluate("element => getComputedStyle(element).textAlign") == "left"
+            local_source = page.locator(".playground__local-source").bounding_box()
+            privacy_box = privacy.bounding_box()
+            source_meta = page.locator(".playground__source-meta").bounding_box()
+            surfer = page.locator("#open-surfer").bounding_box()
+            assert local_source and privacy_box and source_meta and surfer
+            assert privacy_box["x"] >= local_source["x"] + local_source["width"]
+            assert source_meta["y"] > local_source["y"]
+            assert abs(source_meta["y"] - surfer["y"]) < 10
+            assert surfer["x"] > source_meta["x"]
 
             initial_help = page.locator(
                 '#transcript .playground__entry[data-status="ok"]'
