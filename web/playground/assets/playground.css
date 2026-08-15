@@ -596,14 +596,6 @@
 }
 
 @media (max-width: 72rem) {
-  .playground__install {
-    grid-template-columns: auto 1fr;
-  }
-
-  .playground__install > div {
-    grid-column: 1 / -1;
-  }
-
   .playground__toolbar {
     grid-template-columns: 1fr;
   }
@@ -636,18 +628,24 @@
     padding-inline: 0.6rem;
   }
 
-  .playground__install,
+  .playground__install {
+    grid-template-columns: 1fr auto;
+  }
+
+  .playground__install > span:not(.playground__copy-status) {
+    display: none;
+  }
+
+  .playground__install-prompt {
+    grid-column: 1 / -1;
+  }
+
   .playground__source {
     grid-template-columns: 1fr;
   }
 
-  .playground__install > div,
   .playground__source-meta {
     grid-column: auto;
-  }
-
-  .playground__install > span {
-    white-space: normal;
   }
 
   .playground__local-source {

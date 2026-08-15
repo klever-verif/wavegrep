@@ -38,7 +38,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:29Z) Extended browser checks, completed bounded Luna review with no findings and KISS/YAGNI pass, passed post-review `just ci` and `just check`, committed the implementation, and refreshed the inspection server without benchmark or push.
 - [x] (2026-08-15 14:50Z) Put the header tagline inline, hid Playground search, and shortened the copy-to-agent panel so its entire visible prompt wraps without horizontal scrolling.
 - [x] (2026-08-15 14:50Z) Combined Commands and waveform source into one toolbar, removed duplicate sidebar shortcuts, and normalized headings, controls, radii, and terminal typography.
-- [ ] Extend browser checks, review, run final gates, commit, and refresh the inspection server without benchmark or push. Focused browser checks pass; review and final gates remain.
+- [ ] Extend browser checks, review, run final gates, commit, and refresh the inspection server without benchmark or push. Bounded Luna review passed KISS/YAGNI; its clipboard fallback and responsive install-row findings are fixed and focused browser checks pass. Final gates remain.
 
 ## Surprises & Discoveries
 
@@ -77,6 +77,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Observation: Material scopes palette storage to `config.extra.scope`, which defaulted to each separately built site's current directory.
   Evidence: Browser inspection showed `/wavepeek/.__palette` after toggling the Playground but no shared value in `/wavepeek/latest/`. Setting both generated sites to `/wavepeek/` makes the same Material mechanism persist the palette without custom JavaScript.
+
+- Observation: Changing the copyable prompt from an input to visible rich text invalidated the input-only `.select()` fallback.
+  Evidence: Bounded review caught the stale fallback. It now selects the prompt with the standard DOM Selection API, and the browser check forces clipboard rejection to exercise that path.
 
 ## Decision Log
 

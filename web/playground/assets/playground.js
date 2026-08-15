@@ -360,8 +360,11 @@ elements["copy-agent-prompt"].addEventListener("click", async () => {
     await navigator.clipboard.writeText(elements["agent-prompt"].dataset.copy);
     elements["copy-status"].textContent = "Copied";
   } catch {
-    elements["agent-prompt"].select();
-    elements["copy-status"].textContent = "Select the prompt and copy it manually";
+    const range = document.createRange();
+    range.selectNodeContents(elements["agent-prompt"]);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    elements["copy-status"].textContent = "Press Ctrl+C to copy";
   }
 });
 elements["toggle-suggestions"].addEventListener("click", () => {

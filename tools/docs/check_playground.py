@@ -101,6 +101,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#copy-agent-prompt").click()
             page.locator("#copy-status").filter(has_text="Copied").wait_for()
             assert page.evaluate("navigator.clipboard.readText()") == prompt
+            page.evaluate(
+                "() => { navigator.clipboard.writeText = () => Promise.reject(new Error('denied')); }"
+            )
+            page.locator("#copy-agent-prompt").click()
+            page.locator("#copy-status").filter(has_text="Press Ctrl+C").wait_for()
+            assert "WavePeek" in page.evaluate("getSelection().toString()")
             tagline = page.locator(
                 ".md-header__topic:first-child .md-ellipsis"
             ).evaluate("element => getComputedStyle(element, '::after').content")
