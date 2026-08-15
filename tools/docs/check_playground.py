@@ -284,16 +284,19 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             entries = page.locator("#transcript .playground__entry")
             before = entries.count()
             page.locator("#run").click()
+            assert page.locator("#run").text_content() == "Stop"
+            assert page.locator("#stop").count() == 0
             page.locator("#command-line").press("Enter")
             assert entries.count() == before + 1
-            page.locator("#stop").click()
+            page.locator("#run").click()
+            assert page.locator("#run").text_content() == "Run"
             assert entries.first.get_attribute("data-status") == "error"
 
             page.locator("#command-line").fill(long_command)
             page.locator("#run").click()
             page.locator("#clear").click()
             page.locator("#run").wait_for(state="visible")
-            page.wait_for_function("!document.querySelector('#run').disabled")
+            page.wait_for_function("document.querySelector('#run').textContent === 'Run'")
             assert entries.count() == 0
             assert page.locator("#command-line").input_value() == long_command
 

@@ -19,8 +19,8 @@ const elements = Object.fromEntries(
   [
     "source-name", "source-size", "source-format", "source-status", "source-indicator",
     "agent-prompt", "copy-agent-prompt", "copy-status", "use-demo", "open-local",
-    "local-file", "open-surfer", "command-line", "command-error", "run", "stop",
-    "clear", "transcript", "output-description",
+    "local-file", "open-surfer", "command-line", "command-error", "run", "clear",
+    "transcript", "output-description",
   ].map((id) => [id, document.getElementById(id)]),
 );
 const outputModes = [...document.querySelectorAll('input[name="output-mode"]')];
@@ -150,11 +150,15 @@ function formatDuration(milliseconds) {
   return milliseconds < 1000 ? `${Math.round(milliseconds)} ms` : `${(milliseconds / 1000).toFixed(2)} s`;
 }
 
+function setRunning(running) {
+  elements.run.textContent = running ? "Stop" : "Run";
+  elements.run.dataset.running = String(running);
+}
+
 function stopWorker() {
   if (worker) worker.terminate();
   worker = undefined;
-  elements.run.disabled = false;
-  elements.stop.disabled = true;
+  setRunning(false);
 }
 
 function setSource(name, bytes, kind) {
@@ -272,8 +276,7 @@ function handleWorkerMessage({ data }) {
   if (data.type === "result") {
     finishTranscriptEntry(runningEntry, data.result, performance.now() - runningStarted);
     runningEntry = undefined;
-    elements.run.disabled = false;
-    elements.stop.disabled = true;
+    setRunning(false);
   } else if (data.type === "error") {
     finishWithError(data.message);
   }
@@ -303,8 +306,7 @@ function runCommand() {
   historyIndex = null;
   runningStarted = performance.now();
   runningEntry = startTranscriptEntry(runningCommand);
-  elements.run.disabled = true;
-  elements.stop.disabled = false;
+  setRunning(true);
   ensureWorker().postMessage({ type: "run", id: runningId, argv });
 }
 
@@ -350,8 +352,10 @@ elements["command-line"].addEventListener("keydown", (event) => {
     clearTranscript();
   }
 });
-elements.run.addEventListener("click", runCommand);
-elements.stop.addEventListener("click", stopCommand);
+elements.run.addEventListener("click", () => {
+  if (runningEntry) stopCommand();
+  else runCommand();
+});
 elements.clear.addEventListener("click", clearTranscript);
 elements["use-demo"].addEventListener("click", useDemo);
 elements["open-local"].addEventListener("click", () => elements["local-file"].click());

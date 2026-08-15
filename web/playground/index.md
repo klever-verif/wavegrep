@@ -10,9 +10,9 @@ hide:
   <section class="playground__install" aria-label="Install WavePeek">
     <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">Get WavePeek on GitHub Releases ↗</a>
     <span>or copy-paste this to your agent:</span>
-    <span id="copy-status" class="playground__copy-status" aria-live="polite"></span>
     <div class="playground__install-prompt">
       <p id="agent-prompt" data-copy="Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Use 'wavepeek skill' to get the skill.">Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Use <code>'wavepeek skill'</code> to get the skill.</p>
+      <span id="copy-status" class="playground__copy-status" aria-live="polite"></span>
       <button id="copy-agent-prompt" type="button">Copy</button>
     </div>
   </section>
@@ -56,7 +56,6 @@ hide:
         <label for="command-line"><span aria-hidden="true">$</span> wavepeek</label>
         <input id="command-line" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="command-error terminal-shortcuts">
         <button id="run" type="button" class="playground__run">Run</button>
-        <button id="stop" type="button" disabled>Stop</button>
         <button id="clear" type="button">Clear</button>
       </div>
       <p id="command-error" class="playground__error" aria-live="polite"></p>

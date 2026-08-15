@@ -41,6 +41,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:57Z) Extended browser checks, completed bounded Luna review with KISS/YAGNI pass, fixed both findings, passed post-review `just ci` and `just check`, committed, and refreshed the inspection server without benchmark or push.
 - [x] (2026-08-15 15:09Z) Applied the final approved copy for installation, privacy, Surfer, command discovery, and the dash-free inline tagline.
 - [x] (2026-08-15 15:17Z) Showed every example query without More/Less, centered the borderless privacy line, placed the installation prompt inline with normal text color, passed focused browser checks plus final `just ci` and `just check`, committed, and refreshed the server without benchmark or push.
+- [x] (2026-08-15 15:25Z) Made the inline installation prompt consume all space immediately after its label and replaced separate Run/Stop controls with one stateful button.
+- [x] (2026-08-15 15:25Z) Passed focused browser checks, committed, and refreshed the inspection server without benchmark or push.
 
 ## Surprises & Discoveries
 
@@ -135,6 +137,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: Commands and source selection share one toolbar, and shortcut help exists only in the terminal footer.
   Rationale: The commands row had enough unused horizontal space for the source controls, while duplicated shortcut documentation consumed sidebar space and created typography inconsistency.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Run and Stop are one stateful button.
+  Rationale: A separate disabled Stop control permanently reduced editable command width even though only one action is available at a time.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective

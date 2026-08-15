@@ -87,7 +87,7 @@
 
 .playground__install {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 0.3rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--md-primary-fg-color) 45%, var(--playground-border));
@@ -114,7 +114,7 @@
 
 .playground__install-prompt {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   min-width: 0;
 }
 
@@ -312,7 +312,7 @@
 
 .playground__command-line {
   display: grid;
-  grid-template-columns: auto minmax(8rem, 1fr) auto auto auto;
+  grid-template-columns: auto minmax(8rem, 1fr) auto auto;
   align-items: center;
   gap: 0.45rem;
   border-bottom: 1px solid var(--playground-border);
@@ -350,6 +350,12 @@
   background: var(--md-primary-fg-color);
   color: var(--md-primary-bg-color);
   font-weight: 700;
+}
+
+.playground__command-line .playground__run[data-running="true"] {
+  border-color: var(--terminal-error);
+  background: var(--terminal-error);
+  color: var(--md-primary-bg-color);
 }
 
 .playground__error {
@@ -663,7 +669,7 @@
   }
 
   .playground__command-line {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .playground__command-line label,
