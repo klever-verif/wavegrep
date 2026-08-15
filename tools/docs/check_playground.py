@@ -94,7 +94,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert heading and heading["width"] <= 1 and heading["height"] <= 1
             prompt = page.locator("#agent-prompt").get_attribute("data-copy")
             assert page.locator(".playground__install > a").text_content() == (
-                "wavepeek on GitHub Releases ↗"
+                "Installation instructions on GitHub Releases ↗"
             )
             assert prompt == (
                 "Install the latest release from "

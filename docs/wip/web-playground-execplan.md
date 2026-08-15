@@ -49,7 +49,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 16:26Z) Made command buttons insert command help, reduced Extract AXI to Extract, removed output explanatory copy, and passed focused browser and visual checks without benchmark or push.
 - [x] (2026-08-15 16:42Z) Made `help` the selected default command and automatically displayed its successful browser output after the demo source loads; focused browser and visual checks pass.
 - [x] (2026-08-15 16:46Z) Reflowed Waveform source into a controls/privacy row and a file/visual-viewer row; focused browser and visual checks pass without benchmark or push.
-- [x] (2026-08-15 16:51Z) Normalized lowercase `wavepeek` acquisition copy, removed the repeated “get” phrasing, shortened the privacy statement, and passed focused browser checks without benchmark or push.
+- [x] (2026-08-15 16:51Z) Normalized the acquisition copy, removed the repeated “get” phrasing, shortened the privacy statement, and passed focused browser checks without benchmark or push.
 
 ## Surprises & Discoveries
 
