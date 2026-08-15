@@ -51,6 +51,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 16:46Z) Reflowed Waveform source into a controls/privacy row and a file/visual-viewer row; focused browser and visual checks pass without benchmark or push.
 - [x] (2026-08-15 16:51Z) Normalized the acquisition copy, removed the repeated “get” phrasing, shortened the privacy statement, and passed focused browser checks without benchmark or push.
 - [x] (2026-08-15 17:01Z) Removed Ctrl+K behavior/help and replaced the single-line command input with a focused, wrapping, auto-growing overlay that collapses on blur; focused browser and visual checks pass without benchmark or push.
+- [x] (2026-08-15 17:05Z) Removed focused-input scrollbars and pinned the prompt and action buttons to the terminal header top while the textarea grows; focused browser and visual checks pass without benchmark or push.
 
 ## Surprises & Discoveries
 

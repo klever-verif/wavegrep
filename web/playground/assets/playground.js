@@ -113,12 +113,12 @@ function currentTokens() {
 }
 
 function resizeCommandLine() {
-  elements["command-line"].style.height = "";
-  if (document.activeElement === elements["command-line"]) {
-    elements["command-line"].style.height = `${Math.min(
-      elements["command-line"].scrollHeight,
-      window.innerHeight * 0.4,
-    )}px`;
+  const commandLine = elements["command-line"];
+  commandLine.style.height = "";
+  if (document.activeElement === commandLine) {
+    commandLine.style.height = `${
+      commandLine.scrollHeight + commandLine.offsetHeight - commandLine.clientHeight
+    }px`;
   }
 }
 

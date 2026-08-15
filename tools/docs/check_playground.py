@@ -318,10 +318,17 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             long_command = commands[-1].replace("--max 3", "--max unlimited")
             command_line = page.locator("#command-line")
             command_header = page.locator(".playground__command-line")
+            prompt_before = page.locator(".playground__command-line label").bounding_box()
+            run_before = page.locator("#run").bounding_box()
             command_line.fill(" ".join([long_command] * 3))
             focused_line = command_line.bounding_box()
             focused_header = command_header.bounding_box()
+            prompt_focused = page.locator(".playground__command-line label").bounding_box()
+            run_focused = page.locator("#run").bounding_box()
             assert focused_line and focused_header
+            assert prompt_before and run_before and prompt_focused and run_focused
+            assert prompt_focused["y"] == prompt_before["y"]
+            assert run_focused["y"] == run_before["y"]
             assert focused_line["height"] > 32
             assert focused_line["y"] + focused_line["height"] > (
                 focused_header["y"] + focused_header["height"]
@@ -332,6 +339,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert command_line.evaluate(
                 "element => getComputedStyle(element).boxShadow"
             ) != "none"
+            assert command_line.evaluate(
+                "element => getComputedStyle(element).overflowY"
+            ) == "hidden"
+            assert command_line.evaluate(
+                "element => element.scrollHeight <= element.clientHeight + 1"
+            )
             command_line.blur()
             collapsed_line = command_line.bounding_box()
             collapsed_header = command_header.bounding_box()

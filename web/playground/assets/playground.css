@@ -351,7 +351,7 @@
   z-index: 2;
   display: grid;
   grid-template-columns: auto minmax(8rem, 1fr) auto auto;
-  align-items: center;
+  align-items: start;
   gap: 0.45rem;
   box-sizing: border-box;
   height: 3rem;
@@ -362,6 +362,10 @@
 }
 
 .playground__command-line label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2rem;
   color: var(--terminal-fg);
   font: 600 0.69rem var(--md-code-font-family);
   white-space: nowrap;
@@ -391,8 +395,7 @@
 }
 
 .playground__command-line textarea:focus {
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   border-color: var(--md-default-fg-color);
   outline: 0;
   box-shadow: 0 0 0 1px var(--md-default-fg-color);
