@@ -8,7 +8,7 @@ Rust unit tests live next to implementation code under `src/` and cover parsing,
 
 Auxiliary Python tests cover repository tooling, docs-site helpers, and benchmark harnesses. Run them with `./dev just test-aux`; individual suites may also be run with `./dev python3 -B -m unittest ...` while iterating.
 
-`./dev just playground-test` builds Rust/WASM and current documentation as one local Pages preview, then uses headless Chromium to compare browser and native human/JSON/JSONL output and status. It also checks same-origin documentation navigation, terminal transcript/history/clear behavior, example insertion, AXI FST streaming, unsupported browser options, local-file privacy, reload and Stop behavior, Surfer linking, theme colors, and responsive layout.
+`./dev just playground-test` builds Rust/WASM and current documentation as one local Pages preview, then uses headless Chromium to compare browser and native human/JSON/JSONL output and status. It also checks same-origin documentation navigation and palette persistence, newest-first terminal transcript/history/clear behavior, install-prompt copying, example insertion, AXI FST streaming, unsupported browser options, local-file privacy, reload and Stop behavior, Surfer linking, theme colors, and responsive layout.
 
 ## Fixtures
 

@@ -39,7 +39,7 @@ class PreparePlaygroundTests(unittest.TestCase):
             )
 
             index = (output / "index.md").read_text(encoding="utf-8")
-            self.assertIn(f"WavePeek Playground <span>v{version}</span>", index)
+            self.assertIn(f'data-version="{version}"', index)
             self.assertNotIn("@WAVEPEEK_VERSION@", index)
             self.assertTrue((output / "assets/playground/scr1_axi.fst").is_file())
             self.assertEqual(

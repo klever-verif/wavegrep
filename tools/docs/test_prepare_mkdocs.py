@@ -81,7 +81,10 @@ class PrepareMkdocsTests(unittest.TestCase):
                 },
             ],
         )
-        self.assertEqual(config["extra"], {"version": {"provider": "mike"}})
+        self.assertEqual(
+            config["extra"],
+            {"scope": "/wavepeek/", "version": {"provider": "mike"}},
+        )
 
     def test_force_is_required_to_replace_outputs(self) -> None:
         self.prepare()

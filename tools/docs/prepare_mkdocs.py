@@ -112,7 +112,10 @@ def write_generated_config(
             {"Playground": PLAYGROUND_URL},
             {"Documentation": nav},
         ],
-        "extra": {"version": {"provider": "mike"}},
+        "extra": {
+            "scope": PLAYGROUND_URL,
+            "version": {"provider": "mike"},
+        },
     }
     config_output.parent.mkdir(parents=True, exist_ok=True)
     config_output.write_text(

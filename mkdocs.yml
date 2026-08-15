@@ -1,4 +1,5 @@
 site_name: wavepeek
+site_description: Deterministic RTL waveform inspection for scripts, CI, and agents.
 site_url: https://kleverhq.github.io/wavepeek/
 repo_url: https://github.com/kleverhq/wavepeek
 repo_name: kleverhq/wavepeek
@@ -28,6 +29,8 @@ theme:
     - navigation.expand
 plugins:
   - search
+extra:
+  scope: /wavepeek/
 extra_css:
   - monochrome.css
 markdown_extensions:

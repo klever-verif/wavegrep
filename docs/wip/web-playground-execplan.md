@@ -32,6 +32,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 13:34Z) Preserved in-tab command navigation while making Clear and Ctrl+K erase only the visible transcript.
 - [x] (2026-08-15 13:34Z) Composed the locally built Playground and current documentation into one preview under `/wavepeek/`, with same-origin navigation matching production.
 - [x] (2026-08-15 13:45Z) Updated browser/publication checks and durable maintainer documentation, completed bounded Luna review with KISS/YAGNI pass, fixed all six confirmed findings, passed post-review `just ci` and `just check`, committed, and replaced the inspection server without pushing.
+- [x] (2026-08-15 14:24Z) Removed the redundant visible page title and replaced it with a compact Releases/copy-to-agent install strip.
+- [x] (2026-08-15 14:24Z) Compressed source and command controls, added Help, renamed problem examples, and gave the desktop workspace the remaining viewport without page scroll.
+- [x] (2026-08-15 14:24Z) Prepended new transcript entries beneath the fixed command line and synchronized Material palette state across Playground and documentation.
+- [ ] Extend browser checks, review, run final gates, commit, and refresh the inspection server without benchmark or push. Focused browser and helper checks pass; review and final gates remain.
 
 ## Surprises & Discoveries
 
@@ -67,6 +71,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Observation: Disabling the Run button does not disable the Enter shortcut, and worker termination alone does not finalize a transcript entry.
   Evidence: Bounded review found that a second Enter could orphan the first running entry and source replacement could terminate its worker without changing its status. `runCommand` now guards the shared running state and source replacement uses the existing stop path.
+
+- Observation: Material scopes palette storage to `config.extra.scope`, which defaulted to each separately built site's current directory.
+  Evidence: Browser inspection showed `/wavepeek/.__palette` after toggling the Playground but no shared value in `/wavepeek/latest/`. Setting both generated sites to `/wavepeek/` makes the same Material mechanism persist the palette without custom JavaScript.
 
 ## Decision Log
 
@@ -109,6 +116,14 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - Decision: Keep separate Playground and Mike documentation builds, but compose them into one local preview and use same-origin `/wavepeek/` links.
   Rationale: Separate builds preserve the current-only app/versioned-doc publication model, while one preview makes local navigation match the deployed Pages artifact.
   Date/Author: 2026-08-15 / user and implementation agent.
+
+- Decision: Use one compact install strip with a Releases link and a copyable natural-language agent prompt instead of OS-specific installation tabs.
+  Rationale: The prompt can direct an agent to install the latest release, extract `wavepeek skill`, and follow its harness rules without making the Playground own platform installation logic.
+  Date/Author: 2026-08-15 / user and implementation agent.
+
+- Decision: On desktop the page itself stays fixed while the transcript scrolls, and newest transcript entries are prepended directly beneath the command line.
+  Rationale: The command prompt is at the top, so reverse-chronological entries keep the latest result spatially adjacent and reclaim the viewport for waveform output.
+  Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective
 

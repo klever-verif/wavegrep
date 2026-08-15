@@ -45,7 +45,8 @@ def run_browser(page: Page, command: str) -> tuple[int, str, str, Locator]:
     before = entries.count()
     page.locator("#command-line").fill(command)
     page.locator("#run").click()
-    entry = entries.nth(before)
+    assert entries.count() == before + 1
+    entry = entries.first
     entry.locator(".playground__duration").filter(has_not_text="Running").wait_for(
         timeout=30_000
     )
@@ -80,21 +81,47 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
-            page = browser.new_page(viewport={"width": 1440, "height": 1000})
+            context = browser.new_context(viewport={"width": 1440, "height": 1000})
+            context.grant_permissions(
+                ["clipboard-read", "clipboard-write"], origin=origin
+            )
+            page = context.new_page()
             page.goto(base_url, wait_until="networkidle")
             page.locator("#source-status").filter(has_text="Ready").wait_for()
 
             assert page.locator(".md-version").count() == 0
+            heading = page.locator(".playground__visually-hidden").bounding_box()
+            assert heading and heading["width"] <= 1 and heading["height"] <= 1
+            prompt = page.locator("#agent-prompt").input_value()
+            assert "github.com/kleverhq/wavepeek/releases" in prompt
+            assert "wavepeek skill ./wavepeek-skill" in prompt
+            page.locator("#copy-agent-prompt").click()
+            page.locator("#copy-status").filter(has_text="Copied").wait_for()
+            assert page.evaluate("navigator.clipboard.readText()") == prompt
+            tagline = page.locator(
+                ".md-header__topic:first-child .md-ellipsis"
+            ).evaluate("element => getComputedStyle(element, '::after').content")
+            assert "Deterministic RTL waveform inspection" in tagline
+
+            page.evaluate("localStorage.clear()")
+            page.reload(wait_until="networkidle")
+            page.locator("#source-status").filter(has_text="Ready").wait_for()
+            for _ in range(2):
+                page.locator('[data-md-component="palette"] label:visible').click()
+            assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
+
             documentation = page.locator("a", has_text="Documentation").first
             assert documentation.get_attribute("href") == "/wavepeek/latest/"
             documentation.click()
             page.wait_for_url(f"{origin}/wavepeek/latest/**")
             assert page.locator("main").text_content().strip()
+            assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
             playground = page.locator("a", has_text="Playground").first
             assert playground.get_attribute("href") == "/wavepeek/"
             playground.click()
             page.wait_for_url(base_url)
             page.locator("#source-status").filter(has_text="Ready").wait_for()
+            assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
 
             assert page.locator("#source-name").text_content() == "scr1_axi.fst"
             assert page.locator("#open-local").evaluate("element => element.tagName") == "BUTTON"
@@ -114,7 +141,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "info "
             )
             assert page.locator(".playground__commands button").all_text_contents() == [
-                "Info", "Scope", "Signal", "Value", "Change", "Property", "Extract AXI"
+                "Info", "Scope", "Signal", "Value", "Change", "Property", "Extract AXI", "Help"
             ]
             initial_entries = page.locator("#transcript .playground__entry").count()
             page.locator('[data-example="scope"]').click()
@@ -126,6 +153,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#more-suggestions").is_visible()
             page.locator('[data-suggestion="generic"]').click()
             assert page.locator("#command-line").input_value().startswith("extract generic ")
+            assert page.locator("#suggestions-heading").text_content() == "Example queries"
+            page.locator('[data-example="help"]').click()
+            assert page.locator("#command-line").input_value() == "--help"
+            assert page.locator("#transcript .playground__entry").count() == initial_entries
 
             page.locator('input[name="output-mode"][value="json"]').check()
             assert page.locator("#command-line").input_value().endswith("--json")
@@ -150,6 +181,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 assert entry.locator(".playground__duration").get_attribute(
                     "aria-label"
                 ).startswith("Succeeded in ")
+                assert entry.locator("code").text_content().startswith(
+                    f"$ wavepeek {command.split()[0]}"
+                )
+                assert page.locator("#transcript").evaluate("element => element.scrollTop") == 0
                 assert "Exit" not in entry.text_content()
 
             status, _, stderr, failed = run_browser(
@@ -207,7 +242,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#command-line").press("Enter")
             assert entries.count() == before + 1
             page.locator("#stop").click()
-            assert entries.last.get_attribute("data-status") == "error"
+            assert entries.first.get_attribute("data-status") == "error"
 
             page.locator("#command-line").fill(long_command)
             page.locator("#run").click()
@@ -231,8 +266,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
 
             terminal = page.locator(".playground__terminal").bounding_box()
             sidebar = page.locator(".playground__sidebar").bounding_box()
-            assert terminal and sidebar and terminal["x"] < sidebar["x"]
+            assert terminal and sidebar and 0 < terminal["x"] < sidebar["x"]
             assert terminal["height"] >= 600
+            vertical = page.evaluate(
+                "() => ({viewport: innerHeight, document: document.documentElement.scrollHeight})"
+            )
+            assert vertical["document"] <= vertical["viewport"], vertical
 
             colors = page.evaluate(
                 """() => {

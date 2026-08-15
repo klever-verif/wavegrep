@@ -4,6 +4,21 @@
   --md-typeset-a-color: #212121;
 }
 
+.md-header__topic:first-child .md-ellipsis::after {
+  display: block;
+  content: "Deterministic RTL waveform inspection for scripts, CI, and agents.";
+  font-size: 0.52rem;
+  font-weight: 400;
+  line-height: 1.1;
+  opacity: 0.7;
+}
+
+@media (max-width: 60rem) {
+  .md-header__topic:first-child .md-ellipsis::after {
+    display: none;
+  }
+}
+
 [data-md-color-scheme="slate"] {
   --md-default-bg-color: #202020;
   --md-default-bg-color--light: #2020208a;

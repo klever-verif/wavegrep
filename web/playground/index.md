@@ -5,19 +5,24 @@ hide:
 ---
 
 <div class="playground" data-version="@WAVEPEEK_VERSION@">
-  <header class="playground__intro">
+  <h1 class="playground__visually-hidden">WavePeek Playground</h1>
+
+  <section class="playground__install" aria-label="Install WavePeek">
+    <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">Get WavePeek on GitHub Releases ↗</a>
+    <span>or copy-paste this to your agent</span>
     <div>
-      <h1>WavePeek Playground <span>v@WAVEPEEK_VERSION@</span></h1>
-      <p>Run waveform queries locally in your browser.</p>
+      <input id="agent-prompt" type="text" readonly value="Install the latest WavePeek from https://github.com/kleverhq/wavepeek/releases, run wavepeek skill ./wavepeek-skill, then install the extracted skill according to your agent harness instructions." aria-label="WavePeek installation prompt for a coding agent">
+      <button id="copy-agent-prompt" type="button">Copy</button>
     </div>
-    <p class="playground__privacy">Local files stay on your machine. No uploads, backend, telemetry, or persistence.</p>
-  </header>
+    <span id="copy-status" class="playground__copy-status" aria-live="polite"></span>
+  </section>
 
   <section class="playground__source" aria-labelledby="source-heading">
-    <div class="playground__source-actions">
-      <h2 id="source-heading">Waveform source</h2>
-      <button id="use-demo" type="button" class="md-button md-button--primary" aria-pressed="true">Use demo waveform</button>
+    <h2 id="source-heading">Waveform source</h2>
+    <button id="use-demo" type="button" class="md-button md-button--primary" aria-pressed="true">Use demo</button>
+    <div class="playground__local-source">
       <button id="open-local" type="button" class="md-button">Open local VCD/FST</button>
+      <small>Stays on your machine. No uploads.</small>
       <input id="local-file" type="file" accept=".vcd,.fst" hidden>
     </div>
     <div class="playground__source-meta">
@@ -26,8 +31,8 @@ hide:
         <strong id="source-name">Loading demo…</strong>
         <p><span id="source-size">—</span> · <span id="source-format">FST</span> · <span id="source-status" aria-live="polite">Loading…</span></p>
       </div>
-      <a id="open-surfer" class="playground__surfer" target="_blank" rel="noopener noreferrer">Open visually in Surfer ↗</a>
     </div>
+    <a id="open-surfer" class="playground__surfer" target="_blank" rel="noopener noreferrer">Open in Surfer ↗</a>
   </section>
 
   <nav class="playground__commands" aria-label="Example WavePeek commands">
@@ -39,6 +44,8 @@ hide:
     <button type="button" data-example="change">Change</button>
     <button type="button" data-example="property">Property</button>
     <button type="button" data-example="extract">Extract AXI</button>
+    <span class="playground__commands-more">and more…</span>
+    <button type="button" data-example="help">Help</button>
   </nav>
 
   <div class="playground__workspace">
@@ -69,7 +76,7 @@ hide:
       </fieldset>
 
       <section class="playground__suggestions" aria-labelledby="suggestions-heading">
-        <h2 id="suggestions-heading">Ask the waveform</h2>
+        <h2 id="suggestions-heading">Example queries</h2>
         <div>
           <button type="button" data-suggestion="info">What is in this waveform?</button>
           <button type="button" data-suggestion="scope">What scopes are under the testbench?</button>

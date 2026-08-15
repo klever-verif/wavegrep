@@ -12,14 +12,15 @@ const examples = {
   property: `property --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --eval 'io_axi_dmem_arvalid && io_axi_dmem_arready' --capture match --from 1ps --to 1880182ps --max 10`,
   generic: `extract generic --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --on 'posedge clk' --when 'io_axi_dmem_arvalid && io_axi_dmem_arready' --payload io_axi_dmem_araddr,io_axi_dmem_arlen --from 1ps --to 1880182ps --max 10`,
   extract: `extract axi --waves ${DEMO_NAME} --scope TOP.scr1_top_tb_axi.i_top --include '^io_axi_dmem_' --map aclk=clk --map aresetn=axi_rst_n --from 1ps --to 1880182ps --max 10`,
+  help: "--help",
 };
 
 const elements = Object.fromEntries(
   [
     "source-name", "source-size", "source-format", "source-status", "source-indicator",
-    "use-demo", "open-local", "local-file", "open-surfer", "command-line", "command-error",
-    "run", "stop", "clear", "transcript", "output-description", "more-suggestions",
-    "toggle-suggestions",
+    "agent-prompt", "copy-agent-prompt", "copy-status", "use-demo", "open-local",
+    "local-file", "open-surfer", "command-line", "command-error", "run", "stop",
+    "clear", "transcript", "output-description", "more-suggestions", "toggle-suggestions",
   ].map((id) => [id, document.getElementById(id)]),
 );
 const outputModes = [...document.querySelectorAll('input[name="output-mode"]')];
@@ -135,7 +136,7 @@ function selectOutput(value) {
 function installExample(name) {
   const mode = outputModes.find((input) => input.checked).value;
   const tokens = ["wavepeek", ...tokenize(examples[name])];
-  if (mode !== "human") tokens.push(`--${mode}`);
+  if (name !== "help" && mode !== "human") tokens.push(`--${mode}`);
   writeTokens(tokens);
   elements["command-line"].focus();
 }
@@ -169,7 +170,7 @@ function setSource(name, bytes, kind) {
   elements["use-demo"].classList.toggle("md-button--primary", kind === "demo");
   elements["open-surfer"].hidden = kind !== "demo";
   const tokens = currentTokens();
-  setOption(tokens, "--waves", name);
+  if (!tokens.includes("--help")) setOption(tokens, "--waves", name);
   writeTokens(tokens);
 }
 
@@ -231,12 +232,12 @@ function startTranscriptEntry(command) {
   stderr.className = "playground__stderr";
   stderr.hidden = true;
   entry.append(header, stdout, stderr);
-  elements.transcript.append(entry);
+  elements.transcript.prepend(entry);
 
   while (elements.transcript.querySelectorAll(".playground__entry").length > HISTORY_LIMIT) {
-    elements.transcript.querySelector(".playground__entry").remove();
+    elements.transcript.querySelector(".playground__entry:last-of-type").remove();
   }
-  elements.transcript.scrollTop = elements.transcript.scrollHeight;
+  elements.transcript.scrollTop = 0;
   return entry;
 }
 
@@ -252,7 +253,7 @@ function finishTranscriptEntry(entry, result, duration) {
   const stderr = entry.querySelector(".playground__stderr");
   stderr.textContent = result.stderr || "";
   stderr.hidden = !result.stderr;
-  elements.transcript.scrollTop = elements.transcript.scrollHeight;
+  elements.transcript.scrollTop = 0;
 }
 
 function finishWithError(message) {
@@ -354,6 +355,15 @@ elements.stop.addEventListener("click", stopCommand);
 elements.clear.addEventListener("click", clearTranscript);
 elements["use-demo"].addEventListener("click", useDemo);
 elements["open-local"].addEventListener("click", () => elements["local-file"].click());
+elements["copy-agent-prompt"].addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(elements["agent-prompt"].value);
+    elements["copy-status"].textContent = "Copied";
+  } catch {
+    elements["agent-prompt"].select();
+    elements["copy-status"].textContent = "Select the prompt and copy it manually";
+  }
+});
 elements["toggle-suggestions"].addEventListener("click", () => {
   const expanded = elements["toggle-suggestions"].getAttribute("aria-expanded") === "true";
   elements["toggle-suggestions"].setAttribute("aria-expanded", String(!expanded));

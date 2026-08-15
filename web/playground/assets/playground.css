@@ -23,9 +23,9 @@
   --terminal-error-bg: #fce4e2;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.9rem;
+  gap: 0.55rem;
   overflow: hidden;
-  padding: 0.6rem 0 2rem;
+  padding: 0.5rem 1rem 1rem;
 }
 
 [data-md-color-scheme="slate"] .playground {
@@ -37,6 +37,16 @@
   --terminal-ok-bg: #183d2a;
   --terminal-error: #ff9b95;
   --terminal-error-bg: #482321;
+}
+
+.playground [hidden],
+.playground__visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
 }
 
 .playground [hidden] {
@@ -75,79 +85,110 @@
   outline-offset: 0.12rem;
 }
 
-.playground__intro {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.playground__intro h1 {
-  font-size: clamp(1.45rem, 3vw, 2rem);
-  line-height: 1.2;
-}
-
-.playground__intro h1 span {
-  display: inline-block;
+.playground__install {
+  display: grid;
+  grid-template-columns: auto auto minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
   border: 1px solid var(--playground-border);
-  border-radius: 0.25rem;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.68rem;
+}
+
+.playground__install > a {
   color: var(--md-accent-fg-color);
-  padding: 0.08rem 0.35rem;
-  font-size: 0.65em;
-  vertical-align: 0.12em;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.playground__intro p,
-.playground__source p {
+.playground__install > span {
   color: var(--md-default-fg-color--light);
-  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
-.playground__privacy {
-  max-width: 31rem;
-  text-align: right;
+.playground__install > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.playground__install input {
+  min-width: 0;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.25rem 0 0 0.25rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-default-fg-color);
+  padding: 0.32rem 0.45rem;
+  font: 0.64rem var(--md-code-font-family);
+}
+
+.playground__install button {
+  border: 1px solid var(--playground-border);
+  border-left: 0;
+  border-radius: 0 0.25rem 0.25rem 0;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  padding: 0.32rem 0.55rem;
+  font-weight: 700;
+}
+
+.playground__install .playground__copy-status {
+  min-width: 2.7rem;
+  color: var(--terminal-ok);
 }
 
 .playground__source {
   display: grid;
-  grid-template-columns: minmax(23rem, 0.9fr) minmax(25rem, 1.1fr);
-  gap: 1rem;
-  border: 1px solid var(--playground-border);
-  border-radius: 0.45rem;
-  background: var(--md-default-bg-color);
-  padding: 0.8rem;
-}
-
-.playground__source-actions,
-.playground__source-meta {
-  display: flex;
+  grid-template-columns: auto auto minmax(13rem, auto) minmax(12rem, 1fr) auto;
   align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
+  gap: 0.7rem;
+  border: 1px solid var(--playground-border);
+  border-radius: 0.4rem;
+  background: var(--md-default-bg-color);
+  padding: 0.4rem 0.6rem;
 }
 
 .playground__source h2,
 .playground__sidebar h2 {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
 
 .playground__source h2 {
-  margin-right: 0.25rem;
   white-space: nowrap;
 }
 
 .playground .md-button {
   margin: 0;
-  padding: 0.45rem 0.75rem;
-  font-size: 0.72rem;
-  line-height: 1.25;
+  padding: 0.38rem 0.65rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
   text-align: center;
 }
 
+.playground__local-source {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.playground__local-source small,
+.playground__source p {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.61rem;
+  line-height: 1.2;
+}
+
+.playground__local-source small {
+  max-width: 8.5rem;
+}
+
 .playground__source-meta {
-  border: 1px solid var(--playground-border);
-  border-radius: 0.35rem;
-  padding: 0.5rem 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .playground__source-meta > div {
@@ -157,15 +198,15 @@
 .playground__source-meta strong {
   display: block;
   overflow: hidden;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .playground__source-indicator {
-  flex: 0 0 0.65rem;
-  width: 0.65rem;
-  height: 0.65rem;
+  flex: 0 0 0.55rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
   background: var(--md-default-fg-color--lighter);
 }
@@ -183,9 +224,8 @@
 }
 
 .playground__surfer {
-  margin-left: auto;
   color: var(--md-accent-fg-color);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -193,16 +233,23 @@
 .playground__commands {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   overflow-x: auto;
-  padding: 0.1rem 0 0.25rem;
+  padding: 0.05rem 0 0.1rem;
   scrollbar-width: thin;
 }
 
-.playground__commands > span {
+.playground__commands > span:first-child {
   margin-right: 0.2rem;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 700;
+}
+
+.playground__commands .playground__commands-more {
+  flex: 0 0 auto;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.66rem;
+  white-space: nowrap;
 }
 
 .playground__commands button,
@@ -216,8 +263,8 @@
 
 .playground__commands button {
   flex: 0 0 auto;
-  padding: 0.38rem 0.7rem;
-  font-size: 0.72rem;
+  padding: 0.32rem 0.62rem;
+  font-size: 0.68rem;
 }
 
 .playground__commands button:hover,
@@ -229,7 +276,7 @@
 .playground__workspace {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(17rem, 1fr);
-  gap: 1rem;
+  gap: 0.7rem;
   min-width: 0;
 }
 
@@ -509,9 +556,69 @@
   box-shadow: none;
 }
 
+@media (min-width: 72.01rem) and (min-height: 40rem) {
+  body:has(.playground) {
+    overflow: hidden;
+  }
+
+  .md-main:has(.playground) {
+    height: calc(100dvh - 4.8rem);
+    overflow: hidden;
+  }
+
+  .md-main__inner:has(.playground),
+  .md-content:has(.playground),
+  .md-content:has(.playground) .md-content__inner {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .md-main__inner:has(.playground) {
+    margin-top: 0;
+  }
+
+  .md-content:has(.playground) .md-content__inner {
+    padding-top: 0;
+  }
+
+  body:has(.playground) .md-footer {
+    display: none;
+  }
+
+  .playground {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    height: 100%;
+    padding-bottom: 0.5rem;
+  }
+
+  .playground__workspace {
+    min-height: 0;
+  }
+
+  .playground__terminal {
+    height: auto;
+  }
+
+  .playground__sidebar {
+    overflow-y: auto;
+  }
+}
+
 @media (max-width: 72rem) {
+  .playground__install {
+    grid-template-columns: auto 1fr;
+  }
+
+  .playground__install > div {
+    grid-column: 1 / -1;
+  }
+
   .playground__source {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .playground__source-meta {
+    grid-column: 1 / 3;
   }
 
   .playground__workspace {
@@ -531,28 +638,31 @@
 }
 
 @media (max-width: 48rem) {
-  .playground__intro {
+  .playground {
+    padding-inline: 0.6rem;
+  }
+
+  .playground__install,
+  .playground__source {
+    grid-template-columns: 1fr;
+  }
+
+  .playground__install > div,
+  .playground__source-meta {
+    grid-column: auto;
+  }
+
+  .playground__install > span {
+    white-space: normal;
+  }
+
+  .playground__local-source {
     align-items: start;
     flex-direction: column;
   }
 
-  .playground__privacy {
-    text-align: left;
-  }
-
-  .playground__source-actions,
-  .playground__source-meta {
-    align-items: stretch;
-    flex-wrap: wrap;
-  }
-
-  .playground__source h2,
-  .playground__source-meta > div {
-    flex: 1 1 100%;
-  }
-
-  .playground__surfer {
-    margin-left: 0;
+  .playground__local-source small {
+    max-width: none;
   }
 
   .playground__terminal {
