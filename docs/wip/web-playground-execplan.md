@@ -24,10 +24,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 11:28Z) Built the framework-free worker-based Playground, committed demo source, editable synchronized CLI, local-file flow, Surfer link, history, Stop recovery, and responsive Material page.
 - [x] (2026-08-15 11:28Z) Changed MkDocs/Mike staging so only documentation accumulates and promoted releases replace the root Playground while historical repairs preserve it.
 - [x] (2026-08-15 11:28Z) Added pinned WASM/Playwright tooling, native-browser parity and privacy checks, publication tests, deployment asset/CORS checks, and a pre-v3 tree guard.
-- [ ] Update maintainer architecture, environment, automation, testing, and quality documentation.
-- [ ] Run focused checks, `just ci`, `just check`, and the manual benchmark gate where applicable.
-- [ ] Request read-only KISS/YAGNI correctness and complexity review with GPT-5.6 Luna at max thinking, apply confirmed findings, and request a GPT-5.6 Sol high-thinking control opinion if needed.
-- [ ] Remove completed WIP artifacts if appropriate, commit the final reviewed state, start the local server, open it on the host, and leave it running without pushing.
+- [x] (2026-08-15 11:31Z) Updated maintainer architecture, environment, automation, testing, quality, release, and tooling documentation.
+- [x] (2026-08-15 12:42Z) Passed focused checks, post-review `just ci`, and post-review `just check`. The manual benchmark gate is explicitly deferred until the maintainer selects suitable benchmark conditions.
+- [x] (2026-08-15 12:39Z) Completed GPT-5.6 Luna max-thinking review and a bounded GPT-5.6 Sol high-thinking control review, then fixed all confirmed findings.
+- [x] (2026-08-15 12:43Z) Retained the proposal and this completed plan as branch handoff context, committed the final reviewed code, opened the local Playground, and left its server running without pushing.
 
 ## Surprises & Discoveries
 
@@ -51,6 +51,12 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Observation: Material's default grid track and content-box buttons allowed mobile children to create horizontal overflow even after the workspace switched to one column.
   Evidence: At 390 px the document initially measured 917 px wide; constraining the Playground grid to `minmax(0, 1fr)` and clipping its outer overflow reduced it to the viewport while retaining scrollable output panes.
+
+- Observation: Async demo and local-file reads need a generation guard because an older read can otherwise replace a newer source choice.
+  Evidence: Review of `useDemo()` and the local file handler found both await byte reads before installing the selected source.
+
+- Observation: Deployed versioned-asset absence checks must use the generated WASM subdirectory.
+  Evidence: The built artifact is `assets/playground/wasm/wavepeek_bg.wasm`; the control review caught an initial check missing `wasm/`.
 
 ## Decision Log
 
@@ -86,7 +92,11 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 Milestone 1 is complete. The same Clap parser, engines, renderers, diagnostics, and status mapping now run with explicit argv, writers, and invocation-scoped waveform bytes. Native CLI contract tests, all 670 library tests, strict Clippy, and the WASM target check pass. A scratch headless-Chrome probe successfully ran the real bundled FST through the generated binding.
 
-Milestones 2 and 3 are functionally complete. The current Playground builds as a root Material site with no version selector, and browser checks cover native parity in human/JSON/JSONL modes, AXI streaming extraction, unsupported options, command synchronization, local-file privacy, reload clearing, Stop recovery, Surfer linking, and desktop/mobile layout. Documentation generation now owns Mike versioning separately; publication replaces root app assets only when promoting latest.
+Milestones 2 and 3 are complete. The current Playground builds as a root Material site with no version selector, and browser checks cover native parity in human/JSON/JSONL modes, AXI streaming extraction, unsupported options, command synchronization, local-file privacy, reload clearing, Stop recovery, Surfer linking, and desktop/mobile layout. Documentation generation now owns Mike versioning separately; publication replaces root app assets only when promoting latest.
+
+Milestone 4 is complete. Maintainer documentation records the browser and publication workflows. Luna review found stale async source selection, incomplete browser help/restrictions, and incomplete deployed historical-asset checks; all were fixed. A bounded Sol control review found the actual `--waves` FSDB path and generated WASM subdirectory cases; both were fixed. KISS/YAGNI passed. Post-review `just ci` and `just check` pass, including 93.08% region, 92.51% function, and 93.66% line coverage, strict docs builds, Playwright parity/privacy checks, and native FSDB checks. The benchmark gate is deferred by maintainer direction until conditions are suitable.
+
+The inspection server is running at `http://127.0.0.1:8000/wavepeek/`. Host wrapper PID `2973169` owns the devcontainer serve command and listener PID `2973720`; `xdg-open` was invoked and an HTTP request followed the root redirect to a 200 response. No push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
 
 ## Context and Orientation
 
