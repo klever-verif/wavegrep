@@ -41,18 +41,6 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
     })?;
 
     let mut diagnostics = Vec::new();
-    if max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
-    if max_depth.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max-depth=unlimited",
-        ));
-    }
 
     let debug = DebugTrace::for_command(CommandName::Scope);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -86,13 +74,6 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         diagnostics.push(Diagnostic::warning(
             WarningDiagnosticCode::OutputTruncated,
             format!("truncated output to {max_entries} entries (use --max to increase limit)"),
-        ));
-    }
-
-    if entries.is_empty() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no scopes found",
         ));
     }
 

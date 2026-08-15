@@ -490,7 +490,7 @@ fn property_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         "Evaluates `--eval` at timestamps selected by `--on`",
         "Level capture (`--capture match`) reports a match at every selected timestamp",
         "Edge capture (`--capture switch`, `assert`, or `deassert`) reports transitions: no match to match, or match to no match.",
-        "Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.",
+        "Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout.",
         "Remotely similar to a SystemVerilog assert, but without temporal expressions.",
     ] {
         assert!(
@@ -764,7 +764,7 @@ fn shipped_commands_help_is_self_descriptive() {
                 "deterministic hierarchy traversal",
                 "pre-order depth-first",
                 "lexicographic child ordering",
-                "Truncation and disabled-limit conditions emit coded diagnostics",
+                "Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout",
             ],
         ),
         (
@@ -793,7 +793,7 @@ fn shipped_commands_help_is_self_descriptive() {
                 "Prints requested signal values for each event selected by required `--on`",
                 "--row-mode dense|sparse",
                 "--row-values full|delta",
-                "Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics",
+                "Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout",
             ],
         ),
         (
@@ -1004,7 +1004,7 @@ fn subcommand_help_uses_extended_prd_descriptions() {
         ))
         .stdout(predicate::str::contains("pre-order depth-first"))
         .stdout(predicate::str::contains(
-            "Truncation and disabled-limit conditions emit coded diagnostics",
+            "Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout",
         ));
 
     let mut property_command = wavepeek_cmd();

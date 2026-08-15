@@ -266,10 +266,7 @@ fn property_sample_mode_pre_edge_preserves_from_baseline() {
     assert!(assert_output.status.success());
     let assert_json = parse_json(&assert_output.stdout);
     assert_eq!(assert_json["data"], json!([]));
-    assert_eq!(
-        assert_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no property matches found in selected time range"}])
-    );
+    assert_eq!(assert_json["diagnostics"], json!([]));
     assert!(deassert_output.status.success());
     assert_eq!(
         parse_json(&deassert_output.stdout)["data"],
@@ -331,10 +328,7 @@ fn property_sample_mode_pre_edge_skips_from_boundary_before_eval() {
     assert!(output.status.success());
     let parsed = parse_json(&output.stdout);
     assert_eq!(parsed["data"], json!([]));
-    assert_eq!(
-        parsed["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no property matches found in selected time range"}])
-    );
+    assert_eq!(parsed["diagnostics"], json!([]));
 }
 
 #[test]
@@ -751,7 +745,7 @@ fn property_max_one_truncates_in_human_and_json_modes() {
 }
 
 #[test]
-fn property_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() {
+fn property_unlimited_max_disables_truncation_without_diagnostics() {
     let fixture = write_fixture(&many_property_matches_vcd(60), ".property-unlimited.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
 
@@ -808,20 +802,15 @@ fn property_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() 
             .len(),
         60
     );
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
         String::from_utf8_lossy(&human_output.stdout)
             .lines()
             .count(),
         60
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
@@ -852,7 +841,7 @@ fn property_rejects_zero_max() {
 }
 
 #[test]
-fn property_empty_result_emits_empty_result_diagnostic() {
+fn property_empty_result_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -896,17 +885,14 @@ fn property_empty_result_emits_empty_result_diagnostic() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no property matches found in selected time range"
+    );
+    assert!(human_output.stderr.is_empty());
     let json = parse_json(&json_output.stdout);
     assert_eq!(json["data"], json!([]));
-    assert_eq!(
-        json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no property matches found in selected time range"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no property matches found in selected time range"
-    );
+    assert_eq!(json["diagnostics"], json!([]));
 }
 
 #[test]

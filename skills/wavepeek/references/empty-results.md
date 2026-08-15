@@ -8,16 +8,11 @@ In `wavepeek`, many queries are allowed to succeed even when nothing matched. Th
 
 A real failure prints `fatal: ...` on stderr and exits non-zero.
 
-An empty-but-valid query stays successful and usually prints no data rows. List and search-style waveform commands also emit a `WPK-W0003` diagnostic:
-
-- `scope`: no matching scopes printed,
-- `signal`: no matching signals printed,
-- `property`: no captured events printed,
-- `change`: no rows printed.
+An empty-but-valid query stays successful. Human output identifies the empty result on stdout: discovery and row commands print a short command-specific message, while protocol extractors retain their context and empty event or transfer section. JSON returns `data: []`, a zero-result summary, and no diagnostic. JSONL emits no data or diagnostic records and carries the zero-result summary in its terminal `end` record.
 
 ## `scope` and `signal` can return empty matches
 
-Hierarchy and signal discovery commands also allow empty success.
+Hierarchy and signal discovery commands allow empty success.
 
 Common causes:
 
@@ -43,19 +38,19 @@ Common causes:
 - sparse mode sampled a correct signal list whose values were already stable,
 - a signal spelling does not resolve inside the selected scope.
 
-If `change` finds no qualifying rows, it emits a mode-specific diagnostic instead of failing:
+If `change` finds no qualifying rows, human output prints:
 
 ```text
-warning[WPK-W0003]: no selected events found in selected time range
+no change rows found in selected time range
 ```
 
-With `--row-mode sparse`, the message is `no signal changes found in selected time range`.
+Machine output represents the result through an empty data set and zero-result summary without a diagnostic.
 
-## `property` can succeed with no output
+## `property` can succeed with no rows
 
-`property` returns rows only when the selected timestamps satisfy the chosen capture mode. If no row matches, it emits `WPK-W0003` and still exits successfully.
+`property` returns rows only when the selected timestamps satisfy the chosen capture mode. If no row matches, human output prints `no property matches found in selected time range`; machine output remains a successful empty result without a diagnostic.
 
-That means empty output is normal when:
+That is normal when:
 
 - the trigger selected no timestamps,
 - the predicate never became true,

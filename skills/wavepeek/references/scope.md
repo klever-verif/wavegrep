@@ -72,7 +72,7 @@ $ wavepeek scope --waves path/to/dump.fst --max 50 --json
 
 Use this in scripts, agents, or when you want deterministic parsing instead of human formatting. Add `--summary` to suppress hierarchy rows while retaining the summary and diagnostics.
 
-## Watch for truncation and disabled-limit diagnostics
+## Watch for truncation diagnostics
 
 `scope` is bounded by default. If `--max` cuts the result, the command still succeeds but emits a diagnostic:
 
@@ -83,15 +83,7 @@ $ wavepeek scope --waves path/to/dump.vcd --max 2
 warning[WPK-W0002]: truncated output to 2 entries (use --max to increase limit)
 ```
 
-If you disable a bound explicitly, that also produces a diagnostic so automation can tell the query was intentionally unbounded:
-
-```text
-$ wavepeek scope --waves path/to/dump.vcd --max unlimited
-0 top kind=module
-1 top.cpu kind=module
-1 top.mem kind=module
-warning[WPK-W0001]: limit disabled: --max=unlimited
-```
+`--max unlimited` disables the count bound without a diagnostic. Machine output represents the choice as `summary.limit: null`.
 
 ## Non-obvious behavior
 
@@ -108,5 +100,5 @@ top kind=module
 └── worker kind=task
 ```
 
-- An empty match is still success: the command prints no rows and emits `WPK-W0003`.
+- An empty match is still success. Human output prints `no scopes found`; machine output returns an empty data array and zero-result summary without a diagnostic.
 - Once you have the right path, the next step is usually `wavepeek signal --scope <that-path> ...`.

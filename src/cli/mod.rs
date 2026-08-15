@@ -77,7 +77,7 @@ Behavior:
 - Traversal order is stable: pre-order depth-first, with lexicographic child ordering.
 - Includes stable scope kind aliases from hierarchy data (not only modules); excluded backend-specific spellings are normalized to the stable contract surface.
 - `--tree` switches from flat list to visual hierarchy rendering.
-- Truncation and disabled-limit conditions emit coded diagnostics.
+- Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout.
 - `--json` emits the standard machine-readable envelope.
 
 Use this command to explore hierarchy shape before narrowing to signal-level queries."#
@@ -93,7 +93,7 @@ Behavior:
 - Recursive mode walks child scopes depth-first in stable lexicographic order; `--max-depth` limits recursion when set.
 - Includes stable signal kind aliases (not only wires); excluded backend-specific VHDL spellings are normalized to the stable contract surface.
 - Ambiguous FSDB signal paths are omitted with a coded diagnostic; no backing record is selected.
-- Truncation and disabled-limit conditions emit coded diagnostics.
+- Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout.
 - `--json` emits the standard machine-readable envelope.
 
 Use this command after `scope` to inspect available signals in a target scope."#
@@ -137,7 +137,7 @@ Behavior:
 - Value sampling defaults to pre-edge sampling: displayed values are sampled just before edge-only triggers while row timestamps stay at the trigger edge.
 - Use `--sample-mode native` for raw wildcard or plain-signal triggers such as `--on '*'`.
 - JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where values were sampled); text output shows `sample@<time>` only when it differs from `time`.
-- Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.
+- Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout.
 - `--json` emits the standard machine-readable envelope.
 
 Use this command to inspect event-aligned values or value transitions over bounded time windows."#
@@ -155,7 +155,7 @@ Behavior:
 - Value sampling defaults to pre-edge sampling: `--eval` reads values just before edge-only triggers while row timestamps stay at the trigger edge.
 - Use `--sample-mode native` for raw wildcard or plain-signal triggers such as `--on '*'`.
 - JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where `--eval` was sampled); text output shows `sample@<time>` only when it differs from `time`.
-- Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.
+- Truncation emits a coded diagnostic; an empty valid result prints a short message on stdout.
 - Remotely similar to a SystemVerilog assert, but without temporal expressions.
 - `--json` emits the standard machine-readable envelope.
 

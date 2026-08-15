@@ -171,7 +171,7 @@ fn change_jsonl_reports_truncation_as_diagnostic() {
 }
 
 #[test]
-fn change_jsonl_reports_empty_result_before_end() {
+fn change_jsonl_reports_empty_result_in_summary_without_diagnostic() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -206,9 +206,11 @@ fn change_jsonl_reports_empty_result_before_end() {
             .count(),
         0
     );
-    assert!(records.iter().any(|record| {
-        record["type"] == "diagnostic" && record["diagnostic"]["code"] == "WPK-W0003"
-    }));
+    assert!(!records.iter().any(|record| record["type"] == "diagnostic"));
+    let end = records.last().expect("stream should have an end record");
+    assert_eq!(end["records"]["diagnostics"], 0);
+    assert_eq!(end["summary"]["returned"], 0);
+    assert_eq!(end["summary"]["total"], 0);
 }
 
 #[test]

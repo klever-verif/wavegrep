@@ -214,10 +214,7 @@ fn change_empty_window_from_equals_to_remains_empty() {
     );
 
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -243,10 +240,7 @@ fn change_all_candidates_at_or_before_baseline_do_not_emit() {
     );
 
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -580,10 +574,7 @@ fn change_edge_without_requested_delta_remains_empty_in_all_modes() {
     );
 
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]

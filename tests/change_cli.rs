@@ -356,10 +356,7 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
     assert!(short_output.status.success());
     let short_json = parse_json(&short_output.stdout);
     assert_eq!(short_json["data"], json!([]));
-    assert_eq!(
-        short_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(short_json["diagnostics"], json!([]));
     assert!(long_output.status.success());
     assert_eq!(
         parse_json(&long_output.stdout)["data"],
@@ -590,7 +587,7 @@ fn change_scope_mixes_relative_and_canonical_names() {
 }
 
 #[test]
-fn change_zero_delta_path_returns_empty_data_with_warning() {
+fn change_zero_delta_path_returns_empty_data_without_diagnostic() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -621,14 +618,11 @@ fn change_zero_delta_path_returns_empty_data_with_warning() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
-fn change_zero_delta_warning_matches_between_json_and_human_modes() {
+fn change_zero_delta_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -680,21 +674,18 @@ fn change_zero_delta_warning_matches_between_json_and_human_modes() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no change rows found in selected time range"
+    );
+    assert!(human_output.stderr.is_empty());
     let json = parse_json(&json_output.stdout);
     assert_eq!(json["data"], json!([]));
-    assert_eq!(
-        json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no signal changes found in selected time range"
-    );
+    assert_eq!(json["diagnostics"], json!([]));
 }
 
 #[test]
-fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_modes() {
+fn change_unlimited_empty_result_has_no_diagnostics_in_json_and_human_modes() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -749,19 +740,13 @@ fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_mode
 
     let value = parse_json(&json_output.stdout);
     assert_eq!(value["data"], json!([]));
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(value["summary"]["limit"], Value::Null);
     assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}, {"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no change rows found in selected time range"
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr)
-            .lines()
-            .collect::<Vec<_>>(),
-        vec![
-            "warning[WPK-W0001]: limit disabled: --max=unlimited",
-            "warning[WPK-W0003]: no signal changes found in selected time range"
-        ]
-    );
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
@@ -838,10 +823,7 @@ fn change_sparse_from_timestamp_is_baseline_only_for_emission() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -876,10 +858,7 @@ fn change_sparse_equal_from_and_to_never_emits_baseline_row() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -1363,7 +1342,7 @@ fn change_triggered_iff_payload_executes() {
 }
 
 #[test]
-fn change_dense_empty_result_reports_no_selected_events() {
+fn change_dense_empty_result_has_no_machine_diagnostic() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
     let output = wavepeek_cmd()
@@ -1391,14 +1370,11 @@ fn change_dense_empty_result_reports_no_selected_events() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["context"]["scope"], "top");
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no selected events found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
-fn change_empty_result_warning_matches_between_json_and_human_modes() {
+fn change_empty_result_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -1446,18 +1422,15 @@ fn change_empty_result_warning_matches_between_json_and_human_modes() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no change rows found in selected time range"
+    );
+    assert!(human_output.stderr.is_empty());
 
     let value = parse_json(&json_output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no signal changes found in selected time range"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -1721,7 +1694,7 @@ fn change_default_max_is_50_with_truncation_warning() {
 }
 
 #[test]
-fn change_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() {
+fn change_unlimited_max_disables_truncation_without_diagnostics() {
     let fixture = fixture_path("change_many_events.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -1770,15 +1743,9 @@ fn change_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() {
             .len()
             > 50
     );
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
-
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
     assert!(
         String::from_utf8_lossy(&human_output.stdout)
             .lines()

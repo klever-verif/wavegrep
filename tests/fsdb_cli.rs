@@ -110,10 +110,7 @@ fn fsdb_scope_json_is_sorted_and_depth_bounded() {
             {"path": "top.mem", "depth": 1, "kind": "module"},
         ])
     );
-    assert_eq!(
-        all["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(all["diagnostics"], json!([]));
 
     assert_eq!(
         root_only["data"],
@@ -180,10 +177,7 @@ fn fsdb_signal_direct_and_recursive_queries_are_stable() {
             {"name": "reset_n", "path": "top.reset_n", "relative_path": "reset_n", "kind": "wire", "width": 1},
         ])
     );
-    assert_eq!(
-        direct["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(direct["diagnostics"], json!([]));
 
     assert_eq!(
         recursive["data"],
@@ -256,10 +250,7 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
         "--json",
     ]);
     assert_eq!(scopes["data"], scopes_again["data"]);
-    assert_eq!(
-        scopes["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(scopes["diagnostics"], json!([]));
     let scope_entries = scopes["data"]
         .as_array()
         .expect("scope data should be array");

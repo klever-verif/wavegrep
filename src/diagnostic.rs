@@ -9,9 +9,7 @@ pub enum DiagnosticKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WarningDiagnosticCode {
-    LimitDisabled,
     OutputTruncated,
-    EmptyResult,
     UnmatchedExtractCandidate,
     AmbiguousSignalsOmitted,
 }
@@ -19,9 +17,7 @@ pub enum WarningDiagnosticCode {
 impl WarningDiagnosticCode {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::LimitDisabled => "WPK-W0001",
             Self::OutputTruncated => "WPK-W0002",
-            Self::EmptyResult => "WPK-W0003",
             Self::UnmatchedExtractCandidate => "WPK-W0004",
             Self::AmbiguousSignalsOmitted => "WPK-W0005",
         }

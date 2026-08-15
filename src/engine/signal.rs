@@ -46,18 +46,6 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
     })?;
 
     let mut diagnostics = Vec::new();
-    if max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
-    if max_depth == LimitArg::Unlimited {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max-depth=unlimited",
-        ));
-    }
 
     let effective_max_depth = match max_depth {
         LimitArg::Numeric(value) => Some(value),
@@ -116,13 +104,6 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         diagnostics.push(Diagnostic::warning(
             WarningDiagnosticCode::OutputTruncated,
             format!("truncated output to {max_entries} entries (use --max to increase limit)"),
-        ));
-    }
-
-    if entries.is_empty() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no signals found in selected scope",
         ));
     }
 

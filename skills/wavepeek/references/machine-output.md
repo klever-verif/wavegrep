@@ -4,7 +4,7 @@ This document is normative for stdout, stderr, JSON-mode behavior, JSONL stream 
 
 ## 1. Stdout and stderr
 
-On success, a command writes its main payload to stdout.
+On success, a command writes its main payload to stdout. Empty human results use a short command-specific stdout message or retain protocol context with an empty row section.
 
 - Human-readable mode writes non-fatal diagnostics to stderr as plain text.
 - `--json` carries non-fatal diagnostics inside one JSON result.
@@ -99,7 +99,7 @@ With `--summary`, JSONL still emits `begin`, optional context, diagnostics, and 
 
 ## 4. Diagnostics
 
-Diagnostics do not change the exit code. Common cases are truncation, explicitly disabled limits, and valid queries with no matching rows.
+Diagnostics do not change the exit code. Common cases are truncation, unmatched protocol extraction candidates, and ambiguous FSDB signals. Explicitly unlimited limits and valid queries with no matching rows do not emit diagnostics; machine clients distinguish them through `summary.limit`, `data`, and the result counts.
 
 Human-readable diagnostics use:
 

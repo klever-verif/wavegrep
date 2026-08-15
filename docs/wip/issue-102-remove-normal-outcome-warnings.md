@@ -18,11 +18,11 @@ This work does not add or restore the removed `docs search` command even though 
 
 - [x] (2026-08-15 04:58Z) Read issue #102, repository guidance, output contracts, affected engine paths, tests, and bundled skill references.
 - [x] (2026-08-15 04:58Z) Confirmed with the maintainer that the absent `docs search` command is out of scope.
-- [ ] Remove `WPK-W0001` and `WPK-W0003` production paths while preserving summaries and all other diagnostics.
-- [ ] Add normal human stdout messages for empty row-producing results.
-- [ ] Update integration and unit tests for human, JSON, and JSONL behavior across discovery, change, property, and extract commands.
-- [ ] Update CLI help, changelog, public contracts, and bundled skill references.
-- [ ] Run focused tests and `./dev just ci`, then commit the implementation milestones.
+- [x] (2026-08-15 05:13Z) Removed `WPK-W0001` and `WPK-W0003` production paths while preserving summaries and all other diagnostics.
+- [x] (2026-08-15 05:13Z) Added normal human stdout messages for empty discovery and row-producing results.
+- [x] (2026-08-15 05:13Z) Updated integration and unit tests for human, JSON, and JSONL behavior across discovery, change, property, and extract commands.
+- [x] (2026-08-15 05:13Z) Updated CLI help, changelog, public contracts, and bundled skill references.
+- [x] (2026-08-15 05:13Z) Ran focused tests, the full default test suite, and `./dev just ci`; all passed.
 - [ ] Run parallel Luna Max reviews by code/test, docs/contract, and simplicity/architecture focus; resolve findings.
 - [ ] Run parallel Terra High reviews over the same areas; resolve findings.
 - [ ] Run an independent Sol High control review; resolve findings and rerun gates.
@@ -33,8 +33,11 @@ This work does not add or restore the removed `docs search` command even though 
 - Observation: issue #102 names `docs search`, but the command was removed by issue #77 before this branch point.
   Evidence: `src/cli/mod.rs` contains only the `skill` helper, and the Unreleased changelog records removal of embedded topic browsing and search.
 
-- Observation: human rendering currently returns an empty string for empty row collections, so merely deleting `WPK-W0003` would make successful empty output indistinguishable from missing output.
-  Evidence: `src/output.rs::render_human_with_data` joins empty iterators, while `output::write` writes stdout only when that rendered string is non-empty.
+- Observation: human rendering previously returned an empty string for empty row collections, so merely deleting `WPK-W0003` would make successful empty output indistinguishable from missing output.
+  Evidence: `src/output.rs::render_human_with_data` joined empty iterators, while `output::write` writes stdout only when that rendered string is non-empty.
+
+- Observation: all non-protocol empty human collections converge in `src/output.rs::render_human_with_data`; protocol renderers already emit context and an empty section.
+  Evidence: a single fallback match adds five messages in 17 changed lines, avoiding per-engine output state or changes to protocol renderers.
 
 ## Decision Log
 
@@ -42,8 +45,8 @@ This work does not add or restore the removed `docs search` command even though 
   Rationale: The maintainer explicitly confirmed this interpretation, and adding an unrelated command would violate KISS and YAGNI.
   Date/Author: 2026-08-15 / pi
 
-- Decision: Reuse the existing command-specific empty-warning messages as plain human stdout text.
-  Rationale: These messages already describe each empty outcome accurately. Reusing them minimizes wording churn while satisfying the requirement that human output distinguish an empty result without stderr diagnostics.
+- Decision: Use concise command-specific human messages, retaining existing wording where the renderer has enough context and using `no change rows found in selected time range` for both change row modes.
+  Rationale: The renderer does not carry row-mode configuration after execution. One accurate message avoids adding output state solely to preserve obsolete diagnostic wording.
   Date/Author: 2026-08-15 / pi
 
 - Decision: Put empty-result text in the existing human renderer and keep `--summary` output summary-only.
@@ -68,7 +71,7 @@ The integration tests in `tests/scope_cli.rs`, `signal_cli.rs`, `change_cli.rs`,
 
 ## Open Questions
 
-There are no blocking product questions. During implementation, exact protocol-specific human context formatting must be preserved when an empty message is added; focused tests will define the resulting output.
+There are no blocking product questions. Protocol-specific human rendering remains unchanged because its context and empty row-section header already distinguish a successful empty result.
 
 ## Plan of Work
 
@@ -147,4 +150,6 @@ The diagnostic codes that remain fixed are:
 
 No new dependency, module, public Rust type, abstraction, configuration, or schema is required. `crate::engine::ResultSummary`, `crate::engine::CommandResult`, `crate::diagnostic::Diagnostic`, and the existing `crate::output` renderers remain the interfaces. `WarningDiagnosticCode` retains only currently emitted warning meanings with explicit code strings. Existing command data variants remain unchanged.
 
-Revision note (2026-08-15): Created the initial self-contained execution plan after repository exploration and maintainer confirmation that `docs search` is out of scope.
+Revision note (2026-08-15 04:58Z): Created the initial self-contained execution plan after repository exploration and maintainer confirmation that `docs search` is out of scope.
+
+Revision note (2026-08-15 05:13Z): Recorded completed implementation, tests, documentation, full CI evidence, and the minimal centralized human-rendering decision before peer review.

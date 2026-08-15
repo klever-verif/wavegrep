@@ -31,8 +31,6 @@ use crate::waveform::{
     SignalId, SignalOffsetData, Waveform, display_signal_path, expr_host::WaveformExprHost,
 };
 
-const DENSE_EMPTY_RESULT_MESSAGE: &str = "no selected events found in selected time range";
-const SPARSE_EMPTY_RESULT_MESSAGE: &str = "no signal changes found in selected time range";
 const EDGE_FAST_MIN_WORK: usize = 1_000_000;
 const AUTO_FUSED_MIN_ESTIMATED_WORK: usize = 100_000;
 const AUTO_EDGE_ONLY_MIN_ESTIMATED_WORK: usize = 500_000;
@@ -313,12 +311,6 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     };
 
     let mut diagnostics = Vec::new();
-    if args.max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
 
     let debug = DebugTrace::for_command(CommandName::Change);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -560,17 +552,6 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
             "truncated": stats.truncated,
         })
     });
-
-    if stats.emitted == 0 {
-        let message = match args.row_mode {
-            RowMode::Dense => DENSE_EMPTY_RESULT_MESSAGE,
-            RowMode::Sparse => SPARSE_EMPTY_RESULT_MESSAGE,
-        };
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            message,
-        ));
-    }
 
     if let Some(max_entries) = max_entries
         && stats.truncated
@@ -2654,12 +2635,7 @@ mod tests {
             tune_edge_fast_force: false,
         })
         .expect("change run should succeed");
-        assert_eq!(result.diagnostics.len(), 1);
-        assert_eq!(result.diagnostics[0].code(), Some("WPK-W0001"));
-        assert_eq!(
-            result.diagnostics[0].message(),
-            "limit disabled: --max=unlimited"
-        );
+        assert!(result.diagnostics.is_empty());
         let CommandData::Change(rows) = result.data else {
             panic!("change command should return change rows");
         };
@@ -2773,12 +2749,7 @@ mod tests {
             tune_edge_fast_force: false,
         })
         .expect("empty result should still succeed");
-        assert_eq!(empty.diagnostics.len(), 1);
-        assert_eq!(empty.diagnostics[0].code(), Some("WPK-W0003"));
-        assert_eq!(
-            empty.diagnostics[0].message(),
-            super::DENSE_EMPTY_RESULT_MESSAGE
-        );
+        assert!(empty.diagnostics.is_empty());
 
         const MULTI_CHANGE_VCD: &str = concat!(
             "$date\n  today\n$end\n",
