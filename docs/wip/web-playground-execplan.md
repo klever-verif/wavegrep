@@ -35,7 +35,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:24Z) Removed the redundant visible page title and replaced it with a compact Releases/copy-to-agent install strip.
 - [x] (2026-08-15 14:24Z) Compressed source and command controls, added Help, renamed problem examples, and gave the desktop workspace the remaining viewport without page scroll.
 - [x] (2026-08-15 14:24Z) Prepended new transcript entries beneath the fixed command line and synchronized Material palette state across Playground and documentation.
-- [ ] Extend browser checks, review, run final gates, commit, and refresh the inspection server without benchmark or push. Focused browser and helper checks pass; review and final gates remain.
+- [x] (2026-08-15 14:29Z) Extended browser checks, completed bounded Luna review with no findings and KISS/YAGNI pass, passed post-review `just ci` and `just check`, committed the implementation, and refreshed the inspection server without benchmark or push.
 
 ## Surprises & Discoveries
 
@@ -135,7 +135,9 @@ Milestone 4 is complete. Maintainer documentation records the browser and public
 
 Milestone 5 is complete. The structured form is replaced by a compact source bar, immutable `$ wavepeek` prompt, exact command examples, problem-oriented suggestions, output selector, and one theme-aware scrollable transcript. Clear and Ctrl+K remove only visible entries; Up and Down retain in-tab command navigation. A bounded Luna review passed KISS/YAGNI and found repeat-Enter, clear-during-run, source-replacement, file-picker keyboard, outcome-label, and standalone docs-serve issues; focused browser checks cover every fix. Post-review `just ci` and `just check` pass with the unchanged 93.08% region, 92.51% function, and 93.66% line coverage minimums.
 
-The composed inspection server is running at `http://127.0.0.1:8000/wavepeek/`, with current source-built documentation at `http://127.0.0.1:8000/wavepeek/latest/`. Host wrapper PID `3097945` owns the serve command and listener PID `3098522`; both URLs return HTTP 200. No benchmark gate or push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
+Milestone 6 is complete. The visible title block is gone; a compact Releases/copy-to-agent strip, compressed source row, Help example, neutral example-query heading, and consistent page gutter leave the desktop viewport to the terminal. Newest transcript entries appear directly below the fixed prompt, desktop page scrolling is replaced by transcript/sidebar scrolling, and responsive layouts retain normal page flow. Native Material `extra.scope` now shares palette state across Playground and documentation. Focused browser checks cover clipboard behavior, palette persistence, no-scroll desktop layout, Help insertion, and newest-first parity. Bounded Luna review reported no findings and passed KISS/YAGNI; post-review `just ci` and `just check` pass.
+
+The composed inspection server remains at `http://127.0.0.1:8000/wavepeek/`, with current source-built documentation at `http://127.0.0.1:8000/wavepeek/latest/`. Host wrapper PID `3097945` owns the serve command and listener PID `3098522`; the rebuilt files are served directly and both URLs return HTTP 200. No benchmark gate or push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
 
 ## Context and Orientation
 
