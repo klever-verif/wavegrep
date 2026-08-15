@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.
 
 ### Fixed
+- Kept handled fatal errors machine-readable in JSON and JSONL output ([issue #104](https://github.com/kleverhq/wavepeek/issues/104)).
 - Normalized scope-relative signal labels in human-readable `value`, `change`, and `extract generic` output regardless of input path spelling, while retaining canonical labels with `--abs` ([issue #113](https://github.com/kleverhq/wavepeek/issues/113)).
 - Improved missing-signal errors to distinguish invalid paths from signals absent from the dump ([issue #84](https://github.com/kleverhq/wavepeek/issues/84)).
 - Report malformed hexadecimal expression literals at their full token span instead of blaming balanced opening parentheses, and underline expression diagnostic spans ([issue #103](https://github.com/kleverhq/wavepeek/issues/103)).
