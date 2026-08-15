@@ -40,7 +40,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:50Z) Combined Commands and waveform source into one toolbar, removed duplicate sidebar shortcuts, and normalized headings, controls, radii, and terminal typography.
 - [x] (2026-08-15 14:57Z) Extended browser checks, completed bounded Luna review with KISS/YAGNI pass, fixed both findings, passed post-review `just ci` and `just check`, committed, and refreshed the inspection server without benchmark or push.
 - [x] (2026-08-15 15:09Z) Applied the final approved copy for installation, privacy, Surfer, command discovery, and the dash-free inline tagline.
-- [ ] Show every example query without More/Less, verify the UI, run gates, commit, and refresh the server without benchmark or push. All queries are visible and focused browser checks pass; final gates remain.
+- [x] (2026-08-15 15:11Z) Showed every example query without More/Less, verified the UI, passed `just ci` and `just check`, committed, and refreshed the server without benchmark or push.
 
 ## Surprises & Discoveries
 
@@ -150,6 +150,8 @@ Milestone 5 is complete. The structured form is replaced by a compact source bar
 Milestone 6 is complete. The visible title block is gone; a compact Releases/copy-to-agent strip, compressed source row, Help example, neutral example-query heading, and consistent page gutter leave the desktop viewport to the terminal. Newest transcript entries appear directly below the fixed prompt, desktop page scrolling is replaced by transcript/sidebar scrolling, and responsive layouts retain normal page flow. Native Material `extra.scope` now shares palette state across Playground and documentation. Focused browser checks cover clipboard behavior, palette persistence, no-scroll desktop layout, Help insertion, and newest-first parity. Bounded Luna review reported no findings and passed KISS/YAGNI; post-review `just ci` and `just check` pass.
 
 Milestone 7 is complete. The purpose tagline is inline, Playground search is hidden while documentation search remains, and the two-row install strip shows a short wrapping prompt. Commands and source controls share one toolbar, sidebar shortcut duplication is removed, and one consistent typography/radius scale covers headings, buttons, and terminal text. Bounded Luna review passed KISS/YAGNI and found two issues: the rich-text clipboard fallback and responsive install row count. Both are fixed and covered by browser checks; post-review `just ci` and `just check` pass.
+
+Milestone 8 is complete. Final approved text now drives the accented install prompt, browser-local privacy statement, visual Surfer link, `and more with Help` discovery hint, and dash-free tagline. All eight example queries are permanently visible, with no More/Less state or code. Focused browser checks and final `just ci` and `just check` pass.
 
 The composed inspection server remains at `http://127.0.0.1:8000/wavepeek/`, with current source-built documentation at `http://127.0.0.1:8000/wavepeek/latest/`. Host wrapper PID `3097945` owns the serve command and listener PID `3098522`; the rebuilt files are served directly and both URLs return HTTP 200. No benchmark gate or push was performed. The proposal and completed ExecPlan remain under `docs/wip/` as explicit branch handoff context and can be removed before merge after maintainer inspection.
 
