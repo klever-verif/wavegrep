@@ -706,7 +706,7 @@ fn extract_apb_bounds_limits_empty_diagnostics_and_reset_gate_are_row_based() {
     let output = wavepeek_cmd().args(empty).output().unwrap();
     let value = parse_json(&output.stdout);
     assert!(json_events(&value).is_empty());
-    assert_eq!(value["diagnostics"][0]["code"], "WPK-W0003");
+    assert_eq!(value["diagnostics"], json!([]));
 
     let mut no_reset = base_apb4_args();
     no_reset.extend(apb4_explicit_maps(false, true));

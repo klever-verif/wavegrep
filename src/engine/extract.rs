@@ -308,7 +308,6 @@ pub(crate) fn run_plan_with_sink<S: ExtractRowSink + ?Sized>(
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let max_entries = max_entries(&args.max)?;
-    let diagnostics = initial_diagnostics(&args.max);
 
     let debug = DebugTrace::for_command(args.command);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -323,7 +322,7 @@ pub(crate) fn run_plan_with_sink<S: ExtractRowSink + ?Sized>(
         });
     }
 
-    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, diagnostics, sink)
+    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, sink)
 }
 
 pub(crate) fn run_plan_with_waveform_sink<S: ExtractRowSink + ?Sized>(
@@ -334,8 +333,7 @@ pub(crate) fn run_plan_with_waveform_sink<S: ExtractRowSink + ?Sized>(
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let max_entries = max_entries(&args.max)?;
-    let diagnostics = initial_diagnostics(&args.max);
-    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, diagnostics, sink)
+    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, sink)
 }
 
 fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
@@ -344,7 +342,6 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
     waveform: SharedWaveform,
     debug: DebugTrace,
     max_entries: Option<usize>,
-    mut diagnostics: Vec<Diagnostic>,
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let source_count = plan.source_count();
@@ -498,12 +495,7 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
         })
     });
 
-    if stats.emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no extract rows found in selected time range",
-        ));
-    }
+    let mut diagnostics = Vec::new();
     if let Some(max_entries) = max_entries
         && stats.truncated
     {
@@ -518,17 +510,6 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
         diagnostics,
         summary: ResultSummary::from_run(stats.emitted, max_entries, stats.truncated),
     })
-}
-
-pub(crate) fn initial_diagnostics(max: &LimitArg) -> Vec<Diagnostic> {
-    if max.is_unlimited() {
-        vec![Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        )]
-    } else {
-        Vec::new()
-    }
 }
 
 pub(crate) fn max_entries(max: &LimitArg) -> Result<Option<usize>, WavepeekError> {

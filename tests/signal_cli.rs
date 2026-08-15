@@ -231,7 +231,7 @@ fn signal_emits_truncation_warning_when_max_is_hit() {
 }
 
 #[test]
-fn signal_unlimited_max_emits_warning_in_json_and_human_modes() {
+fn signal_unlimited_max_has_no_diagnostics_in_json_and_human_modes() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -265,10 +265,7 @@ fn signal_unlimited_max_emits_warning_in_json_and_human_modes() {
     assert!(human_output.status.success());
 
     let value: Value = serde_json::from_slice(&json_output.stdout).expect("json should parse");
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
         value["data"]
             .as_array()
@@ -276,10 +273,8 @@ fn signal_unlimited_max_emits_warning_in_json_and_human_modes() {
             .len(),
         3
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
@@ -606,7 +601,7 @@ fn signal_rejects_zero_max_with_args_error() {
 }
 
 #[test]
-fn signal_recursive_unlimited_max_depth_emits_warning() {
+fn signal_recursive_unlimited_max_depth_has_no_diagnostic() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -641,14 +636,11 @@ fn signal_recursive_unlimited_max_depth_emits_warning() {
         .collect::<Vec<_>>();
 
     assert!(paths.contains(&"top.cpu.core.execute".to_string()));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
-fn signal_unlimited_and_bounded_mix_preserves_warning_order() {
+fn signal_unlimited_and_bounded_mix_keeps_truncation_only() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -709,13 +701,10 @@ fn signal_unlimited_and_bounded_mix_preserves_warning_order() {
         !unlimited_max_paths.contains(&"top.cpu.core.execute".to_string()),
         "depth-1 bound should still hide grandchild scopes"
     );
-    assert_eq!(
-        unlimited_max_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(unlimited_max_json["diagnostics"], json!([]));
     assert_eq!(
         unlimited_depth_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}, {"kind": "warning", "code": "WPK-W0002", "message": "truncated output to 2 entries (use --max to increase limit)"}])
+        json!([{"kind": "warning", "code": "WPK-W0002", "message": "truncated output to 2 entries (use --max to increase limit)"}])
     );
 }
 
@@ -802,20 +791,17 @@ fn signal_recursive_filter_matches_name_not_relative_path() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no signals found in selected scope"
+    );
+    assert!(human_output.stderr.is_empty());
     let value: Value =
         serde_json::from_slice(&json_output.stdout).expect("signal output should be valid json");
 
     assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"], Value::Array(vec![]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signals found in selected scope"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no signals found in selected scope"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]

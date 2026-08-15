@@ -13,7 +13,7 @@ use crate::engine::expr_runtime::{
     SharedWaveform, bind_waveform_event_expr, candidate_sources_for_handles,
     event_candidate_handles, event_expr_matches, open_shared_waveform,
 };
-use crate::engine::extract::{initial_diagnostics, max_entries, parse_bound_time};
+use crate::engine::extract::{max_entries, parse_bound_time};
 use crate::engine::signal_mapping;
 use crate::engine::time::{format_raw_timestamp, parse_dump_time_context};
 use crate::engine::value_format::format_verilog_literal;
@@ -821,7 +821,7 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
     sink: &mut S,
 ) -> Result<AhbOutcome, WavepeekError> {
     let max = max_entries(&args.max)?;
-    let mut diagnostics = initial_diagnostics(&args.max);
+    let mut diagnostics = Vec::new();
     let BuiltAhb {
         waveform,
         mut context,
@@ -932,12 +932,6 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
         },
     )?;
 
-    if emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no AHB events found in selected time range",
-        ));
-    }
     if let Some(limit) = max
         && truncated
     {

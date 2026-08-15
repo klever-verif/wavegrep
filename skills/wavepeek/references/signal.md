@@ -91,7 +91,7 @@ $ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --json --max 
 
 Use this in scripts and agents when human formatting is not reliable enough. Add `--summary` to suppress signal rows while retaining the summary and diagnostics.
 
-## Watch for truncation and disabled-limit diagnostics
+## Watch for truncation diagnostics
 
 `signal` is bounded by default. If `--max` cuts the result, the command still succeeds and emits a diagnostic:
 
@@ -101,20 +101,9 @@ cfg kind=parameter width=8
 warning[WPK-W0002]: truncated output to 1 entries (use --max to increase limit)
 ```
 
-If you disable a limit explicitly, that is also reported as a diagnostic:
+`--max unlimited` and `--max-depth unlimited` disable their bounds without diagnostics. Machine output represents unlimited `--max` as `summary.limit: null`.
 
-```text
-$ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --max unlimited --max-depth unlimited
-cfg kind=parameter width=8
-clk kind=wire width=1
-data kind=reg width=8
-cpu.valid kind=wire width=1
-mem.ready kind=wire width=1
-warning[WPK-W0001]: limit disabled: --max=unlimited
-warning[WPK-W0001]: limit disabled: --max-depth=unlimited
-```
-
-In human mode diagnostics go to stderr. In JSON mode they appear in the `diagnostics` array.
+In human mode truncation diagnostics go to stderr. In JSON mode they appear in the `diagnostics` array.
 
 ## Ambiguous FSDB signals
 
@@ -141,4 +130,4 @@ $ wavepeek signal --waves path/to/dump.vcd --scope top --recursive --filter '^cp
 - Recursive human output is scope-relative by default. In JSON and JSONL, `path` stays canonical while `relative_path` is relative to the exact `--scope` value.
 - Signal kinds are not limited to wires. You may see `reg`, `parameter`, and other stable signal kind aliases; backend-specific VHDL spellings are normalized to the stable contract surface.
 - `--max-depth` requires `--recursive`.
-- An empty match is a valid result, not an error; it emits `WPK-W0003`.
+- An empty match is a valid result, not an error. Without `--summary`, human output prints `no signals found in selected scope` and machine output returns an empty data array. The zero-result summary remains available without an empty-result diagnostic.

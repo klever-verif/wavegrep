@@ -305,7 +305,7 @@ fn render_human_with_data(
         return String::new();
     }
 
-    match data {
+    let rendered = match data {
         CommandData::Text(text) => text.clone(),
         CommandData::Info(info) => {
             let mut lines = Vec::new();
@@ -418,6 +418,21 @@ fn render_human_with_data(
             })
             .collect::<Vec<_>>()
             .join("\n"),
+    };
+
+    if !rendered.is_empty() {
+        return rendered;
+    }
+
+    match data {
+        CommandData::Scope(_) => "no scopes found".to_string(),
+        CommandData::Signal(_) => "no signals found in selected scope".to_string(),
+        CommandData::Change(_) => "no change rows found in selected time range".to_string(),
+        CommandData::Property(_) => "no property matches found in selected time range".to_string(),
+        CommandData::ExtractGeneric(_) => {
+            "no extract rows found in selected time range".to_string()
+        }
+        _ => rendered,
     }
 }
 

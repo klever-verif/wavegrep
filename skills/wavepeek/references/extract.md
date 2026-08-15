@@ -314,6 +314,6 @@ Repeated events are preserved even when payload values do not change. `extract` 
 
 ## Limits and diagnostics
 
-For `extract generic`, `--max` limits emitted rows across all sources after sorting by event time and source declaration order. For `extract ahb`, it limits public event rows after warm-up and completion-before-address ordering. For `extract axi`, it limits ready/valid transfer rows. `--max unlimited` disables truncation and emits a warning diagnostic. Empty results and truncation use the same coded diagnostic model as other waveform commands.
+For `extract generic`, `--max` limits emitted rows across all sources after sorting by event time and source declaration order. For `extract ahb`, it limits public event rows after warm-up and completion-before-address ordering. For `extract axi`, it limits ready/valid transfer rows. `--max unlimited` disables truncation without a diagnostic and appears as `summary.limit: null` in machine output. Empty results are successful and produce no empty-result diagnostic; without `--summary`, generic human output prints a short message while protocol human output retains its context and empty event or transfer section. Truncation still emits `WPK-W0002`.
 
 Machine output includes `complete`, `returned`, `limit`, and `total` in the result summary. A bounded scan becomes incomplete only after another matching public event is found beyond the limit. Because truncated event scans stop early, their exact total is normally unknown.

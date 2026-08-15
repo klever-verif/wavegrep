@@ -181,19 +181,7 @@ $ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
 warning[WPK-W0002]: truncated output to 3 entries (use --max to increase limit)
 ```
 
-If you disable the limit intentionally, that is also reported as a diagnostic:
-
-```text
-$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
-    --scope testbench.uut \
-    --signals cpu_state,mem_valid,mem_ready,trap \
-    --from 1010000ps --to 1040000ps \
-    --on "posedge clk" --sample-mode native --max unlimited
-@1020000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h0 trap=1'h0
-@1030000ps cpu_state=8'h40 mem_valid=1'h1 mem_ready=1'h1 trap=1'h0
-@1040000ps cpu_state=8'h40 mem_valid=1'h0 mem_ready=1'h0 trap=1'h0
-warning[WPK-W0001]: limit disabled: --max=unlimited
-```
+`--max unlimited` disables truncation without emitting a diagnostic. In machine output, `summary.limit` is `null`.
 
 ## Non-obvious behavior
 
@@ -204,17 +192,6 @@ warning[WPK-W0001]: limit disabled: --max=unlimited
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were printed.
 - In scoped mode, `--signals` and `--on` accept relative names and canonical paths inside the scope, including both forms in one request. `--signals` also accepts one trailing static `[msb:lsb]` projection. Without `--scope`, use canonical full paths.
-- Empty output is valid. If the query is well-formed but nothing matched, the command succeeds and emits a diagnostic:
-
-```text
-$ wavepeek change --waves /opt/rtl-artifacts/picorv32_test_ez_vcd.fst \
-    --scope testbench.uut \
-    --signals cpu_state,mem_valid,mem_ready,trap \
-    --from 0ps --to 20000ps \
-    --on "posedge mem_valid" --max 20
-warning[WPK-W0003]: no selected events found in selected time range
-```
-
-Sparse mode instead reports `no signal changes found in selected time range` when no selected sample changes.
+- Empty output is valid. Without `--summary`, a well-formed query with no matches prints `no change rows found in selected time range` in human mode; JSON returns `data: []`; and JSONL emits no data records. No empty-result diagnostic is emitted, and the summary reports zero returned rows.
 
 When a query keeps coming back empty, widen one dimension at a time: start with the time window, then the trigger, then the signal list.

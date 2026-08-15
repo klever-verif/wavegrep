@@ -351,10 +351,7 @@ fn extract_generic_iff_uses_event_time_while_when_uses_sample_time() {
     );
     assert!(when_output.status.success());
     assert_eq!(parse_json(&when_output.stdout)["data"], json!([]));
-    assert_eq!(
-        parse_json(&when_output.stdout)["diagnostics"][0]["code"],
-        "WPK-W0003"
-    );
+    assert_eq!(parse_json(&when_output.stdout)["diagnostics"], json!([]));
 }
 
 #[test]
@@ -561,41 +558,50 @@ fn extract_generic_reports_limit_diagnostics() {
         "WPK-W0002"
     );
     assert!(unlimited.status.success());
-    assert_eq!(
-        parse_json(&unlimited.stdout)["diagnostics"][0]["code"],
-        "WPK-W0001"
-    );
+    let unlimited = parse_json(&unlimited.stdout);
+    assert_eq!(unlimited["diagnostics"], json!([]));
+    assert_eq!(unlimited["summary"]["limit"], Value::Null);
 }
 
 #[test]
-fn extract_generic_reports_empty_result_diagnostic() {
+fn extract_generic_empty_result_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-empty.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
 
+    let args = [
+        "extract",
+        "generic",
+        "--waves",
+        fixture.as_str(),
+        "--scope",
+        "top",
+        "--on",
+        "posedge clk",
+        "--when",
+        "valid && !ready",
+        "--payload",
+        "data",
+    ];
     let output = wavepeek_cmd()
-        .args([
-            "extract",
-            "generic",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--on",
-            "posedge clk",
-            "--when",
-            "valid && !ready",
-            "--payload",
-            "data",
-            "--json",
-        ])
+        .args(args)
+        .arg("--json")
         .output()
         .expect("extract should execute");
+    let human = wavepeek_cmd()
+        .args(args)
+        .output()
+        .expect("human extract should execute");
 
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"], json!([]));
-    assert_eq!(value["diagnostics"][0]["code"], "WPK-W0003");
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(
+        String::from_utf8_lossy(&human.stdout).trim(),
+        "no extract rows found in selected time range"
+    );
+    assert!(human.stderr.is_empty());
 }
 
 #[test]

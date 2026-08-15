@@ -138,12 +138,6 @@ fn run_with_sink<S: PropertyRowSink + ?Sized>(
     };
 
     let mut diagnostics = Vec::new();
-    if args.max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
 
     let debug = DebugTrace::for_command(CommandName::Property);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -371,13 +365,6 @@ fn run_with_sink<S: PropertyRowSink + ?Sized>(
         "property.evaluate.done",
         || serde_json::json!({"rows": emitted, "truncated": truncated}),
     );
-
-    if emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no property matches found in selected time range",
-        ));
-    }
 
     if let Some(max_entries) = max_entries
         && truncated

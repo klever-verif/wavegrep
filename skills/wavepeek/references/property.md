@@ -79,7 +79,7 @@ $ wavepeek property --waves path/to/dump.vcd --scope top --on 'edge clk' --eval 
 warning[WPK-W0002]: truncated output to 1 entries (use --max to increase limit)
 ```
 
-Raise the limit with `--max <N>` when you need a larger bounded sample. Use `--max unlimited` only when you intentionally want every captured row; it emits `WPK-W0001` so scripts can detect that truncation was disabled.
+Raise the limit with `--max <N>` when you need a larger bounded sample. Use `--max unlimited` only when you intentionally want every captured row; machine summaries report `limit: null` without a diagnostic.
 
 ## Filter only one transition direction
 
@@ -164,8 +164,8 @@ Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers, or whe
 ## Non-obvious behavior
 
 - VCD and FST work in default builds. FSDB works only in binaries built with the `fsdb` Cargo feature and a local Verdi FSDB Reader SDK. FSDB `property` supports digital bit-vector/integral expressions, including raw event triggers when the FSDB contains event occurrences; unsupported real or string values fail with a `signal` error.
-- No output is still success. It emits `WPK-W0003` and usually means no selected timestamp satisfied the requested capture mode.
-- Output is limited to 50 captured rows by default. `--max unlimited` disables truncation and emits `WPK-W0001`.
+- No output is still success and usually means no selected timestamp satisfied the requested capture mode. Without `--summary`, human output says so on stdout and machine output uses an empty data array. The zero-result summary remains available without an empty-result diagnostic.
+- Output is limited to 50 captured rows by default. `--max unlimited` disables truncation without a diagnostic; machine summaries report `limit: null`.
 - The default capture mode is `switch`, not `match`.
 - `--sample-mode pre-edge` is the default and requires an explicit edge-only trigger. Use `--sample-mode native` for wildcard, plain-signal, or mixed triggers and for same-timestamp dump sampling.
 - JSON and JSONL rows always include `sample_time`. In native mode it equals `time`; in pre-edge mode it is the timestamp whose values were evaluated.
