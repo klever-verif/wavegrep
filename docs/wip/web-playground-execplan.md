@@ -40,7 +40,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:50Z) Combined Commands and waveform source into one toolbar, removed duplicate sidebar shortcuts, and normalized headings, controls, radii, and terminal typography.
 - [x] (2026-08-15 14:57Z) Extended browser checks, completed bounded Luna review with KISS/YAGNI pass, fixed both findings, passed post-review `just ci` and `just check`, committed, and refreshed the inspection server without benchmark or push.
 - [x] (2026-08-15 15:09Z) Applied the final approved copy for installation, privacy, Surfer, command discovery, and the dash-free inline tagline.
-- [x] (2026-08-15 15:11Z) Showed every example query without More/Less, verified the UI, passed `just ci` and `just check`, committed, and refreshed the server without benchmark or push.
+- [x] (2026-08-15 15:17Z) Showed every example query without More/Less, centered the borderless privacy line, placed the installation prompt inline with normal text color, passed focused browser checks plus final `just ci` and `just check`, committed, and refreshed the server without benchmark or push.
 
 ## Surprises & Discoveries
 

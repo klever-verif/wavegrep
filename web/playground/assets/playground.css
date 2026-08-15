@@ -87,7 +87,7 @@
 
 .playground__install {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.3rem 0.55rem;
   border: 1px solid color-mix(in srgb, var(--md-primary-fg-color) 45%, var(--playground-border));
@@ -104,7 +104,7 @@
 }
 
 .playground__install > span {
-  color: var(--md-default-fg-color--light);
+  color: var(--md-default-fg-color);
 }
 
 .playground__install .playground__copy-status {
@@ -114,7 +114,6 @@
 
 .playground__install-prompt {
   display: grid;
-  grid-column: 1 / -1;
   grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
 }
@@ -244,9 +243,8 @@
 }
 
 .playground__source .playground__source-privacy {
-  grid-column: 3 / -1;
-  border-top: 1px solid var(--playground-border);
-  padding-top: 0.18rem;
+  grid-column: 1 / -1;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -595,6 +593,14 @@
 }
 
 @media (max-width: 72rem) {
+  .playground__install {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .playground__install-prompt {
+    grid-column: 1 / -1;
+  }
+
   .playground__toolbar {
     grid-template-columns: 1fr;
   }

@@ -100,6 +100,14 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("#agent-prompt").evaluate(
                 "element => element.scrollWidth <= element.clientWidth"
             )
+            install_label = page.locator(".playground__install > a").bounding_box()
+            install_prompt = page.locator(".playground__install-prompt").bounding_box()
+            assert install_label and install_prompt
+            assert abs(
+                install_label["y"] + install_label["height"] / 2
+                - install_prompt["y"]
+                - install_prompt["height"] / 2
+            ) < 10
             page.locator("#copy-agent-prompt").click()
             page.locator("#copy-status").filter(has_text="Copied").wait_for()
             assert page.evaluate("navigator.clipboard.readText()") == prompt
@@ -150,9 +158,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 f"{base_url}assets/playground/scr1_axi.fst"
             ]
             assert page.locator("#open-surfer").text_content() == "Open visually in Surfer ↗"
-            assert page.locator(".playground__source-privacy").text_content() == (
+            privacy = page.locator(".playground__source-privacy")
+            assert privacy.text_content() == (
                 "Waveform data never leaves your browser. All processing happens locally."
             )
+            assert privacy.evaluate("element => getComputedStyle(element).borderTopStyle") == "none"
+            assert privacy.evaluate("element => getComputedStyle(element).textAlign") == "center"
 
             prefix = page.locator(".playground__command-line label").text_content()
             assert "wavepeek" in prefix and page.locator("#command-line").input_value().startswith(
