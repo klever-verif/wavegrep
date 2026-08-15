@@ -79,7 +79,7 @@ $ wavepeek property --waves path/to/dump.vcd --scope top --on 'edge clk' --eval 
 warning[WPK-W0002]: truncated output to 1 entries (use --max to increase limit)
 ```
 
-Raise the limit with `--max <N>` when you need a larger bounded sample. Use `--max unlimited` only when you intentionally want every captured row; it emits `WPK-W0001` so scripts can detect that truncation was disabled.
+Raise the limit with `--max <N>` when you need a larger bounded sample. Use `--max unlimited` only when you intentionally want every captured row; machine summaries report `limit: null` without a diagnostic.
 
 ## Filter only one transition direction
 

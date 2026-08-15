@@ -23,7 +23,7 @@ This work does not add or restore the removed `docs search` command even though 
 - [x] (2026-08-15 05:13Z) Updated integration and unit tests for human, JSON, and JSONL behavior across discovery, change, property, and extract commands.
 - [x] (2026-08-15 05:13Z) Updated CLI help, changelog, public contracts, and bundled skill references.
 - [x] (2026-08-15 05:13Z) Ran focused tests, the full default test suite, and `./dev just ci`; all passed.
-- [ ] Run parallel Luna Max reviews by code/test, docs/contract, and simplicity/architecture focus; resolve findings.
+- [x] (2026-08-15 05:19Z) Ran parallel Luna Max reviews by code/test, docs/contract, and simplicity/architecture focus; fixed one stale property guide sentence and two contract wording ambiguities.
 - [ ] Run parallel Terra High reviews over the same areas; resolve findings.
 - [ ] Run an independent Sol High control review; resolve findings and rerun gates.
 - [ ] Remove this completed branch-local plan, commit cleanup, push, and open a PR for issue #102.
@@ -38,6 +38,9 @@ This work does not add or restore the removed `docs search` command even though 
 
 - Observation: all non-protocol empty human collections converge in `src/output.rs::render_human_with_data`; protocol renderers already emit context and an empty section.
   Evidence: a single fallback match adds five messages in 17 changed lines, avoiding per-engine output state or changes to protocol renderers.
+
+- Observation: the first review wave found no code, test, simplicity, or architecture defects, but found one stale `WPK-W0001` sentence and wording that could overstate empty-result diagnostic suppression and normal-human output under `--summary`.
+  Evidence: Luna Max code/test, docs/contract, and simplicity/architecture lanes completed; the stale and ambiguous statements were corrected in the property guide, machine-output contract, CLI help, and help tests.
 
 ## Decision Log
 
@@ -153,3 +156,5 @@ No new dependency, module, public Rust type, abstraction, configuration, or sche
 Revision note (2026-08-15 04:58Z): Created the initial self-contained execution plan after repository exploration and maintainer confirmation that `docs search` is out of scope.
 
 Revision note (2026-08-15 05:13Z): Recorded completed implementation, tests, documentation, full CI evidence, and the minimal centralized human-rendering decision before peer review.
+
+Revision note (2026-08-15 05:19Z): Recorded the completed Luna Max review wave and its resolved documentation and help findings.

@@ -99,7 +99,7 @@ With `--summary`, JSONL still emits `begin`, optional context, diagnostics, and 
 
 ## 4. Diagnostics
 
-Diagnostics do not change the exit code. Common cases are truncation, unmatched protocol extraction candidates, and ambiguous FSDB signals. Explicitly unlimited limits and valid queries with no matching rows do not emit diagnostics; machine clients distinguish them through `summary.limit`, `data`, and the result counts.
+Diagnostics do not change the exit code. Common cases are truncation, unmatched protocol extraction candidates, and ambiguous FSDB signals. Explicitly unlimited limits do not emit diagnostics, and valid queries with no matching rows do not emit an empty-result diagnostic; machine clients distinguish those outcomes through `summary.limit`, `data`, and the result counts.
 
 Human-readable diagnostics use:
 
