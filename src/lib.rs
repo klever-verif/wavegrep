@@ -1,3 +1,5 @@
+#[cfg(any(test, target_arch = "wasm32"))]
+mod browser;
 mod cli;
 #[doc(hidden)]
 pub mod contract;

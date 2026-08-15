@@ -19,8 +19,8 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 10:42Z) Read the proposal, repository guidance, native CLI path, waveform backend, Material/Mike publication path, and quality workflow.
 - [x] (2026-08-15 10:42Z) Confirmed the existing crate compiles for `wasm32-unknown-unknown` and Wellen exposes byte-reader APIs for both ordinary and streaming VCD/FST access.
 - [x] (2026-08-15 10:42Z) Confirmed `tmp/scr1_axi.fst` is 3,648,879 bytes with SHA-256 `aad73e9b0d2b244b67a96b254371ff29a2ac2e54077176376f6361570789e884` and exercises WavePeek's AXI-facing hierarchy.
-- [ ] Prove one FST command through a minimal WASM binding before building the interface.
-- [ ] Add the smallest shared Rust invocation and in-memory waveform seams while preserving native behavior and parity tests.
+- [x] (2026-08-15 10:56Z) Proved `wavepeek info --waves scr1_axi.fst` through generated WASM in headless Chrome; status was zero and the expected 1 ps bounds were returned.
+- [x] (2026-08-15 10:56Z) Added explicit argv/output writers, invocation-scoped waveform bytes, byte-backed Wellen parsing/streaming, truthful browser help, and the minimal WASM binding while preserving focused native tests.
 - [ ] Build the framework-free worker-based Playground, bundled demo, and responsive Material page.
 - [ ] Change MkDocs/Mike staging so only documentation accumulates and the root Playground is replaced only by the latest stable release.
 - [ ] Add reproducible WASM/browser tooling, focused browser tests, publication tests, and deployment checks.
@@ -42,6 +42,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Observation: `mike set-default latest` currently owns root `index.html`, which conflicts with the new current-only root Playground.
   Evidence: `run_mike_deploy()` calls `mike set-default` whenever a release is promoted.
+
+- Observation: The supplied FST parses and returns metadata in ordinary single-threaded browser WASM without cross-origin isolation or WASM threads.
+  Evidence: A generated `wasm-bindgen` module run in headless Chrome returned status 0 with `time_unit: 1ps`, `time_start: 1ps`, and `time_end: 1880182ps`.
 
 ## Decision Log
 
@@ -75,7 +78,7 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 ## Outcomes & Retrospective
 
-No implementation outcome yet. Update this section after each independently usable milestone and at completion.
+Milestone 1 is complete. The same Clap parser, engines, renderers, diagnostics, and status mapping now run with explicit argv, writers, and invocation-scoped waveform bytes. Native CLI contract tests, all 670 library tests, strict Clippy, and the WASM target check pass. A scratch headless-Chrome probe successfully ran the real bundled FST through the generated binding.
 
 ## Context and Orientation
 

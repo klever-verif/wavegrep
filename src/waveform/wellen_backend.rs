@@ -3,9 +3,9 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
-use std::io::BufReader;
-use std::path::Path;
-use std::path::PathBuf;
+use std::io::{BufRead, BufReader, Cursor, Seek};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use wellen::{
     ScopeRef, ScopeType, SignalRef, SignalValueRef, Timescale, TimescaleUnit, VarType, simple,
@@ -24,9 +24,24 @@ use super::types::{
 const STREAM_THRESHOLD_WORK: usize = 20_000;
 
 #[derive(Debug)]
+enum WellenSource {
+    Path(PathBuf),
+    Bytes { name: PathBuf, data: Arc<[u8]> },
+}
+
+impl WellenSource {
+    fn name(&self) -> &Path {
+        match self {
+            Self::Path(path) => path,
+            Self::Bytes { name, .. } => name,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(super) struct WellenBackend {
     inner: simple::Waveform,
-    source_path: PathBuf,
+    source: WellenSource,
     file_format: wellen::FileFormat,
     loaded_signals: HashSet<SignalRef>,
 }
@@ -40,7 +55,6 @@ impl WellenBackend {
             )));
         }
 
-        let source_path = path.to_path_buf();
         let file = std::fs::File::open(path).map_err(|error| {
             WavepeekError::File(format!("cannot open '{}': {error}", path.display()))
         })?;
@@ -50,7 +64,32 @@ impl WellenBackend {
         let inner = simple::read(path).map_err(|error| map_wellen_error(path, error))?;
         Ok(Self {
             inner,
-            source_path,
+            source: WellenSource::Path(path.to_path_buf()),
+            file_format,
+            loaded_signals: HashSet::new(),
+        })
+    }
+
+    pub fn open_bytes(name: &Path, data: Arc<[u8]>) -> Result<Self, WavepeekError> {
+        let mut reader = Cursor::new(Arc::clone(&data));
+        let file_format = wellen::viewers::detect_file_format(&mut reader);
+        reader.set_position(0);
+        if !matches!(
+            file_format,
+            wellen::FileFormat::Vcd | wellen::FileFormat::Fst
+        ) {
+            return Err(WavepeekError::File(
+                "the browser supports only VCD and FST waveforms".to_string(),
+            ));
+        }
+        let inner =
+            simple::read_from_reader(reader).map_err(|error| map_wellen_error(name, error))?;
+        Ok(Self {
+            inner,
+            source: WellenSource::Bytes {
+                name: name.to_path_buf(),
+                data,
+            },
             file_format,
             loaded_signals: HashSet::new(),
         })
@@ -582,12 +621,31 @@ impl WellenBackend {
             ));
         }
 
-        let mut streaming = wellen::stream::read_from_file(
-            self.source_path.as_path(),
-            &wellen::LoadOptions::default(),
-        )
-        .map_err(|error| map_wellen_error(self.source_path.as_path(), error))?;
+        match &self.source {
+            WellenSource::Path(path) => {
+                let streaming =
+                    wellen::stream::read_from_file(path, &wellen::LoadOptions::default())
+                        .map_err(|error| map_wellen_error(path, error))?;
+                self.collect_change_times_from_stream(streaming, resolved, from_raw, to_raw)
+            }
+            WellenSource::Bytes { data, .. } => {
+                let streaming = wellen::stream::read(
+                    Cursor::new(Arc::clone(data)),
+                    &wellen::LoadOptions::default(),
+                )
+                .map_err(|error| map_wellen_error(self.source.name(), error))?;
+                self.collect_change_times_from_stream(streaming, resolved, from_raw, to_raw)
+            }
+        }
+    }
 
+    fn collect_change_times_from_stream<R: BufRead + Seek>(
+        &self,
+        mut streaming: wellen::stream::StreamingWaveform<R>,
+        resolved: &[ResolvedSignal],
+        from_raw: u64,
+        to_raw: u64,
+    ) -> Result<Vec<u64>, WavepeekError> {
         let signal_refs = resolved
             .iter()
             .map(|signal| {
@@ -611,7 +669,7 @@ impl WellenBackend {
             })
             .map_err(|error| match error {
                 wellen::stream::StreamError::Wellen(error) => {
-                    map_wellen_error(self.source_path.as_path(), error)
+                    map_wellen_error(self.source.name(), error)
                 }
                 wellen::stream::StreamError::Callback(never) => match never {},
             })?;
@@ -655,7 +713,7 @@ impl WellenBackend {
 }
 
 fn should_use_multi_thread_signal_load(file_format: wellen::FileFormat) -> bool {
-    file_format == wellen::FileFormat::Fst
+    cfg!(not(target_arch = "wasm32")) && file_format == wellen::FileFormat::Fst
 }
 
 fn floor_time_table_index(time_table: &[u64], query_time_raw: u64) -> Option<usize> {

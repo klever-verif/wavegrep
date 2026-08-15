@@ -150,22 +150,30 @@ fn fatal_record(
     })
 }
 
-pub fn write_json_fatal(error: &WavepeekError) -> Result<(), WavepeekError> {
+pub fn write_json_fatal_to<W: Write + ?Sized>(
+    error: &WavepeekError,
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
     let json = serde_json::to_string(&fatal_record(error, None)?)
         .map_err(|error| WavepeekError::Internal(format!("failed to serialize output: {error}")))?;
-    write_stdout(&json)
+    write_to(writer, &json)
 }
 
-pub fn write_jsonl_fatal(error: &WavepeekError) -> Result<(), WavepeekError> {
-    let stdout = io::stdout();
-    let mut writer = stdout.lock();
-    serde_json::to_writer(&mut writer, &fatal_record(error, Some(0))?)
+pub fn write_jsonl_fatal_to<W: Write + ?Sized>(
+    error: &WavepeekError,
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
+    serde_json::to_writer(&mut *writer, &fatal_record(error, Some(0))?)
         .map_err(map_jsonl_serde_error)?;
     writer.write_all(b"\n").map_err(map_stdout_io_error)?;
     writer.flush().map_err(map_stdout_io_error)
 }
 
-pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
+pub fn write_result_to<W: Write + ?Sized, E: Write + ?Sized>(
+    result: CommandResult,
+    stdout: &mut W,
+    stderr: &mut E,
+) -> Result<(), WavepeekError> {
     match result.output_mode {
         OutputMode::Human => {
             let mut output =
@@ -179,18 +187,16 @@ pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
                 output.push_str(render_summary(summary).as_str());
             }
             if !output.is_empty() {
-                write_stdout(output.as_str())?;
+                write_to(stdout, output.as_str())?;
             }
-            emit_human_diagnostics(&result.diagnostics);
-            Ok(())
+            emit_human_diagnostics(&result.diagnostics, stderr)
         }
         OutputMode::Json => {
             let json = render_json(result)?;
-            write_stdout(&json)
+            write_to(stdout, &json)
         }
         OutputMode::Jsonl => {
-            let stdout = io::stdout();
-            let mut writer = JsonlWriter::new(stdout.lock(), result.command);
+            let mut writer = JsonlWriter::new(stdout, result.command);
             write_jsonl_result(result, &mut writer)
         }
     }
@@ -767,18 +773,23 @@ fn signal_display_name(entry: &crate::engine::signal::SignalEntry, abs: bool) ->
     }
 }
 
-fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
+fn emit_human_diagnostics<W: Write + ?Sized>(
+    diagnostics: &[Diagnostic],
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
     for diagnostic in diagnostics {
         match diagnostic.kind() {
-            DiagnosticKind::Info => eprintln!("info: {}", diagnostic.message()),
-            DiagnosticKind::Warning => eprintln!(
+            DiagnosticKind::Info => writeln!(writer, "info: {}", diagnostic.message()),
+            DiagnosticKind::Warning => writeln!(
+                writer,
                 "warning[{}]: {}",
                 diagnostic
                     .code()
                     .expect("warning diagnostics must have stable codes"),
                 diagnostic.message()
             ),
-            DiagnosticKind::Error => eprintln!(
+            DiagnosticKind::Error => writeln!(
+                writer,
                 "error[{}]: {}",
                 diagnostic
                     .code()
@@ -786,12 +797,15 @@ fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
                 diagnostic.message()
             ),
         }
+        .map_err(map_stdout_io_error)?;
     }
+    writer.flush().map_err(map_stdout_io_error)
 }
 
-pub(crate) fn write_stdout(output: &str) -> Result<(), WavepeekError> {
-    let stdout = io::stdout();
-    let mut writer = stdout.lock();
+pub(crate) fn write_to<W: Write + ?Sized>(
+    writer: &mut W,
+    output: &str,
+) -> Result<(), WavepeekError> {
     writeln!(writer, "{}", output.strip_suffix('\n').unwrap_or(output)).map_err(map_stdout_io_error)
 }
 
@@ -811,7 +825,7 @@ mod tests {
 
     use super::{
         JsonlWriter, render_human, render_json, render_scope_tree, scope_entry_is_last_sibling,
-        signal_display_name, write, write_jsonl_result,
+        signal_display_name, write_jsonl_result, write_result_to,
     };
 
     #[test]
@@ -1249,16 +1263,22 @@ mod tests {
 
     #[test]
     fn write_entrypoint_preserves_existing_newline() {
-        write(CommandResult {
-            command: CommandName::Info,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            scope: None,
-            summary_only: false,
-            data: CommandData::Text("already-newline\n".to_string()),
-            summary: None,
-            diagnostics: Vec::new(),
-        })
+        let mut stdout = Vec::new();
+        write_result_to(
+            CommandResult {
+                command: CommandName::Info,
+                output_mode: OutputMode::Human,
+                human_options: HumanRenderOptions::default(),
+                scope: None,
+                summary_only: false,
+                data: CommandData::Text("already-newline\n".to_string()),
+                summary: None,
+                diagnostics: Vec::new(),
+            },
+            &mut stdout,
+            &mut Vec::new(),
+        )
         .expect("newline-terminated human output should not add a second newline");
+        assert_eq!(stdout, b"already-newline\n");
     }
 }
