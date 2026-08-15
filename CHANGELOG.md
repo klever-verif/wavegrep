@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.
 
 ### Fixed
+- Preserved tree indentation when filtered scope results omit ancestor entries.
 - Kept handled fatal errors machine-readable in JSON and JSONL output ([issue #104](https://github.com/kleverhq/wavepeek/issues/104)).
 - Normalized scope-relative signal labels in human-readable `value`, `change`, and `extract generic` output regardless of input path spelling, while retaining canonical labels with `--abs` ([issue #113](https://github.com/kleverhq/wavepeek/issues/113)).
 - Improved missing-signal errors to distinguish invalid paths from signals absent from the dump ([issue #84](https://github.com/kleverhq/wavepeek/issues/84)).
