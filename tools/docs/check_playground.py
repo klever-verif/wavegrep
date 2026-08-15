@@ -92,16 +92,20 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator(".md-version").count() == 0
             heading = page.locator(".playground__visually-hidden").bounding_box()
             assert heading and heading["width"] <= 1 and heading["height"] <= 1
-            prompt = page.locator("#agent-prompt").input_value()
+            prompt = page.locator("#agent-prompt").get_attribute("data-copy")
             assert "github.com/kleverhq/wavepeek/releases" in prompt
             assert "wavepeek skill ./wavepeek-skill" in prompt
+            assert page.locator("#agent-prompt").evaluate(
+                "element => element.scrollWidth <= element.clientWidth"
+            )
             page.locator("#copy-agent-prompt").click()
             page.locator("#copy-status").filter(has_text="Copied").wait_for()
             assert page.evaluate("navigator.clipboard.readText()") == prompt
             tagline = page.locator(
                 ".md-header__topic:first-child .md-ellipsis"
             ).evaluate("element => getComputedStyle(element, '::after').content")
-            assert "Deterministic RTL waveform inspection" in tagline
+            assert "deterministic RTL waveform inspection" in tagline
+            assert page.locator(".md-search").is_hidden()
 
             page.evaluate("localStorage.clear()")
             page.reload(wait_until="networkidle")
@@ -116,12 +120,14 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.wait_for_url(f"{origin}/wavepeek/latest/**")
             assert page.locator("main").text_content().strip()
             assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
+            assert page.locator(".md-search").is_visible()
             playground = page.locator("a", has_text="Playground").first
             assert playground.get_attribute("href") == "/wavepeek/"
             playground.click()
             page.wait_for_url(base_url)
             page.locator("#source-status").filter(has_text="Ready").wait_for()
             assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
+            assert page.locator(".md-search").is_hidden()
 
             assert page.locator("#source-name").text_content() == "scr1_axi.fst"
             assert page.locator("#open-local").evaluate("element => element.tagName") == "BUTTON"
@@ -154,6 +160,17 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator('[data-suggestion="generic"]').click()
             assert page.locator("#command-line").input_value().startswith("extract generic ")
             assert page.locator("#suggestions-heading").text_content() == "Example queries"
+            assert page.locator(".playground__shortcuts").count() == 0
+            toolbar = page.locator(".playground__toolbar").bounding_box()
+            commands_box = page.locator(".playground__commands").bounding_box()
+            source_box = page.locator(".playground__source").bounding_box()
+            assert toolbar and commands_box and source_box
+            assert source_box["x"] > commands_box["x"]
+            assert abs(
+                source_box["y"] + source_box["height"] / 2
+                - commands_box["y"]
+                - commands_box["height"] / 2
+            ) < 10
             page.locator('[data-example="help"]').click()
             assert page.locator("#command-line").input_value() == "--help"
             assert page.locator("#transcript .playground__entry").count() == initial_entries

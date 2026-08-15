@@ -357,7 +357,7 @@ elements["use-demo"].addEventListener("click", useDemo);
 elements["open-local"].addEventListener("click", () => elements["local-file"].click());
 elements["copy-agent-prompt"].addEventListener("click", async () => {
   try {
-    await navigator.clipboard.writeText(elements["agent-prompt"].value);
+    await navigator.clipboard.writeText(elements["agent-prompt"].dataset.copy);
     elements["copy-status"].textContent = "Copied";
   } catch {
     elements["agent-prompt"].select();

@@ -36,6 +36,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 14:24Z) Compressed source and command controls, added Help, renamed problem examples, and gave the desktop workspace the remaining viewport without page scroll.
 - [x] (2026-08-15 14:24Z) Prepended new transcript entries beneath the fixed command line and synchronized Material palette state across Playground and documentation.
 - [x] (2026-08-15 14:29Z) Extended browser checks, completed bounded Luna review with no findings and KISS/YAGNI pass, passed post-review `just ci` and `just check`, committed the implementation, and refreshed the inspection server without benchmark or push.
+- [x] (2026-08-15 14:50Z) Put the header tagline inline, hid Playground search, and shortened the copy-to-agent panel so its entire visible prompt wraps without horizontal scrolling.
+- [x] (2026-08-15 14:50Z) Combined Commands and waveform source into one toolbar, removed duplicate sidebar shortcuts, and normalized headings, controls, radii, and terminal typography.
+- [ ] Extend browser checks, review, run final gates, commit, and refresh the inspection server without benchmark or push. Focused browser checks pass; review and final gates remain.
 
 ## Surprises & Discoveries
 
@@ -123,6 +126,10 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 
 - Decision: On desktop the page itself stays fixed while the transcript scrolls, and newest transcript entries are prepended directly beneath the command line.
   Rationale: The command prompt is at the top, so reverse-chronological entries keep the latest result spatially adjacent and reclaim the viewport for waveform output.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Commands and source selection share one toolbar, and shortcut help exists only in the terminal footer.
+  Rationale: The commands row had enough unused horizontal space for the source controls, while duplicated shortcut documentation consumed sidebar space and created typography inconsistency.
   Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective
