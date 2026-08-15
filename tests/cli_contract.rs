@@ -223,7 +223,10 @@ fn top_level_help_documents_general_conventions() {
             "time-window flags (`--from`, `--to`) use inclusive boundaries",
         ))
         .stdout(predicate::str::contains(
-            "Process-level failures follow `fatal: <category>: <message>`",
+            "Human process-level failures follow `fatal: <category>: <message>`",
+        ))
+        .stdout(predicate::str::contains(
+            "`--json` and `--jsonl` use typed fatal records",
         ));
 }
 

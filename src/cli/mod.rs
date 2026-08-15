@@ -36,7 +36,7 @@ General conventions:
 - Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in the packaged `references/machine-output.md`.
 - Time values require explicit units (`zs`, `as`, `fs`, `ps`, `ns`, `us`, `ms`, `s`) and integer magnitudes.
 - Parsed times are normalized to dump `time_unit`; time-window flags (`--from`, `--to`) use inclusive boundaries.
-- Process-level failures follow `fatal: <category>: <message>`."#,
+- Human process-level failures follow `fatal: <category>: <message>`; `--json` and `--jsonl` use typed fatal records documented in `references/machine-output.md`."#,
     after_help = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek skill <DIRECTORY>",
     help_template = "{about-with-newline}\nUsage: {usage}\n\nWaveform commands:\n  info      Show waveform metadata\n  scope     Explore hierarchy scopes\n  signal    Explore signals within scope\n  value     Get signal values at explicit time point(s)\n  change    List signal changes over a time range\n  property  Evaluate properties over a time range\n  extract   Extract event rows from waveform signals\n\nHelper commands:\n  skill     Extract the packaged agent skill\n  help      Show help for the given subcommand(s)\n\nOptions:\n{options}{after-help}"
 )]
@@ -243,11 +243,11 @@ pub(crate) fn run(report_machine_errors: bool) -> Result<(), CliFailure> {
     let (selection, argv) = extract_output_selection(argv);
 
     match execute(argv, selection, report_machine_errors) {
-        Ok(())
-        | Err(CliFailure {
+        Ok(()) => Ok(()),
+        Err(CliFailure {
             error: WavepeekError::BrokenPipe,
             ..
-        }) => Ok(()),
+        }) if report_machine_errors => Ok(()),
         Err(failure) if failure.reported || !report_machine_errors => Err(failure),
         Err(failure) => report_failure(selection.mode, failure.error),
     }
@@ -281,7 +281,10 @@ fn execute(
 
     let parse_argv = if argv.len() == 1 && selection.mode == OutputMode::Human {
         vec![argv[0].clone(), "-h".into()]
-    } else if argv.len() == 2 && matches!(argv[1].to_str(), Some("extract")) {
+    } else if argv.len() == 2
+        && selection.mode == OutputMode::Human
+        && matches!(argv[1].to_str(), Some("extract"))
+    {
         vec![argv[0].clone(), argv[1].clone(), "-h".into()]
     } else {
         argv

@@ -139,12 +139,22 @@ fn mixed_selectors_use_jsonl_for_the_conflict_fatal() {
 }
 
 #[test]
-fn machine_selector_without_command_is_a_machine_fatal() {
-    let output = run(&["--json"]);
+fn machine_selector_without_complete_command_is_a_machine_fatal() {
+    for args in [&["--json"][..], &["extract", "--json"][..]] {
+        let output = run(args);
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stderr.is_empty());
+        let fatal = json_stdout(&output);
+        assert_eq!(fatal["type"], "fatal");
+        assert_eq!(fatal["code"], "WPK-F0001");
+    }
+
+    let output = run(&["extract", "--jsonl"]);
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stderr.is_empty());
     let fatal = json_stdout(&output);
     assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["seq"], 0);
     assert_eq!(fatal["code"], "WPK-F0001");
 }
 

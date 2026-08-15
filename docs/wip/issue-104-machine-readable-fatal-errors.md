@@ -22,7 +22,7 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 - [x] (2026-08-15 05:26Z) Implemented early output-mode selection and centralized fatal serialization in the CLI and existing output writer.
 - [x] (2026-08-15 05:27Z) Updated normative machine-output and command-model references plus maintainer style and architecture wording.
 - [x] (2026-08-15 05:32Z) Ran focused tests and `./dev just ci`; all gates pass. Implementation commit remains.
-- [ ] Run two focused review waves and one independent control review (completed: Luna Max and Terra High correctness, architecture, and contract lanes; fixed all findings; remaining: rerun CI, commit Terra fixes, Sol High control).
+- [x] (2026-08-15 06:23Z) Ran Luna Max and Terra High focused waves plus Sol High control review; fixed all findings. Final CI and cleanup remain.
 - [ ] Remove this branch-local plan, commit cleanup, push, and open the pull request.
 
 ## Surprises & Discoveries
@@ -69,7 +69,7 @@ This work does not change ordinary diagnostic objects, success envelopes, stream
 
 ## Outcomes & Retrospective
 
-The implementation now emits one decodable terminal result for handled machine-mode failures without human fatal duplication on stderr. Focused tests cover pre-parse argument errors, pre-begin file and signal failures, JSONL sequencing, selector conflict behavior, selector boundaries, helper rejection, help/version, debug telemetry, and human compatibility. The full CI gate passes; required peer review, cleanup, and PR creation remain.
+The implementation now emits one decodable terminal result for handled machine-mode failures without human fatal duplication on stderr. Focused tests cover incomplete and malformed command paths, every CLI-reachable fatal category, pre-begin and post-begin JSONL sequencing, selector conflict and value boundaries, helper rejection, help/version, debug telemetry, and human compatibility. Two focused review waves and an independent control review completed with every finding fixed. Final CI, WIP cleanup, push, and PR creation remain.
 
 ## Context and Orientation
 
@@ -192,3 +192,5 @@ Plan revision note (2026-08-15 05:32Z): Recorded completed implementation, docum
 Plan revision note (2026-08-15 06:05Z): Recorded the Luna Max review wave and fixes: active command-path selector scanning, public API preservation, real post-begin integration coverage, removal of a duplicate output-mode assignment, and architecture wording correction.
 
 Plan revision note (2026-08-15 06:14Z): Recorded the Terra High review wave and fixes: clap-consistent missing-value selector handling, successful-only help/version bypass, library/process reporting separation, crate-private fatal accessors, reachable fatal-code integration coverage, and corrected architecture map.
+
+Plan revision note (2026-08-15 06:23Z): Recorded the Sol High control review and fixes: incomplete `extract` machine invocation handling, preservation of library broken-pipe semantics, and corrected top-level help wording.
