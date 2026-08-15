@@ -131,6 +131,26 @@ class CheckDeployTests(unittest.TestCase):
         self.assertEqual(body, b"complete")
         sleep.assert_called_once_with(0.25)
 
+    def test_check_not_deployed_requires_404(self) -> None:
+        url = "https://example.test/missing"
+        not_found = urllib.error.HTTPError(url, 404, "not found", {}, None)
+        with mock.patch.object(
+            check_deploy.urllib.request, "urlopen", side_effect=not_found
+        ):
+            check_deploy.check_not_deployed(
+                url, retries=1, retry_delay=0.0, timeout=3.0
+            )
+
+        with mock.patch.object(
+            check_deploy.urllib.request, "urlopen", return_value=Response()
+        ):
+            with self.assertRaisesRegex(
+                check_deploy.DeployCheckError, "unexpectedly returned HTTP 200"
+            ):
+                check_deploy.check_not_deployed(
+                    url, retries=1, retry_delay=0.0, timeout=3.0
+                )
+
     def test_fetch_bytes_rejects_non_200_and_invalid_retry_count(self) -> None:
         with mock.patch.object(
             check_deploy.urllib.request,
@@ -177,6 +197,7 @@ class CheckDeployTests(unittest.TestCase):
                 ),
             ) as fetch,
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_not_deployed") as absent,
             mock.patch.object(
                 check_deploy.prepare_playground,
                 "DEMO_SHA256",
@@ -185,6 +206,14 @@ class CheckDeployTests(unittest.TestCase):
         ):
             check_deploy.check_deploy(args)
 
+        self.assertEqual(
+            [call.args[0] for call in absent.call_args_list],
+            [
+                "https://example.test/wavepeek/2.2.0/assets/playground/playground.js",
+                "https://example.test/wavepeek/2.2.0/assets/playground/wasm/wavepeek_bg.wasm",
+                "https://example.test/wavepeek/2.2.0/assets/playground/scr1_axi.fst",
+            ],
+        )
         self.assertEqual(
             [call.args[0] for call in fetch.call_args_list],
             [
@@ -221,6 +250,7 @@ class CheckDeployTests(unittest.TestCase):
                 ),
             ) as fetch,
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_not_deployed"),
             mock.patch.object(
                 check_deploy.prepare_playground,
                 "DEMO_SHA256",
@@ -282,6 +312,7 @@ class CheckDeployTests(unittest.TestCase):
                 ),
             ),
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_not_deployed"),
             mock.patch.object(
                 check_deploy.prepare_playground,
                 "DEMO_SHA256",

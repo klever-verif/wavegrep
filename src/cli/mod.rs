@@ -482,6 +482,20 @@ fn build_cli_command_for(browser: bool) -> clap::Command {
                 let mut updated = with_other_help_options(subcommand.clone());
                 if browser {
                     updated = updated.mut_arg("source", |arg| arg.hide(true));
+                    if let Some(help) = updated.get_long_about() {
+                        let help = help
+                            .to_string()
+                            .lines()
+                            .filter(|line| {
+                                let line = line.to_ascii_lowercase();
+                                !line.contains("source file")
+                                    && !line.contains("source-file")
+                                    && !line.contains("--source")
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        updated = updated.long_about(help);
+                    }
                 }
                 *subcommand = updated;
             }

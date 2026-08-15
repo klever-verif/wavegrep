@@ -30,7 +30,11 @@ pub(crate) fn invoke(argv: Vec<String>, filename: String, bytes: &[u8]) -> Brows
     if argv.is_empty() {
         return BrowserResult::unsupported("a wavepeek command is required");
     }
-    if browser_command(&argv) == Some("skill") {
+    if browser_command(&argv) == Some("skill")
+        || argv
+            .windows(2)
+            .any(|args| args[0] == "help" && args[1] == "skill")
+    {
         return BrowserResult::unsupported("skill is not supported in the browser");
     }
     if argv
@@ -39,7 +43,14 @@ pub(crate) fn invoke(argv: Vec<String>, filename: String, bytes: &[u8]) -> Brows
     {
         return BrowserResult::unsupported("--source is not supported in the browser");
     }
-    if filename.to_ascii_lowercase().ends_with(".fsdb") {
+    if is_fsdb_filename(&filename)
+        || argv
+            .windows(2)
+            .any(|args| args[0] == "--waves" && is_fsdb_filename(args[1].as_str()))
+        || argv
+            .iter()
+            .any(|arg| arg.strip_prefix("--waves=").is_some_and(is_fsdb_filename))
+    {
         return BrowserResult::unsupported("FSDB is not supported in the browser");
     }
 
@@ -69,6 +80,11 @@ pub(crate) fn invoke(argv: Vec<String>, filename: String, bytes: &[u8]) -> Brows
         stderr: String::from_utf8_lossy(&stderr).into_owned(),
         status,
     }
+}
+
+fn is_fsdb_filename(filename: &str) -> bool {
+    let filename = filename.to_ascii_lowercase();
+    filename.ends_with(".fsdb") || filename.ends_with(".fsdb.gz")
 }
 
 fn browser_command(argv: &[String]) -> Option<&str> {
@@ -143,6 +159,11 @@ $enddefinitions $end
                 "skill is not supported",
             ),
             (
+                vec!["wavepeek", "help", "skill"],
+                "demo.vcd",
+                "skill is not supported",
+            ),
+            (
                 vec!["wavepeek", "extract", "axi", "--source", "map.json"],
                 "demo.vcd",
                 "--source is not supported",
@@ -150,6 +171,16 @@ $enddefinitions $end
             (
                 vec!["wavepeek", "info", "--waves", "demo.fsdb"],
                 "demo.fsdb",
+                "FSDB is not supported",
+            ),
+            (
+                vec!["wavepeek", "info", "--waves", "demo.fsdb.gz"],
+                "demo.fsdb.gz",
+                "FSDB is not supported",
+            ),
+            (
+                vec!["wavepeek", "info", "--waves=other.fsdb.gz"],
+                "demo.vcd",
                 "FSDB is not supported",
             ),
         ] {
@@ -171,13 +202,16 @@ $enddefinitions $end
         assert!(!root.stdout.contains("Extract the packaged agent skill"));
         assert!(root.stdout.contains("FSDB input, skill"));
 
-        let extract = run(&["wavepeek", "extract", "axi", "--help"]);
-        assert_eq!(extract.status, 0);
-        assert!(
-            !extract
-                .stdout
-                .lines()
-                .any(|line| line.trim_start().starts_with("--source"))
-        );
+        for command in ["ahb", "apb", "atb", "axi", "axistream", "generic"] {
+            let extract = run(&["wavepeek", "extract", command, "--help"]);
+            assert_eq!(extract.status, 0);
+            assert!(!extract.stdout.contains("source-file"));
+            assert!(
+                !extract
+                    .stdout
+                    .lines()
+                    .any(|line| line.trim_start().starts_with("--source"))
+            );
+        }
     }
 }

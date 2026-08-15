@@ -28,6 +28,7 @@ let worker;
 let runningId = 0;
 let runningCommand = "";
 let history = [];
+let sourceGeneration = 0;
 
 export function tokenize(command) {
   const tokens = [];
@@ -182,13 +183,17 @@ function setSource(name, bytes, kind) {
 }
 
 async function useDemo() {
+  const generation = ++sourceGeneration;
   elements["source-status"].textContent = "Loading bundled demo…";
   try {
     const response = await fetch(DEMO_URL);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    setSource(DEMO_NAME, await response.arrayBuffer(), "demo");
+    const bytes = await response.arrayBuffer();
+    if (generation === sourceGeneration) setSource(DEMO_NAME, bytes, "demo");
   } catch (error) {
-    elements["source-status"].textContent = `Could not load bundled demo: ${error.message}`;
+    if (generation === sourceGeneration) {
+      elements["source-status"].textContent = `Could not load bundled demo: ${error.message}`;
+    }
   }
 }
 
@@ -298,7 +303,9 @@ elements["local-file"].addEventListener("change", async ({ target }) => {
     elements["source-status"].textContent = "Choose a .vcd or .fst file.";
     return;
   }
-  setSource(file.name, await file.arrayBuffer(), "local");
+  const generation = ++sourceGeneration;
+  const bytes = await file.arrayBuffer();
+  if (generation === sourceGeneration) setSource(file.name, bytes, "local");
   target.value = "";
 });
 

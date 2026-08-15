@@ -136,6 +136,29 @@ def fetch_header(
     )
 
 
+def check_not_deployed(
+    url: str, *, retries: int, retry_delay: float, timeout: float
+) -> None:
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+
+    def check() -> None:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                fail(f"{url} unexpectedly returned HTTP {response.getcode()}")
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                fail(f"{url} returned HTTP {error.code}, expected 404")
+        except (TimeoutError, OSError, http.client.HTTPException) as error:
+            fail(f"{url} failed: {error}")
+
+    retry_check(
+        f"absence check for {url}",
+        retries=retries,
+        retry_delay=retry_delay,
+        operation=check,
+    )
+
+
 def retry_check(
     label: str,
     *,
@@ -234,6 +257,13 @@ def check_deploy(args: argparse.Namespace) -> None:
         fail(f"site root Playground does not report WavePeek {version}")
     if b'class="playground"' in bodies["version docs"]:
         fail("versioned documentation must not contain a Playground")
+    for asset in ["playground.js", "wasm/wavepeek_bg.wasm", "scr1_axi.fst"]:
+        check_not_deployed(
+            page_url(base_url, f"{version}/assets/playground/{asset}"),
+            retries=args.retries,
+            retry_delay=args.retry_delay,
+            timeout=args.timeout,
+        )
 
     demo_url = page_url(base_url, "assets/playground/scr1_axi.fst")
     demo = fetch_bytes(
