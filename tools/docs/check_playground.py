@@ -93,9 +93,13 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             heading = page.locator(".playground__visually-hidden").bounding_box()
             assert heading and heading["width"] <= 1 and heading["height"] <= 1
             prompt = page.locator("#agent-prompt").get_attribute("data-copy")
+            assert page.locator(".playground__install > a").text_content() == (
+                "wavepeek on GitHub Releases ↗"
+            )
             assert prompt == (
-                "Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. "
-                "Use 'wavepeek skill' to get the skill."
+                "Install the latest wavepeek release from "
+                "https://github.com/kleverhq/wavepeek/releases. "
+                "Run 'wavepeek skill' to get the skill."
             )
             assert page.locator("#agent-prompt").evaluate(
                 "element => element.scrollWidth <= element.clientWidth"
@@ -118,7 +122,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#copy-agent-prompt").click()
             page.locator("#copy-agent-prompt").filter(has_text="Press Ctrl+C").wait_for()
             assert page.locator("#copy-status").text_content() == "Press Ctrl+C"
-            assert "WavePeek" in page.evaluate("getSelection().toString()")
+            assert "wavepeek" in page.evaluate("getSelection().toString()")
             tagline = page.locator(
                 ".md-header__topic:first-child .md-ellipsis"
             ).evaluate("element => getComputedStyle(element, '::after').content")
@@ -161,9 +165,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             ]
             assert page.locator("#open-surfer").text_content() == "Open visually in Surfer ↗"
             privacy = page.locator(".playground__source-privacy")
-            assert privacy.text_content() == (
-                "Waveform data never leaves your browser. All processing happens locally."
-            )
+            assert privacy.text_content() == "Waveform data never leaves your browser."
             assert privacy.evaluate("element => getComputedStyle(element).borderTopStyle") == "none"
             assert privacy.evaluate("element => getComputedStyle(element).textAlign") == "left"
             local_source = page.locator(".playground__local-source").bounding_box()

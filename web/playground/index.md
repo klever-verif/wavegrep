@@ -8,10 +8,10 @@ hide:
   <h1 class="playground__visually-hidden">WavePeek Playground</h1>
 
   <section class="playground__install" aria-label="Install WavePeek">
-    <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">Get WavePeek on GitHub Releases ↗</a>
+    <a href="https://github.com/kleverhq/wavepeek/releases" target="_blank" rel="noopener noreferrer">wavepeek on GitHub Releases ↗</a>
     <span>or copy-paste this to your agent:</span>
     <div class="playground__install-prompt">
-      <p id="agent-prompt" data-copy="Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Use 'wavepeek skill' to get the skill.">Get latest WavePeek from https://github.com/kleverhq/wavepeek/releases. Use <code>'wavepeek skill'</code> to get the skill.</p>
+      <p id="agent-prompt" data-copy="Install the latest wavepeek release from https://github.com/kleverhq/wavepeek/releases. Run 'wavepeek skill' to get the skill.">Install the latest wavepeek release from https://github.com/kleverhq/wavepeek/releases. Run <code>'wavepeek skill'</code> to get the skill.</p>
       <span id="copy-status" class="playground__copy-status" aria-live="polite"></span>
       <button id="copy-agent-prompt" type="button">Copy</button>
     </div>
@@ -58,7 +58,7 @@ hide:
         </div>
       </div>
       <a id="open-surfer" class="playground__surfer" target="_blank" rel="noopener noreferrer">Open visually in Surfer ↗</a>
-      <p class="playground__source-privacy">Waveform data never leaves your browser. All processing happens locally.</p>
+      <p class="playground__source-privacy">Waveform data never leaves your browser.</p>
     </section>
   </div>
 
