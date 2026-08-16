@@ -8,6 +8,7 @@ import http.server
 import pathlib
 import shlex
 import subprocess
+import tempfile
 import threading
 import urllib.parse
 
@@ -77,6 +78,9 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
     origin = f"http://127.0.0.1:{server.server_port}"
     base_url = f"{origin}/wavepeek/"
     demo_dir = site / "wavepeek" / "assets" / "playground"
+    local_temp = tempfile.TemporaryDirectory(dir=site)
+    local_dir = pathlib.Path(local_temp.name)
+    (local_dir / "local.vcd").write_bytes(VCD)
 
     try:
         with sync_playwright() as playwright:
@@ -299,6 +303,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "info --waves scr1_axi.fst",
                 "info --waves scr1_axi.fst --json",
                 "info --waves scr1_axi.fst --jsonl",
+                'scope --waves scr1_axi.fst --filter ".*i_top.*" --max-depth 3 --tree',
+                "signal --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --filter ^clk$",
+                "value --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --signals i_timer.timer_val,i_timer.timer_en --at 66ns",
+                'change --waves scr1_axi.fst --to 100ns --scope TOP.scr1_top_tb_axi.i_top.i_timer --signals clk --on "*" --sample-mode native --max 3',
+                'property --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top.i_core_top --on "posedge clk" --eval "sys_rst_n_o == 0" --capture deassert --from 610ns --to 660ns',
+                'extract generic --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top --on "posedge clk" --when "io_axi_dmem_arvalid && io_axi_dmem_arready" --payload io_axi_dmem_araddr,io_axi_dmem_arlen --max 3',
                 (
                     "extract axi --waves scr1_axi.fst "
                     "--scope TOP.scr1_top_tb_axi.i_top --include '^io_axi_dmem_' "
@@ -318,6 +328,16 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 )
                 assert page.locator("#transcript").evaluate("element => element.scrollTop") == 0
                 assert "Exit" not in entry.text_content()
+
+            failure_command = (
+                "value --waves scr1_axi.fst --scope TOP.scr1_top_tb_axi.i_top "
+                "--signals missing_signal --at 66ns"
+            )
+            status, stdout, stderr, failed = run_browser(page, failure_command)
+            assert (status, stdout, stderr) == run_native(
+                native_bin, demo_dir, failure_command
+            )
+            assert status == 1
 
             status, _, stderr, failed = run_browser(
                 page,
@@ -423,8 +443,18 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert local_surfer_url.netloc == "app.surfer-project.org"
             assert not local_surfer_url.query
             requests.clear()
-            status, stdout, _, _ = run_browser(page, "info --waves local.vcd")
-            assert status == 0 and "time_unit: 1ns" in stdout
+            local_commands = [
+                "info --waves local.vcd",
+                "scope --waves local.vcd --tree",
+                "signal --waves local.vcd --scope top",
+                "value --waves local.vcd --scope top --signals clk --at 5ns",
+                'change --waves local.vcd --scope top --signals clk --on "*" --sample-mode native --max unlimited',
+                'property --waves local.vcd --scope top --on "*" --eval "clk == 1" --capture match --max unlimited',
+                'extract generic --waves local.vcd --scope top --on "*" --when "clk == 1" --payload clk --max unlimited',
+            ]
+            for command in local_commands:
+                status, stdout, stderr, _ = run_browser(page, command)
+                assert (status, stdout, stderr) == run_native(native_bin, local_dir, command)
             assert not [url for url in requests if not url.startswith(origin)]
 
             page.reload(wait_until="networkidle")
@@ -500,12 +530,37 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             page.locator("#source-status").filter(has_text="Ready").wait_for()
             assert page.locator('[data-status="running"]').count() == 0
 
+            page.locator("#command-line").fill("info --waves --json")
             page.locator("#use-demo").click()
             page.locator("#source-status").filter(has_text="Ready").wait_for()
+            assert page.locator("#command-line").input_value() == (
+                "info --waves scr1_axi.fst --json"
+            )
             assert page.locator("#use-demo").get_attribute("aria-pressed") == "true"
             assert page.locator("#open-local").get_attribute("aria-pressed") == "false"
+
+            page.evaluate(
+                """() => {
+                    window.RealWorker = window.Worker;
+                    window.Worker = class { constructor() { throw new Error('workers disabled'); } };
+                }"""
+            )
+            status, _, stderr, worker_failure = run_browser(page, commands[0])
+            assert status == 1
+            assert "Could not start browser worker: workers disabled" in stderr
+            assert worker_failure.get_attribute("data-status") == "error"
+            assert page.locator("#run").text_content() == "Run"
+            page.evaluate("() => { window.Worker = window.RealWorker; }")
+
             recovered = run_browser(page, commands[0])
             assert recovered[0] == 0
+            status, stdout, _, pasted = run_browser(
+                page, "wavepeek info --waves scr1_axi.fst"
+            )
+            assert status == 0 and "time_unit:" in stdout
+            assert pasted.locator("code").text_content() == (
+                "$ wavepeek info --waves scr1_axi.fst"
+            )
 
             terminal = page.locator(".playground__terminal").bounding_box()
             sidebar = page.locator(".playground__sidebar").bounding_box()
@@ -628,6 +683,7 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
         server.shutdown()
         server.server_close()
         thread.join()
+        local_temp.cleanup()
 
 
 def main() -> int:

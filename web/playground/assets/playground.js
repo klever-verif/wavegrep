@@ -44,7 +44,6 @@ const outputModes = [...document.querySelectorAll('input[name="output-mode"]')];
 let activeSource;
 let worker;
 let runningId = 0;
-let runningCommand = "";
 let runningEntry;
 let runningStarted = 0;
 let commandHistory = [];
@@ -106,7 +105,8 @@ function setOption(tokens, option, value) {
   for (let index = tokens.length - 1; index >= 1; index -= 1) {
     if (tokens[index] === option) {
       insertion = index;
-      tokens.splice(index, index + 1 < tokens.length ? 2 : 1);
+      const hasValue = index + 1 < tokens.length && !tokens[index + 1].startsWith("-");
+      tokens.splice(index, hasValue ? 2 : 1);
     } else if (tokens[index].startsWith(`${option}=`)) {
       insertion = index;
       tokens.splice(index, 1);
@@ -116,7 +116,9 @@ function setOption(tokens, option, value) {
 }
 
 function currentTokens() {
-  return ["wavepeek", ...tokenize(elements["command-line"].value)];
+  const tokens = tokenize(elements["command-line"].value);
+  if (tokens[0] === "wavepeek") tokens.shift();
+  return ["wavepeek", ...tokens];
 }
 
 function resizeCommandLine() {
@@ -363,7 +365,6 @@ function runCommand(remember = true) {
   }
 
   runningId += 1;
-  runningCommand = renderCommand(argv);
   if (remember) {
     if (commandHistory.at(-1) !== elements["command-line"].value) {
       commandHistory.push(elements["command-line"].value);
@@ -372,9 +373,14 @@ function runCommand(remember = true) {
     historyIndex = null;
   }
   runningStarted = performance.now();
-  runningEntry = startTranscriptEntry(runningCommand);
+  runningEntry = startTranscriptEntry(renderCommand(argv));
   setRunning(true);
-  ensureWorker().postMessage({ type: "run", id: runningId, argv });
+  try {
+    ensureWorker().postMessage({ type: "run", id: runningId, argv });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    finishWithError(`Could not start browser worker: ${message}`);
+  }
 }
 
 function stopCommand() {

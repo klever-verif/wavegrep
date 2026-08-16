@@ -501,6 +501,8 @@ fn scope_json_ignores_tree_flag_without_extra_warning() {
             fixture.as_str(),
             "--json",
             "--tree",
+            "--filter",
+            "^top\\.cpu$",
             "--max",
             "50",
         ])
@@ -513,12 +515,10 @@ fn scope_json_ignores_tree_flag_without_extra_warning() {
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
         value["data"],
-        json!([
-            { "path": "top", "depth": 0, "kind": "module" },
-            { "path": "top.cpu", "depth": 1, "kind": "module" },
-            { "path": "top.mem", "depth": 1, "kind": "module" }
-        ])
+        json!([{ "path": "top.cpu", "depth": 1, "kind": "module" }])
     );
+    assert_eq!(value["summary"]["returned"], 1);
+    assert_eq!(value["summary"]["total"], 1);
 }
 
 #[test]

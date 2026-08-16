@@ -13,7 +13,7 @@ async function loadWasm() {
 
 self.addEventListener("message", async ({ data }) => {
   if (data.type === "source") {
-    source = { name: data.name, bytes: new Uint8Array(data.bytes) };
+    source = { name: data.name, bytes: data.bytes };
     self.postMessage({ type: "source-ready" });
     return;
   }

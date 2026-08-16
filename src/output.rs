@@ -727,9 +727,16 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
 
     let mut lines = Vec::with_capacity(scopes.len());
     let mut ancestor_last = Vec::new();
+    let mut ancestor_paths: Vec<&str> = Vec::new();
 
     for (index, entry) in scopes.iter().enumerate() {
-        let label = entry.path.rsplit('.').next().unwrap_or(entry.path.as_str());
+        let label = entry
+            .depth
+            .checked_sub(1)
+            .and_then(|depth| ancestor_paths.get(depth))
+            .and_then(|parent| entry.path.strip_prefix(*parent))
+            .and_then(|suffix| suffix.strip_prefix('.'))
+            .unwrap_or(entry.path.as_str());
         let scope_label = format!("{label} kind={}", entry.kind);
         let is_last = scope_entry_is_last_sibling(scopes, index);
 
@@ -754,6 +761,8 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
 
         ancestor_last.truncate(entry.depth);
         ancestor_last.push(is_last);
+        ancestor_paths.truncate(entry.depth);
+        ancestor_paths.push(entry.path.as_str());
     }
 
     lines.join("\n")
@@ -1169,6 +1178,30 @@ mod tests {
             rendered,
             "top kind=module\n├── cpu kind=module\n│   ├── alu kind=function\n│   └── regs kind=module\n└── mem kind=module"
         );
+    }
+
+    #[test]
+    fn scope_tree_preserves_dots_in_escaped_local_names() {
+        let rendered = render_human(
+            &CommandData::Scope(vec![
+                crate::engine::scope::ScopeEntry {
+                    path: "top".to_string(),
+                    depth: 0,
+                    kind: "module".to_string(),
+                },
+                crate::engine::scope::ScopeEntry {
+                    path: "top.\\foo.bar".to_string(),
+                    depth: 1,
+                    kind: "module".to_string(),
+                },
+            ]),
+            HumanRenderOptions {
+                scope_tree: true,
+                signals_abs: false,
+            },
+        );
+
+        assert_eq!(rendered, "top kind=module\n└── \\foo.bar kind=module");
     }
 
     #[test]
