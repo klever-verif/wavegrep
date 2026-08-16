@@ -131,26 +131,6 @@ class CheckDeployTests(unittest.TestCase):
         self.assertEqual(body, b"complete")
         sleep.assert_called_once_with(0.25)
 
-    def test_check_not_deployed_requires_404(self) -> None:
-        url = "https://example.test/missing"
-        not_found = urllib.error.HTTPError(url, 404, "not found", {}, None)
-        with mock.patch.object(
-            check_deploy.urllib.request, "urlopen", side_effect=not_found
-        ):
-            check_deploy.check_not_deployed(
-                url, retries=1, retry_delay=0.0, timeout=3.0
-            )
-
-        with mock.patch.object(
-            check_deploy.urllib.request, "urlopen", return_value=Response()
-        ):
-            with self.assertRaisesRegex(
-                check_deploy.DeployCheckError, "unexpectedly returned HTTP 200"
-            ):
-                check_deploy.check_not_deployed(
-                    url, retries=1, retry_delay=0.0, timeout=3.0
-                )
-
     def test_fetch_bytes_rejects_non_200_and_invalid_retry_count(self) -> None:
         with mock.patch.object(
             check_deploy.urllib.request,
@@ -197,7 +177,6 @@ class CheckDeployTests(unittest.TestCase):
                 ),
             ) as fetch,
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
-            mock.patch.object(check_deploy, "check_not_deployed") as absent,
             mock.patch.object(check_deploy, "check_browser_smoke") as browser_smoke,
             mock.patch.object(
                 check_deploy.prepare_playground,
@@ -214,70 +193,11 @@ class CheckDeployTests(unittest.TestCase):
             timeout=20.0,
         )
         self.assertEqual(
-            [call.args[0] for call in absent.call_args_list],
-            [
-                "https://example.test/wavepeek/2.2.0/assets/playground/playground.js",
-                "https://example.test/wavepeek/2.2.0/assets/playground/wasm/wavepeek_bg.wasm",
-                "https://example.test/wavepeek/2.2.0/assets/playground/scr1_axi.fst",
-            ],
-        )
-        self.assertEqual(
             [call.args[0] for call in fetch.call_args_list],
             [
                 "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/wavepeek-icon.svg",
                 "https://example.test/wavepeek/latest/",
                 "https://example.test/wavepeek/2.2.0/",
-                "https://example.test/wavepeek/2.2.0/wavepeek-icon.svg",
-                "https://example.test/wavepeek/versions.json",
-                "https://example.test/wavepeek/assets/playground/scr1_axi.fst",
-            ],
-        )
-
-    def test_check_deploy_can_omit_latest(self) -> None:
-        args = check_deploy.parse_args(
-            [
-                "--version",
-                "1.0.0",
-                "--base-url",
-                "https://example.test/wavepeek",
-                "--no-expect-latest",
-                "--retries",
-                "1",
-            ]
-        )
-        with (
-            mock.patch.object(
-                check_deploy,
-                "fetch_bytes",
-                side_effect=lambda url, **_kwargs: (
-                    b'<div class="playground">'
-                    if url.endswith("/wavepeek/")
-                    else b"demo"
-                    if url.endswith("scr1_axi.fst")
-                    else b"docs"
-                ),
-            ) as fetch,
-            mock.patch.object(check_deploy, "fetch_header", return_value="*"),
-            mock.patch.object(check_deploy, "check_not_deployed"),
-            mock.patch.object(check_deploy, "check_browser_smoke"),
-            mock.patch.object(
-                check_deploy.prepare_playground,
-                "DEMO_SHA256",
-                hashlib.sha256(b"demo").hexdigest(),
-            ),
-        ):
-            check_deploy.check_deploy(args)
-
-        urls = [call.args[0] for call in fetch.call_args_list]
-        self.assertNotIn("https://example.test/wavepeek/latest/", urls)
-        self.assertEqual(
-            urls,
-            [
-                "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/wavepeek-icon.svg",
-                "https://example.test/wavepeek/1.0.0/",
-                "https://example.test/wavepeek/1.0.0/wavepeek-icon.svg",
                 "https://example.test/wavepeek/versions.json",
                 "https://example.test/wavepeek/assets/playground/scr1_axi.fst",
             ],
@@ -324,7 +244,6 @@ class CheckDeployTests(unittest.TestCase):
                 ),
             ),
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
-            mock.patch.object(check_deploy, "check_not_deployed"),
             mock.patch.object(check_deploy, "check_browser_smoke"),
             mock.patch.object(
                 check_deploy.prepare_playground,

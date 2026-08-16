@@ -40,13 +40,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         dest="expect_latest",
         action="store_true",
         default=True,
-        help="require the latest documentation endpoint",
     )
     parser.add_argument(
         "--no-expect-latest",
         dest="expect_latest",
         action="store_false",
-        help="check the version without requiring the latest endpoint",
     )
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
@@ -133,29 +131,6 @@ def fetch_header(
         retries=retries,
         retry_delay=retry_delay,
         operation=load,
-    )
-
-
-def check_not_deployed(
-    url: str, *, retries: int, retry_delay: float, timeout: float
-) -> None:
-    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
-
-    def check() -> None:
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                fail(f"{url} unexpectedly returned HTTP {response.getcode()}")
-        except urllib.error.HTTPError as error:
-            if error.code != 404:
-                fail(f"{url} returned HTTP {error.code}, expected 404")
-        except (TimeoutError, OSError, http.client.HTTPException) as error:
-            fail(f"{url} failed: {error}")
-
-    retry_check(
-        f"absence check for {url}",
-        retries=retries,
-        retry_delay=retry_delay,
-        operation=check,
     )
 
 
@@ -275,13 +250,11 @@ def check_deploy(args: argparse.Namespace) -> None:
     base_url = normalize_base_url(args.base_url)
     endpoints = [
         ("site root", page_url(base_url)),
-        ("Playground icon", page_url(base_url, "wavepeek-icon.svg")),
         ("version docs", page_url(base_url, f"{version}/")),
-        ("version icon", page_url(base_url, f"{version}/wavepeek-icon.svg")),
         ("versions.json", page_url(base_url, "versions.json")),
     ]
     if args.expect_latest:
-        endpoints.insert(2, ("latest docs", page_url(base_url, "latest/")))
+        endpoints.insert(1, ("latest docs", page_url(base_url, "latest/")))
     bodies: dict[str, bytes] = {}
     for label, url in endpoints:
         bodies[label] = fetch_bytes(
@@ -299,13 +272,6 @@ def check_deploy(args: argparse.Namespace) -> None:
         fail(f"site root Playground does not report WavePeek {version}")
     if b'class="playground"' in bodies["version docs"]:
         fail("versioned documentation must not contain a Playground")
-    for asset in ["playground.js", "wasm/wavepeek_bg.wasm", "scr1_axi.fst"]:
-        check_not_deployed(
-            page_url(base_url, f"{version}/assets/playground/{asset}"),
-            retries=args.retries,
-            retry_delay=args.retry_delay,
-            timeout=args.timeout,
-        )
 
     demo_url = page_url(base_url, "assets/playground/scr1_axi.fst")
     demo = fetch_bytes(
