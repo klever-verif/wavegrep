@@ -52,8 +52,6 @@ The release workflow renders notes through the helper group owned by `tools/rele
 
 The docs workflow keeps `gh-pages` as the cumulative versioned-documentation state branch, but the public Pages deployment is performed through GitHub Pages Actions (`actions/upload-pages-artifact` and `actions/deploy-pages`). The branch root contains one replaceable latest Playground; historical repairs leave it unchanged. A branch push alone does not deploy Pages.
 
-Immediately before the first v3 documentation publication, make one reviewed manual `gh-pages` reset commit. Remove pre-v3 version directories, `latest`, old generated documentation/schema assets, and their `versions.json` entries; retain `.nojekyll` and root installer entrypoints, and leave `versions.json` as `[]`. Push that state commit without deploying it, then run the normal v3 release/docs workflow. The workflow rejects any remaining pre-v3 version directory and publishes the coherent v3 Playground/docs artifact. No reusable reset mode is required.
-
 Normal releases do not need local downstream dispatch commands because `.github/workflows/release.yml` dispatches `.github/workflows/docs.yml` and `.github/workflows/publish-crate.yml` on the default branch after the GitHub Release is created. For manual docs repair, first-time bootstrap, or troubleshooting, dispatch the remote docs workflow explicitly from an up-to-date trusted branch:
 
     gh workflow run docs.yml --repo kleverhq/wavepeek --ref main -f version=X.Y.Z -f source_ref=vX.Y.Z -f repair_existing_version=false
