@@ -63,8 +63,9 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-16 04:49Z) Ran three parallel Luna max-thinking comprehensive reviews: browser integration in WavePeek core, filtered scope-tree behavior, and the Playground/docs/publication product; every reviewer covered architecture, correctness, documentation, performance, security, tests, KISS, YAGNI, and ponytail-review.
 - [x] (2026-08-16 04:58Z) Resolved all confirmed Luna findings: stderr write attribution, atomic/error-safe source loading and races, startup history purity, manual local-file Surfer guidance, and a real post-deployment browser/WASM smoke. Focused Rust, auxiliary, Actions, Playground, and local deployed-smoke checks pass.
 - [x] (2026-08-16 05:10Z) Ran three parallel Terra high-thinking comprehensive reviews over the same milestones and resolved every confirmed finding: removed a Worker byte copy and transient command global, expanded native/browser parity across all supported command families and ordinary failures on VCD/FST, preserved escaped dotted scope labels, locked flat machine scope summaries, accepted pasted `wavepeek` commands, preserved valueless options during source synchronization, and recovered from Worker construction failures. Focused Rust and browser checks pass.
-- [ ] Run one independent Sol high-thinking control review over the consolidated branch and resolve any confirmed findings.
-- [ ] Run final `just ci` and `just check`, remove branch-local WIP artifacts, push the reviewed branch, and open a PR against `dev3`.
+- [x] (2026-08-16 05:16Z) Ran one fresh Sol high-thinking control review over the consolidated branch and all three milestones. It reported no substantive findings; ponytail-review returned `Lean already. Ship.`
+- [x] (2026-08-16 05:17Z) Passed final `just ci` and `just check`, including coverage, native tests, FSDB checks, composed docs/Playground publication, browser/WASM parity, and pre-commit validation.
+- [ ] Remove branch-local WIP artifacts, push the reviewed branch, and open a PR against `dev3`.
 
 ## Surprises & Discoveries
 
