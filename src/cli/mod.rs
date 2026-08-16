@@ -10,6 +10,7 @@ pub mod skill;
 pub mod value;
 
 use std::ffi::{OsStr, OsString};
+use std::io::Write;
 
 use clap::error::ErrorKind;
 use clap::parser::ValueSource;
@@ -78,7 +79,7 @@ Behavior:
 - Finds all scopes matching `--filter` and displays scope name, depth, and kind.
 - Traversal order is stable: pre-order depth-first, with lexicographic child ordering.
 - Includes stable scope kind aliases from hierarchy data (not only modules); excluded backend-specific spellings are normalized to the stable contract surface.
-- `--tree` switches from flat list to visual hierarchy rendering.
+- `--tree` switches from flat list to visual hierarchy rendering and includes filtered matches' ancestors up to the root.
 - Truncation emits a coded diagnostic; without `--summary`, an empty valid human result prints a short message on stdout.
 - `--json` emits the standard machine-readable envelope.
 
@@ -196,6 +197,16 @@ const OPTIONAL_FEATURES: &[OptionalFeatureHelp] = &[OptionalFeatureHelp {
 }];
 
 const ROOT_NEXT_STEPS: &str = "Next steps:\n  wavepeek --help\n  wavepeek help <command-path...>\n  wavepeek skill <DIRECTORY>";
+const BROWSER_LONG_ABOUT: &str = r#"wavepeek is a machine-friendly command-line tool for RTL waveform inspection.
+
+Browser conventions:
+- Waveform-inspection commands require `--waves <FILE>` matching the active demo or local file.
+- VCD/FST input is processed locally in this browser worker.
+- FSDB input, `skill`, and extraction `--source <FILE>` options are not supported.
+- Output and time conventions match the native WavePeek CLI."#;
+const BROWSER_HELP_TEMPLATE: &str = "{about-with-newline}\nUsage: {usage}\n\nWaveform commands:\n  info      Show waveform metadata\n  scope     Explore hierarchy scopes\n  signal    Explore signals within scope\n  value     Get signal values at explicit time point(s)\n  change    List signal changes over a time range\n  property  Evaluate properties over a time range\n  extract   Extract event rows from waveform signals\n\nHelper commands:\n  help      Show help for the given subcommand(s)\n\nOptions:\n{options}{after-help}";
+const BROWSER_NEXT_STEPS: &str =
+    "Browser limits: FSDB input, skill, and extraction --source files are unavailable.";
 
 fn root_after_long_help() -> String {
     let mut help = String::from("Optional features:\n");
@@ -239,24 +250,49 @@ impl From<WavepeekError> for CliFailure {
 }
 
 pub(crate) fn run(report_machine_errors: bool) -> Result<(), CliFailure> {
-    let argv: Vec<_> = std::env::args_os().collect();
+    run_from(
+        std::env::args_os().collect(),
+        &mut std::io::stdout().lock(),
+        &mut std::io::stderr().lock(),
+        report_machine_errors,
+        false,
+    )
+}
+
+pub(crate) fn run_from(
+    argv: Vec<OsString>,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+    report_machine_errors: bool,
+    browser: bool,
+) -> Result<(), CliFailure> {
     let (selection, argv) = extract_output_selection(argv);
 
-    match execute(argv, selection, report_machine_errors) {
+    match execute(
+        argv,
+        selection,
+        stdout,
+        stderr,
+        report_machine_errors,
+        browser,
+    ) {
         Ok(()) => Ok(()),
         Err(CliFailure {
             error: WavepeekError::BrokenPipe,
             ..
         }) if report_machine_errors => Ok(()),
         Err(failure) if failure.reported || !report_machine_errors => Err(failure),
-        Err(failure) => report_failure(selection.mode, failure.error),
+        Err(failure) => report_failure(selection.mode, failure.error, stdout),
     }
 }
 
 fn execute(
     argv: Vec<OsString>,
     selection: OutputSelection,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
     report_machine_errors: bool,
+    browser: bool,
 ) -> Result<(), CliFailure> {
     if selection.mode != OutputMode::Human {
         if selection.json > 1 {
@@ -290,9 +326,9 @@ fn execute(
         argv
     };
 
-    let matches = match build_cli_command().try_get_matches_from(parse_argv) {
+    let matches = match build_cli_command_for(browser).try_get_matches_from(parse_argv) {
         Ok(matches) => matches,
-        Err(error) => return handle_parse_error(error).map_err(Into::into),
+        Err(error) => return handle_parse_error(error, stdout).map_err(Into::into),
     };
 
     if change_tune_overrides_requested(&matches) && !is_debug_mode_enabled() {
@@ -305,16 +341,16 @@ fn execute(
 
     let cli = match Cli::from_arg_matches(&matches) {
         Ok(cli) => cli,
-        Err(error) => return handle_parse_error(error).map_err(Into::into),
+        Err(error) => return handle_parse_error(error, stdout).map_err(Into::into),
     };
 
     if cli.version_semver {
-        output::write_stdout(env!("CARGO_PKG_VERSION"))?;
+        output::write_to(stdout, env!("CARGO_PKG_VERSION"))?;
         return Ok(());
     }
 
     if cli.version_full {
-        output::write_stdout(concat!("wavepeek v", env!("CARGO_PKG_VERSION")))?;
+        output::write_to(stdout, concat!("wavepeek v", env!("CARGO_PKG_VERSION")))?;
         return Ok(());
     }
 
@@ -322,14 +358,24 @@ fn execute(
         return Err(WavepeekError::Args("a waveform command is required".to_string()).into());
     };
 
-    dispatch(command, selection.mode, report_machine_errors)
+    dispatch(
+        command,
+        selection.mode,
+        stdout,
+        stderr,
+        report_machine_errors,
+    )
 }
 
-fn report_failure(mode: OutputMode, error: WavepeekError) -> Result<(), CliFailure> {
+fn report_failure(
+    mode: OutputMode,
+    error: WavepeekError,
+    stdout: &mut dyn Write,
+) -> Result<(), CliFailure> {
     let reported = match mode {
         OutputMode::Human => return Err(error.into()),
-        OutputMode::Json => output::write_json_fatal(&error),
-        OutputMode::Jsonl => output::write_jsonl_fatal(&error),
+        OutputMode::Json => output::write_json_fatal_to(&error, stdout),
+        OutputMode::Jsonl => output::write_jsonl_fatal_to(&error, stdout),
     };
 
     match reported {
@@ -417,6 +463,10 @@ fn is_command_line_override(matches: &clap::ArgMatches, arg: &str) -> bool {
 }
 
 fn build_cli_command() -> clap::Command {
+    build_cli_command_for(false)
+}
+
+fn build_cli_command_for(browser: bool) -> clap::Command {
     let mut command = Cli::command().after_long_help(root_after_long_help());
     if let Some(help) = command.find_subcommand_mut("help") {
         *help = help.clone().about("Show help for the given subcommand(s)");
@@ -427,18 +477,39 @@ fn build_cli_command() -> clap::Command {
         }
     }
     if let Some(extract) = command.find_subcommand_mut("extract") {
-        if let Some(apb) = extract.find_subcommand_mut("apb") {
-            *apb = with_other_help_options(apb.clone());
+        for name in ["ahb", "apb", "atb", "axi", "axistream", "generic"] {
+            if let Some(subcommand) = extract.find_subcommand_mut(name) {
+                let mut updated = with_other_help_options(subcommand.clone());
+                if browser {
+                    updated = updated.mut_arg("source", |arg| arg.hide(true));
+                    if let Some(help) = updated.get_long_about() {
+                        let help = help
+                            .to_string()
+                            .lines()
+                            .filter(|line| {
+                                let line = line.to_ascii_lowercase();
+                                !line.contains("source file")
+                                    && !line.contains("source-file")
+                                    && !line.contains("--source")
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        updated = updated.long_about(help);
+                    }
+                }
+                *subcommand = updated;
+            }
         }
-        if let Some(axi) = extract.find_subcommand_mut("axi") {
-            *axi = with_other_help_options(axi.clone());
+    }
+    if browser {
+        if let Some(skill) = command.find_subcommand_mut("skill") {
+            *skill = skill.clone().hide(true);
         }
-        if let Some(axistream) = extract.find_subcommand_mut("axistream") {
-            *axistream = with_other_help_options(axistream.clone());
-        }
-        if let Some(generic) = extract.find_subcommand_mut("generic") {
-            *generic = with_other_help_options(generic.clone());
-        }
+        command = command
+            .long_about(BROWSER_LONG_ABOUT)
+            .help_template(BROWSER_HELP_TEMPLATE)
+            .after_help(BROWSER_NEXT_STEPS)
+            .after_long_help(BROWSER_NEXT_STEPS);
     }
     command
 }
@@ -462,11 +533,11 @@ fn with_other_help_options(command: clap::Command) -> clap::Command {
         )
 }
 
-fn handle_parse_error(error: clap::Error) -> Result<(), WavepeekError> {
+fn handle_parse_error(error: clap::Error, stdout: &mut dyn Write) -> Result<(), WavepeekError> {
     match error.kind() {
-        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
-            error.print().map_err(output::map_stdout_io_error)
-        }
+        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => stdout
+            .write_all(error.render().to_string().as_bytes())
+            .map_err(output::map_stdout_io_error),
         _ => Err(WavepeekError::Args(normalize_clap_error(&error))),
     }
 }
@@ -572,6 +643,8 @@ fn help_hint_for_rendered_clap_error(rendered: &str) -> String {
 fn dispatch(
     command: Command,
     output_mode: OutputMode,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
     report_machine_errors: bool,
 ) -> Result<(), CliFailure> {
     let mut engine_command = into_engine_command(command);
@@ -584,8 +657,7 @@ fn dispatch(
     engine_command.set_output_mode(output_mode);
 
     if output_mode == OutputMode::Jsonl {
-        let stdout = std::io::stdout();
-        let mut writer = JsonlWriter::new(stdout.lock(), engine_command.name());
+        let mut writer = JsonlWriter::new(stdout, engine_command.name());
         return match engine::run_jsonl(engine_command, &mut writer) {
             Ok(()) => Ok(()),
             Err(WavepeekError::BrokenPipe) => Err(WavepeekError::BrokenPipe.into()),
@@ -601,7 +673,7 @@ fn dispatch(
     }
 
     let result = engine::run(engine_command)?;
-    output::write(result).map_err(Into::into)
+    output::write_result_to(result, stdout, stderr).map_err(Into::into)
 }
 
 fn into_engine_command(command: Command) -> EngineCommand {
@@ -1050,7 +1122,8 @@ mod tests {
         let help_error = Cli::command()
             .try_get_matches_from(["wavepeek", "info", "--help"])
             .expect_err("--help should short-circuit through clap");
-        handle_parse_error(help_error).expect("display-help errors should print cleanly");
+        handle_parse_error(help_error, &mut Vec::new())
+            .expect("display-help errors should print cleanly");
 
         assert_eq!(
             clap_error_detail("plain fallback detail"),

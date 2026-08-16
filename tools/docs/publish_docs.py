@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 import prepare_mkdocs
+import prepare_playground
 
 VERSION_RE = re.compile(r"^(?P<major>0|[1-9][0-9]*)\.(?P<minor>0|[1-9][0-9]*)\.(?P<patch>0|[1-9][0-9]*)$")
 TAG_RE = re.compile(r"^v(?P<version>(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$")
@@ -31,6 +32,27 @@ INSTALLER_ENTRYPOINTS = {
     "wavepeek-installer.sh": "install.sh",
     "wavepeek-installer.ps1": "install.ps1",
 }
+PLAYGROUND_ROOT_PATHS = (
+    "index.html",
+    "404.html",
+    "assets",
+    "monochrome.css",
+    "install-strip.js",
+    "wavepeek-icon.svg",
+    "search",
+    "sitemap.xml",
+    "sitemap.xml.gz",
+)
+PLAYGROUND_REQUIRED_FILES = (
+    "index.html",
+    "install-strip.js",
+    "wavepeek-icon.svg",
+    "assets/playground/playground.js",
+    "assets/playground/worker.js",
+    "assets/playground/wasm/wavepeek.js",
+    "assets/playground/wasm/wavepeek_bg.wasm",
+    "assets/playground/scr1_axi.fst",
+)
 PUSH_TOKEN_ENV = {
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -49,6 +71,11 @@ class Paths:
     skill_dir: pathlib.Path
     mkdocs_src: pathlib.Path
     mkdocs_config: pathlib.Path
+    playground_target: pathlib.Path
+    playground_wasm: pathlib.Path
+    playground_src: pathlib.Path
+    playground_config: pathlib.Path
+    playground_site: pathlib.Path
     source_worktree: pathlib.Path
     gh_pages_worktree: pathlib.Path
     metadata: pathlib.Path
@@ -126,6 +153,11 @@ def paths(work_dir: pathlib.Path) -> Paths:
         skill_dir=work_dir / "skill",
         mkdocs_src=work_dir / "mkdocs-src",
         mkdocs_config=work_dir / "mkdocs.yml",
+        playground_target=work_dir / "playground-target",
+        playground_wasm=work_dir / "playground-wasm",
+        playground_src=work_dir / "playground-src",
+        playground_config=work_dir / "playground.yml",
+        playground_site=work_dir / "playground-site",
         source_worktree=work_dir / "source",
         gh_pages_worktree=work_dir / "gh-pages",
         metadata=work_dir / METADATA_NAME,
@@ -244,6 +276,60 @@ def build_mkdocs(run_paths: Paths, version: str, runner: CommandRunner) -> str:
     return wavepeek_version
 
 
+def build_playground(
+    source_root: pathlib.Path,
+    run_paths: Paths,
+    version: str,
+    runner: CommandRunner,
+) -> None:
+    clean_owned_path(run_paths.playground_target)
+    clean_owned_path(run_paths.playground_wasm)
+    runner.run(
+        [
+            "cargo",
+            "build",
+            "--locked",
+            "--release",
+            "--target",
+            "wasm32-unknown-unknown",
+            "--lib",
+            "--manifest-path",
+            source_root / "Cargo.toml",
+            "--target-dir",
+            run_paths.playground_target,
+        ],
+        env=child_env_without_push_tokens(),
+    )
+    runner.run(
+        [
+            "wasm-bindgen",
+            "--target",
+            "web",
+            "--no-typescript",
+            "--out-dir",
+            run_paths.playground_wasm,
+            run_paths.playground_target
+            / "wasm32-unknown-unknown"
+            / "release"
+            / "wavepeek.wasm",
+        ],
+        env=child_env_without_push_tokens(),
+    )
+    prepare_playground.prepare_tree(
+        source_root,
+        run_paths.playground_wasm,
+        run_paths.playground_src,
+        run_paths.playground_config,
+        run_paths.playground_site,
+        version,
+        force=True,
+    )
+    runner.run(
+        ["mkdocs", "build", "--strict", "--config-file", run_paths.playground_config],
+        env=child_env_without_push_tokens(),
+    )
+
+
 def resolve_source_root(
     *,
     source_root: pathlib.Path | None,
@@ -286,6 +372,7 @@ def perform_check(
             fail(f"Cargo.toml version {source_version!r} does not match {version!r}")
         materialize_skill(actual_source_root, run_paths, runner)
         cli_version = build_mkdocs(run_paths, version, runner)
+        build_playground(actual_source_root, run_paths, version, runner)
     finally:
         if worktree_source:
             remove_git_worktree(run_paths.source_worktree, runner)
@@ -416,22 +503,6 @@ def run_mike_deploy(
     if promote_latest:
         deploy_args.append("latest")
     runner.run(deploy_args, env=child_env_without_push_tokens())
-    if promote_latest:
-        runner.run(
-            [
-                "mike",
-                "set-default",
-                "--config-file",
-                config,
-                "--branch",
-                GH_PAGES_BRANCH,
-                "--remote",
-                "origin",
-                "--ignore-remote-status",
-                "latest",
-            ],
-            env=child_env_without_push_tokens(),
-        )
 
 
 def installer_source_paths(run_paths: Paths) -> dict[str, pathlib.Path]:
@@ -465,6 +536,25 @@ def copy_installer_entrypoints(
     return copied
 
 
+def copy_current_playground(run_paths: Paths, *, promote_latest: bool) -> list[str]:
+    if not promote_latest:
+        return []
+    if not run_paths.playground_site.is_dir():
+        fail(f"missing built Playground site: {run_paths.playground_site}")
+
+    for name in PLAYGROUND_ROOT_PATHS:
+        source = run_paths.playground_site / name
+        if not source.exists():
+            fail(f"built Playground site is missing {name}")
+        target = run_paths.gh_pages_worktree / name
+        clean_owned_path(target)
+        if source.is_dir():
+            shutil.copytree(source, target)
+        else:
+            shutil.copyfile(source, target)
+    return list(PLAYGROUND_ROOT_PATHS)
+
+
 def stage_publication_artifacts(
     version: str,
     run_paths: Paths,
@@ -475,7 +565,11 @@ def stage_publication_artifacts(
     remove_git_worktree(run_paths.gh_pages_worktree, runner)
     runner.run(["git", "worktree", "add", run_paths.gh_pages_worktree, GH_PAGES_BRANCH])
     installer_paths = copy_installer_entrypoints(version, run_paths, promote_latest=promote_latest)
-    runner.run(["git", "add", *installer_paths], cwd=run_paths.gh_pages_worktree)
+    playground_paths = copy_current_playground(run_paths, promote_latest=promote_latest)
+    runner.run(
+        ["git", "add", "-A", "--", *installer_paths, *playground_paths],
+        cwd=run_paths.gh_pages_worktree,
+    )
     diff = runner.run(
         ["git", "diff", "--cached", "--quiet"],
         cwd=run_paths.gh_pages_worktree,
@@ -502,6 +596,11 @@ def allowed_path_patterns(version: str, *, promote_latest: bool) -> list[str]:
                 "404.html",
                 "sitemap.xml",
                 "sitemap.xml.gz",
+                "assets/**",
+                "monochrome.css",
+                "install-strip.js",
+                "wavepeek-icon.svg",
+                "search/**",
                 "latest/**",
                 "install.sh",
                 "install.ps1",
@@ -799,6 +898,50 @@ def verify_latest_tree_semantics(
         fail("staged gh-pages bundle changes latest docs during non-latest repair")
 
 
+def verify_no_pre_v3_docs(
+    staged_branch: str,
+    version: str,
+    runner: CommandRunner,
+) -> None:
+    if semver_key(version)[0] < 3:
+        return
+    directories = git_capture(["ls-tree", "-d", "--name-only", staged_branch], runner).splitlines()
+    stale = [
+        name
+        for name in directories
+        if VERSION_RE.fullmatch(name) and semver_key(name)[0] < 3
+    ]
+    if stale:
+        fail("staged gh-pages bundle still contains pre-v3 documentation: " + ", ".join(stale))
+
+
+def verify_current_playground(
+    *,
+    remote_base: str | None,
+    staged_branch: str,
+    promote_latest: bool,
+    runner: CommandRunner,
+) -> None:
+    if promote_latest:
+        missing = [
+            path
+            for path in PLAYGROUND_REQUIRED_FILES
+            if git_blob_id(staged_branch, path, runner) is None
+        ]
+        if missing:
+            fail("staged gh-pages bundle is missing Playground file(s): " + ", ".join(missing))
+        return
+    if remote_base is None:
+        fail("the first documentation publication must publish the Playground")
+    result = runner.run(
+        ["git", "diff", "--quiet", remote_base, staged_branch, "--", *PLAYGROUND_ROOT_PATHS],
+        check=False,
+        capture=True,
+    )
+    if result.returncode != 0:
+        fail("staged gh-pages bundle changes the current Playground during historical repair")
+
+
 def verify_installer_entrypoints(
     *,
     remote_base: str | None,
@@ -853,6 +996,13 @@ def push_staged(
         runner=runner,
     )
     verify_latest_tree_semantics(
+        remote_base=remote_base,
+        staged_branch=STAGED_BRANCH,
+        promote_latest=promote_latest,
+        runner=runner,
+    )
+    verify_no_pre_v3_docs(STAGED_BRANCH, version, runner)
+    verify_current_playground(
         remote_base=remote_base,
         staged_branch=STAGED_BRANCH,
         promote_latest=promote_latest,

@@ -150,22 +150,30 @@ fn fatal_record(
     })
 }
 
-pub fn write_json_fatal(error: &WavepeekError) -> Result<(), WavepeekError> {
+pub fn write_json_fatal_to<W: Write + ?Sized>(
+    error: &WavepeekError,
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
     let json = serde_json::to_string(&fatal_record(error, None)?)
         .map_err(|error| WavepeekError::Internal(format!("failed to serialize output: {error}")))?;
-    write_stdout(&json)
+    write_to(writer, &json)
 }
 
-pub fn write_jsonl_fatal(error: &WavepeekError) -> Result<(), WavepeekError> {
-    let stdout = io::stdout();
-    let mut writer = stdout.lock();
-    serde_json::to_writer(&mut writer, &fatal_record(error, Some(0))?)
+pub fn write_jsonl_fatal_to<W: Write + ?Sized>(
+    error: &WavepeekError,
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
+    serde_json::to_writer(&mut *writer, &fatal_record(error, Some(0))?)
         .map_err(map_jsonl_serde_error)?;
     writer.write_all(b"\n").map_err(map_stdout_io_error)?;
     writer.flush().map_err(map_stdout_io_error)
 }
 
-pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
+pub fn write_result_to<W: Write + ?Sized, E: Write + ?Sized>(
+    result: CommandResult,
+    stdout: &mut W,
+    stderr: &mut E,
+) -> Result<(), WavepeekError> {
     match result.output_mode {
         OutputMode::Human => {
             let mut output =
@@ -179,18 +187,16 @@ pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
                 output.push_str(render_summary(summary).as_str());
             }
             if !output.is_empty() {
-                write_stdout(output.as_str())?;
+                write_to(stdout, output.as_str())?;
             }
-            emit_human_diagnostics(&result.diagnostics);
-            Ok(())
+            emit_human_diagnostics(&result.diagnostics, stderr)
         }
         OutputMode::Json => {
             let json = render_json(result)?;
-            write_stdout(&json)
+            write_to(stdout, &json)
         }
         OutputMode::Jsonl => {
-            let stdout = io::stdout();
-            let mut writer = JsonlWriter::new(stdout.lock(), result.command);
+            let mut writer = JsonlWriter::new(stdout, result.command);
             write_jsonl_result(result, &mut writer)
         }
     }
@@ -308,10 +314,18 @@ fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
 }
 
 pub(crate) fn map_stdout_io_error(error: io::Error) -> WavepeekError {
+    map_io_error(error, "stdout")
+}
+
+fn map_stderr_io_error(error: io::Error) -> WavepeekError {
+    map_io_error(error, "stderr")
+}
+
+fn map_io_error(error: io::Error, channel: &str) -> WavepeekError {
     if error.kind() == io::ErrorKind::BrokenPipe {
         WavepeekError::BrokenPipe
     } else {
-        WavepeekError::Internal(format!("failed to write stdout: {error}"))
+        WavepeekError::Internal(format!("failed to write {channel}: {error}"))
     }
 }
 
@@ -713,9 +727,16 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
 
     let mut lines = Vec::with_capacity(scopes.len());
     let mut ancestor_last = Vec::new();
+    let mut ancestor_paths: Vec<&str> = Vec::new();
 
     for (index, entry) in scopes.iter().enumerate() {
-        let label = entry.path.rsplit('.').next().unwrap_or(entry.path.as_str());
+        let label = entry
+            .depth
+            .checked_sub(1)
+            .and_then(|depth| ancestor_paths.get(depth))
+            .and_then(|parent| entry.path.strip_prefix(*parent))
+            .and_then(|suffix| suffix.strip_prefix('.'))
+            .unwrap_or(entry.path.as_str());
         let scope_label = format!("{label} kind={}", entry.kind);
         let is_last = scope_entry_is_last_sibling(scopes, index);
 
@@ -740,6 +761,8 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
 
         ancestor_last.truncate(entry.depth);
         ancestor_last.push(is_last);
+        ancestor_paths.truncate(entry.depth);
+        ancestor_paths.push(entry.path.as_str());
     }
 
     lines.join("\n")
@@ -767,18 +790,23 @@ fn signal_display_name(entry: &crate::engine::signal::SignalEntry, abs: bool) ->
     }
 }
 
-fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
+fn emit_human_diagnostics<W: Write + ?Sized>(
+    diagnostics: &[Diagnostic],
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
     for diagnostic in diagnostics {
         match diagnostic.kind() {
-            DiagnosticKind::Info => eprintln!("info: {}", diagnostic.message()),
-            DiagnosticKind::Warning => eprintln!(
+            DiagnosticKind::Info => writeln!(writer, "info: {}", diagnostic.message()),
+            DiagnosticKind::Warning => writeln!(
+                writer,
                 "warning[{}]: {}",
                 diagnostic
                     .code()
                     .expect("warning diagnostics must have stable codes"),
                 diagnostic.message()
             ),
-            DiagnosticKind::Error => eprintln!(
+            DiagnosticKind::Error => writeln!(
+                writer,
                 "error[{}]: {}",
                 diagnostic
                     .code()
@@ -786,12 +814,15 @@ fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
                 diagnostic.message()
             ),
         }
+        .map_err(map_stderr_io_error)?;
     }
+    writer.flush().map_err(map_stderr_io_error)
 }
 
-pub(crate) fn write_stdout(output: &str) -> Result<(), WavepeekError> {
-    let stdout = io::stdout();
-    let mut writer = stdout.lock();
+pub(crate) fn write_to<W: Write + ?Sized>(
+    writer: &mut W,
+    output: &str,
+) -> Result<(), WavepeekError> {
     writeln!(writer, "{}", output.strip_suffix('\n').unwrap_or(output)).map_err(map_stdout_io_error)
 }
 
@@ -811,7 +842,7 @@ mod tests {
 
     use super::{
         JsonlWriter, render_human, render_json, render_scope_tree, scope_entry_is_last_sibling,
-        signal_display_name, write, write_jsonl_result,
+        signal_display_name, write_jsonl_result, write_result_to,
     };
 
     #[test]
@@ -925,6 +956,43 @@ mod tests {
         fn flush(&mut self) -> io::Result<()> {
             Ok(())
         }
+    }
+
+    #[test]
+    fn human_diagnostic_write_errors_name_stderr() {
+        struct FailingSink;
+
+        impl io::Write for FailingSink {
+            fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+                Err(io::Error::other("closed"))
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let result = CommandResult {
+            command: CommandName::Scope,
+            output_mode: OutputMode::Human,
+            human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
+            data: CommandData::Scope(Vec::new()),
+            summary: None,
+            diagnostics: vec![Diagnostic::warning(
+                WarningDiagnosticCode::OutputTruncated,
+                "truncated",
+            )],
+        };
+        let error = write_result_to(result, &mut Vec::new(), &mut FailingSink)
+            .expect_err("diagnostic write should fail");
+
+        assert!(matches!(
+            error,
+            crate::error::WavepeekError::Internal(message)
+                if message == "failed to write stderr: closed"
+        ));
     }
 
     #[test]
@@ -1113,6 +1181,30 @@ mod tests {
     }
 
     #[test]
+    fn scope_tree_preserves_dots_in_escaped_local_names() {
+        let rendered = render_human(
+            &CommandData::Scope(vec![
+                crate::engine::scope::ScopeEntry {
+                    path: "top".to_string(),
+                    depth: 0,
+                    kind: "module".to_string(),
+                },
+                crate::engine::scope::ScopeEntry {
+                    path: "top.\\foo.bar".to_string(),
+                    depth: 1,
+                    kind: "module".to_string(),
+                },
+            ]),
+            HumanRenderOptions {
+                scope_tree: true,
+                signals_abs: false,
+            },
+        );
+
+        assert_eq!(rendered, "top kind=module\n└── \\foo.bar kind=module");
+    }
+
+    #[test]
     fn value_human_render_is_deterministic_and_compact() {
         let rendered = render_human(
             &CommandData::Value(vec![crate::engine::value::ValueSnapshot {
@@ -1249,16 +1341,22 @@ mod tests {
 
     #[test]
     fn write_entrypoint_preserves_existing_newline() {
-        write(CommandResult {
-            command: CommandName::Info,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            scope: None,
-            summary_only: false,
-            data: CommandData::Text("already-newline\n".to_string()),
-            summary: None,
-            diagnostics: Vec::new(),
-        })
+        let mut stdout = Vec::new();
+        write_result_to(
+            CommandResult {
+                command: CommandName::Info,
+                output_mode: OutputMode::Human,
+                human_options: HumanRenderOptions::default(),
+                scope: None,
+                summary_only: false,
+                data: CommandData::Text("already-newline\n".to_string()),
+                summary: None,
+                diagnostics: Vec::new(),
+            },
+            &mut stdout,
+            &mut Vec::new(),
+        )
         .expect("newline-terminated human output should not add a second newline");
+        assert_eq!(stdout, b"already-newline\n");
     }
 }

@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+
+"""Run one durable browser smoke against a composed Playground/docs site."""
+
+import argparse
+import functools
+import http.server
+import pathlib
+import shlex
+import subprocess
+import threading
+import urllib.parse
+
+from playwright.sync_api import Page, sync_playwright
+
+
+VCD = b"""$date today $end
+$version smoke $end
+$timescale 1ns $end
+$scope module top $end
+$var wire 1 ! clk $end
+$upscope $end
+$enddefinitions $end
+#0
+0!
+#5
+1!
+#10
+0!
+"""
+
+
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *_args: object) -> None:
+        pass
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--site", required=True, type=pathlib.Path)
+    parser.add_argument("--native-bin", required=True, type=pathlib.Path)
+    return parser.parse_args()
+
+
+def run_native(binary: pathlib.Path, cwd: pathlib.Path, command: str) -> tuple[int, str, str]:
+    result = subprocess.run(
+        [str(binary), *shlex.split(command)],
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode, result.stdout, result.stderr
+
+
+def run_browser(page: Page, command: str) -> tuple[int, str, str]:
+    entries = page.locator("#transcript .playground__entry")
+    before = entries.count()
+    page.locator("#command-line").fill(command)
+    page.locator("#run").click()
+    assert entries.count() == before + 1
+    entry = entries.first
+    entry.locator(".playground__duration").filter(has_not_text="Running").wait_for(
+        timeout=30_000
+    )
+    return (
+        int(entry.get_attribute("data-exit-status")),
+        entry.locator(".playground__stdout").text_content(),
+        entry.locator(".playground__stderr").text_content(),
+    )
+
+
+def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
+    assert site.is_dir(), f"site does not exist: {site}"
+    assert native_bin.is_file(), f"native binary does not exist: {native_bin}"
+
+    server = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(QuietHandler, directory=site)
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+    root = f"{origin}/wavepeek/"
+    demo_dir = site / "wavepeek" / "assets" / "playground"
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            page.goto(root, wait_until="networkidle")
+            page.locator("#source-status").filter(has_text="Ready").wait_for()
+
+            version = subprocess.run(
+                [str(native_bin), "--version"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.split()[-1].removeprefix("v")
+            assert page.locator(".playground").get_attribute("data-version") == version
+
+            info = "info --waves scr1_axi.fst"
+            assert run_browser(page, info) == run_native(native_bin, demo_dir, info)
+
+            page.locator("a", has_text="Documentation").first.click()
+            page.wait_for_url(f"{origin}/wavepeek/latest/**")
+            assert page.locator("main").text_content().strip()
+            assert page.locator(".playground").count() == 0
+
+            page.goto(root, wait_until="networkidle")
+            page.locator("#source-status").filter(has_text="Ready").wait_for()
+            requests: list[str] = []
+            page.on("request", lambda request: requests.append(request.url))
+            page.locator("#local-file").set_input_files(
+                {"name": "local.vcd", "mimeType": "text/plain", "buffer": VCD}
+            )
+            page.locator("#source-status").filter(has_text="Ready").wait_for()
+            status, stdout, stderr = run_browser(page, "info --waves local.vcd")
+            assert status == 0 and not stderr and "time_unit: 1ns" in stdout
+            assert not [
+                url
+                for url in requests
+                if urllib.parse.urlparse(url).netloc
+                != urllib.parse.urlparse(origin).netloc
+            ]
+            browser.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def main() -> int:
+    args = parse_args()
+    check(args.site.resolve(), args.native_bin.resolve())
+    print("Playground browser smoke passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

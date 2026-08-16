@@ -1,9 +1,12 @@
 site_name: wavepeek
+site_description: Deterministic RTL waveform inspection for scripts, CI, and agents.
 site_url: https://kleverhq.github.io/wavepeek/
 repo_url: https://github.com/kleverhq/wavepeek
 repo_name: kleverhq/wavepeek
 theme:
   name: material
+  logo: wavepeek-icon.svg
+  favicon: wavepeek-icon.svg
   palette:
     - media: "(prefers-color-scheme)"
       primary: black
@@ -23,17 +26,18 @@ theme:
         icon: material/brightness-4
         name: Switch to system preference
   features:
-    - navigation.instant
+    - navigation.tabs
     - navigation.sections
     - navigation.expand
 plugins:
   - search
+extra:
+  scope: /wavepeek/
 extra_css:
   - monochrome.css
+extra_javascript:
+  - install-strip.js
 markdown_extensions:
   - admonition
   - toc:
       permalink: true
-extra:
-  version:
-    provider: mike

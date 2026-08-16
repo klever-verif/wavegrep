@@ -65,6 +65,11 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.assertTrue((self.output / "index.md").is_file())
         self.assertTrue((self.output / "change.md").is_file())
         self.assertTrue((self.output / "monochrome.css").is_file())
+        self.assertTrue((self.output / "install-strip.js").is_file())
+        self.assertEqual(
+            (self.output / "wavepeek-icon.svg").read_bytes(),
+            prepare_mkdocs.SITE_ICON.read_bytes(),
+        )
         self.assertFalse((self.output / "docs.json").exists())
         config = yaml.safe_load(self.config.read_text(encoding="utf-8"))
         self.assertEqual(config["docs_dir"], "mkdocs-src")
@@ -72,9 +77,18 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.assertEqual(
             config["nav"],
             [
-                {"Start here": [{"Introduction": "index.md"}]},
-                {"Commands": [{"Change": "change.md"}]},
+                {"Playground": "/wavepeek/"},
+                {
+                    "Documentation": [
+                        {"Start here": [{"Introduction": "index.md"}]},
+                        {"Commands": [{"Change": "change.md"}]},
+                    ]
+                },
             ],
+        )
+        self.assertEqual(
+            config["extra"],
+            {"scope": "/wavepeek/", "version": {"provider": "mike"}},
         )
 
     def test_force_is_required_to_replace_outputs(self) -> None:

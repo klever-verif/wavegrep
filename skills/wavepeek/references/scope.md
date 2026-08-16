@@ -59,7 +59,7 @@ top kind=module
 └── mem kind=module
 ```
 
-Use `--tree` when you want to understand parent/child relationships at a glance.
+Use `--tree` when you want to understand parent/child relationships at a glance. When combined with `--filter`, tree output includes each matching scope's ancestors up to the dump root so the result retains its hierarchy context. These context ancestors do not count toward `--max`.
 
 ## Use JSON when another tool will consume the result
 
@@ -74,7 +74,7 @@ Use this in scripts, agents, or when you want deterministic parsing instead of h
 
 ## Watch for truncation diagnostics
 
-`scope` is bounded by default. If `--max` cuts the result, the command still succeeds but emits a diagnostic:
+`scope` is bounded by default. `--max` limits matching scopes; filtered tree ancestors are additional context. If `--max` cuts the result, the command still succeeds but emits a diagnostic:
 
 ```text
 $ wavepeek scope --waves path/to/dump.vcd --max 2

@@ -4,9 +4,9 @@
 
 ## Standard Gates
 
-Use `./dev just check` before handing off local work. It runs formatting checks, clippy, GitHub Actions linting, packaged-skill and docs-site checks, `cargo check`, commit-message validation, and the FSDB build gate when Verdi is available.
+Use `./dev just check` before handing off local work. It runs formatting checks, clippy, GitHub Actions linting, packaged-skill and docs-site checks, native/browser Playground parity, `cargo check`, commit-message validation, and the FSDB build gate when Verdi is available.
 
-Use `./dev just ci` when tests should be included. It runs formatting, lint, GitHub Actions checks, auxiliary Python unit tests, the source coverage gate, `cargo check`, packaged-skill and docs-site checks, and the FSDB regression path when Verdi is available. Unlike `check`, it does not validate the current commit message; `test-aux` still validates the FSDB benchmark catalog. The Rust test execution used by CI is the `cargo llvm-cov` run behind `just coverage-src-check`; use `just test` when you want an explicit non-coverage Rust test pass while iterating. `just test` also runs the FSDB regression path when Verdi is available.
+Use `./dev just ci` when tests should be included. It runs formatting, lint, GitHub Actions checks, auxiliary Python unit tests, the source coverage gate, `cargo check`, packaged-skill/docs-site checks, native/browser Playground parity, and the FSDB regression path when Verdi is available. Unlike `check`, it does not validate the current commit message; `test-aux` still validates the FSDB benchmark catalog. The Rust test execution used by CI is the `cargo llvm-cov` run behind `just coverage-src-check`; use `just test` when you want an explicit non-coverage Rust test pass while iterating. `just test` also runs the FSDB regression path when Verdi is available.
 
 Use `./dev just pre-commit` to run every Pre-commit check across the repository. Host hooks are installed explicitly by `./dev --install-hooks` and must not be bypassed unless a maintainer asks. They require the current worktree's container to be running because they invoke only `./dev --exec-only`. The hook path inherits conditional FSDB lint, test, and benchmark smoke behavior from the `just` recipes when Verdi is available, but the FSDB pre-commit benchmark smoke prepares only its small filtered RTL fixture set instead of the full FSDB benchmark catalog. Benchmark smoke validates that selected commands still run and emit artifacts; it does not compare against committed baselines.
 
@@ -17,7 +17,8 @@ Use `./dev just pre-commit` to run every Pre-commit check across the repository.
 - `just check-build` runs `cargo check`.
 - `just check-actions` runs `actionlint` for `.github/workflows/`.
 - `just docs-site-build` stages packaged skill references under `tmp/docs-site/`, generates a MkDocs config, and builds the site in strict mode.
-- `just docs-site-check` runs the full local docs publication check without touching `gh-pages`.
+- `just docs-site-check` runs the full local docs and current-Playground publication check without touching `gh-pages`.
+- `just playground-build` builds the current root app; `just playground-preview-build`, `just playground-test`, and `just playground-serve` compose it with current documentation, test it, or serve it locally.
 - `just bench-gate`, `just bench-capture`, and `just bench-compare` support manual performance review and are not part of the standard pre-handoff gates.
 - `just coverage-src` reports source coverage without enforcing thresholds.
 - `just coverage-src-check` enforces the current `90%` minimum on lines, regions, and functions for `src/**`.

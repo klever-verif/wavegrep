@@ -467,6 +467,28 @@ fn scope_tree_mode_renders_visual_hierarchy() {
 }
 
 #[test]
+fn scope_filtered_tree_includes_ancestors_to_root() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "scope",
+            "--waves",
+            fixture.as_str(),
+            "--filter",
+            "^top\\.cpu$",
+            "--tree",
+            "--max",
+            "1",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::eq("top kind=module\n└── cpu kind=module\n"))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
 fn scope_json_ignores_tree_flag_without_extra_warning() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
@@ -479,6 +501,8 @@ fn scope_json_ignores_tree_flag_without_extra_warning() {
             fixture.as_str(),
             "--json",
             "--tree",
+            "--filter",
+            "^top\\.cpu$",
             "--max",
             "50",
         ])
@@ -491,12 +515,10 @@ fn scope_json_ignores_tree_flag_without_extra_warning() {
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
         value["data"],
-        json!([
-            { "path": "top", "depth": 0, "kind": "module" },
-            { "path": "top.cpu", "depth": 1, "kind": "module" },
-            { "path": "top.mem", "depth": 1, "kind": "module" }
-        ])
+        json!([{ "path": "top.cpu", "depth": 1, "kind": "module" }])
     );
+    assert_eq!(value["summary"]["returned"], 1);
+    assert_eq!(value["summary"]["total"], 1);
 }
 
 #[test]

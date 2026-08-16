@@ -428,15 +428,32 @@ fn info_scope_signal_and_value_jsonl_emit_representative_data() {
     assert_eq!(info_records[1]["data"]["time_unit"], "1ns");
 
     let scope = wavepeek_cmd()
-        .args(["scope", "--waves", fixture.as_str(), "--jsonl"])
+        .args([
+            "scope",
+            "--waves",
+            fixture.as_str(),
+            "--filter",
+            "^top\\.cpu$",
+            "--tree",
+            "--jsonl",
+        ])
         .output()
         .expect("scope --jsonl should execute");
     assert!(scope.status.success());
     let scope_records = parse_stream(&scope.stdout, "scope");
-    assert!(
-        scope_records
-            .iter()
-            .any(|record| { record["type"] == "data" && record["data"]["path"] == "top" })
+    let scope_data = scope_records
+        .iter()
+        .filter(|record| record["type"] == "data")
+        .collect::<Vec<_>>();
+    assert_eq!(scope_data.len(), 1);
+    assert_eq!(scope_data[0]["data"]["path"], "top.cpu");
+    assert_eq!(
+        scope_records.last().expect("end record")["summary"]["returned"],
+        1
+    );
+    assert_eq!(
+        scope_records.last().expect("end record")["summary"]["total"],
+        1
     );
 
     let signal_fixture = fixture_path("signal_recursive_depth.vcd");

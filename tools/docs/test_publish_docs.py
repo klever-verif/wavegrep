@@ -187,6 +187,7 @@ class PublishDocsTests(unittest.TestCase):
         deploy = runner.commands[0]
         self.assertIn("--alias-type", deploy)
         self.assertEqual(deploy[deploy.index("--alias-type") + 1], "copy")
+        self.assertEqual(len(runner.commands), 1)
 
     def test_mike_deploy_can_refresh_version_without_latest_alias(self) -> None:
         runner = RecordingRunner()
@@ -228,6 +229,13 @@ class PublishDocsTests(unittest.TestCase):
         self.paths.release_assets.mkdir(parents=True)
         (self.paths.release_assets / "wavepeek-installer.sh").write_text("shell", encoding="utf-8")
         (self.paths.release_assets / "wavepeek-installer.ps1").write_text("powershell", encoding="utf-8")
+        self.paths.playground_site.mkdir(parents=True)
+        for name in publish_docs.PLAYGROUND_ROOT_PATHS:
+            path = self.paths.playground_site / name
+            if name in {"assets", "search"}:
+                path.mkdir()
+            else:
+                path.write_text(name, encoding="utf-8")
 
         with chdir(repo):
             publish_docs.stage_publication_artifacts(
@@ -238,7 +246,14 @@ class PublishDocsTests(unittest.TestCase):
 
     def test_allowed_path_patterns_limit_gh_pages_diff(self) -> None:
         publish_docs.verify_allowed_paths(
-            ["3.0.0/index.html", "latest/index.html", ".nojekyll", "versions.json", "install.sh"],
+            [
+                "3.0.0/index.html",
+                "latest/index.html",
+                "assets/playground/worker.js",
+                ".nojekyll",
+                "versions.json",
+                "install.sh",
+            ],
             publish_docs.allowed_path_patterns("3.0.0", promote_latest=True),
         )
         for path in ["2.2.0/index.html", "unexpected.json", "skill.md"]:
@@ -246,6 +261,18 @@ class PublishDocsTests(unittest.TestCase):
                 publish_docs.verify_allowed_paths(
                     [path], publish_docs.allowed_path_patterns("3.0.0", promote_latest=True)
                 )
+
+    def test_v3_publication_rejects_pre_v3_directories(self) -> None:
+        runner = RecordingRunner()
+        with (
+            mock.patch.object(
+                publish_docs,
+                "git_capture",
+                return_value="2.2.3\n3.0.0\nlatest",
+            ),
+            self.assertRaisesRegex(publish_docs.PublishError, "pre-v3"),
+        ):
+            publish_docs.verify_no_pre_v3_docs("staged", "3.0.0", runner)
 
     def test_changed_paths_reports_old_path_for_renames(self) -> None:
         repo = self.root / "repo-rename"

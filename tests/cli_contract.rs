@@ -623,7 +623,7 @@ fn scope_help_uses_aligned_summary_behavior_and_simple_option_docs() {
         assert!(help.contains("Other options:"));
         assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
         assert!(help.contains(
-            "Maximum number of entries (`unlimited` disables truncation, value must be > 0)"
+            "Maximum number of matching scopes (tree ancestors do not count; `unlimited` disables truncation)"
         ));
         assert!(help.contains("Maximum traversal depth (`unlimited` disables depth truncation)"));
         assert!(help.contains("Regex filter for full scope path"));

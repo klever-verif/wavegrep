@@ -20,8 +20,10 @@ mod fsdb_time;
 mod types;
 mod wellen_backend;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::error::WavepeekError;
 use crate::expr::SampledValue;
@@ -54,8 +56,58 @@ enum SignalLookupKind {
 
 const MAX_SIGNAL_SUGGESTIONS: usize = 5;
 
+#[derive(Clone)]
+struct InvocationWaveform {
+    path: PathBuf,
+    bytes: Arc<[u8]>,
+}
+
+thread_local! {
+    static INVOCATION_WAVEFORM: RefCell<Option<InvocationWaveform>> = const { RefCell::new(None) };
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+struct InvocationWaveformGuard(Option<InvocationWaveform>);
+
+#[cfg(any(test, target_arch = "wasm32"))]
+impl Drop for InvocationWaveformGuard {
+    fn drop(&mut self) {
+        INVOCATION_WAVEFORM.with(|slot| slot.replace(self.0.take()));
+    }
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+pub(crate) fn with_waveform_bytes<T>(
+    path: PathBuf,
+    bytes: Arc<[u8]>,
+    run: impl FnOnce() -> T,
+) -> T {
+    // ponytail: one slot matches the browser's one-worker execution model; thread explicit input
+    // through engine commands only if concurrent invocations become a real requirement.
+    let previous =
+        INVOCATION_WAVEFORM.with(|slot| slot.replace(Some(InvocationWaveform { path, bytes })));
+    let guard = InvocationWaveformGuard(previous);
+    let result = run();
+    drop(guard);
+    result
+}
+
+fn invocation_waveform(path: &Path) -> Option<Arc<[u8]>> {
+    INVOCATION_WAVEFORM.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .filter(|source| source.path == path)
+            .map(|source| Arc::clone(&source.bytes))
+    })
+}
+
 impl Waveform {
     pub fn open(path: &Path) -> Result<Self, WavepeekError> {
+        if let Some(bytes) = invocation_waveform(path) {
+            return wellen_backend::WellenBackend::open_bytes(path, bytes).map(|backend| Self {
+                backend: Backend::Wellen(Box::new(backend)),
+            });
+        }
         #[cfg(feature = "fsdb")]
         {
             Self::open_feature_enabled(path)

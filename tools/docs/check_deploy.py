@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.client
 import json
 import re
@@ -14,6 +15,8 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Sequence
 from typing import Any
+
+import prepare_playground
 
 VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -37,13 +40,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         dest="expect_latest",
         action="store_true",
         default=True,
-        help="require the latest documentation endpoint",
     )
     parser.add_argument(
         "--no-expect-latest",
         dest="expect_latest",
         action="store_false",
-        help="check the version without requiring the latest endpoint",
     )
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
@@ -103,6 +104,36 @@ def fetch_bytes(url: str, *, retries: int, retry_delay: float, timeout: float) -
     fail(f"{url} did not return HTTP 200 after {retries} attempt(s): {last_error}")
 
 
+def fetch_header(
+    url: str,
+    name: str,
+    *,
+    retries: int,
+    retry_delay: float,
+    timeout: float,
+) -> str:
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+
+    def load() -> str:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                value = response.headers.get(name)
+                if value is None:
+                    fail(f"{url} is missing required {name} header")
+                return value
+        except urllib.error.HTTPError as error:
+            fail(f"{url} returned HTTP {error.code}")
+        except (TimeoutError, OSError, http.client.HTTPException) as error:
+            fail(f"{url} failed: {error}")
+
+    return retry_check(
+        f"{name} check",
+        retries=retries,
+        retry_delay=retry_delay,
+        operation=load,
+    )
+
+
 def retry_check(
     label: str,
     *,
@@ -121,6 +152,46 @@ def retry_check(
         if attempt < retries:
             time.sleep(retry_delay)
     fail(f"{label} did not pass after {retries} attempt(s): {last_error}")
+
+
+def check_browser_smoke(
+    base_url: str, *, retries: int, retry_delay: float, timeout: float
+) -> None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        fail("Playwright is required for the deployed Playground smoke check")
+
+    def run() -> None:
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
+                page = browser.new_page()
+                page.goto(page_url(base_url), wait_until="networkidle", timeout=timeout * 1000)
+                page.locator("#source-status").filter(has_text="Ready").wait_for(
+                    timeout=timeout * 1000
+                )
+                page.locator("#command-line").fill("info --waves scr1_axi.fst")
+                page.locator("#run").click()
+                entry = page.locator("#transcript .playground__entry").first
+                page.wait_for_function(
+                    "document.querySelector('#transcript .playground__entry')?.dataset.status === 'ok'",
+                    timeout=timeout * 1000,
+                )
+                if "time_unit:" not in entry.locator(".playground__stdout").text_content():
+                    fail("deployed Playground smoke command returned unexpected output")
+                browser.close()
+        except DeployCheckError:
+            raise
+        except Exception as error:
+            fail(f"deployed Playground smoke command failed: {error}")
+
+    retry_check(
+        "deployed Playground browser smoke",
+        retries=retries,
+        retry_delay=retry_delay,
+        operation=run,
+    )
 
 
 def load_pages_site(
@@ -183,15 +254,51 @@ def check_deploy(args: argparse.Namespace) -> None:
         ("versions.json", page_url(base_url, "versions.json")),
     ]
     if args.expect_latest:
-        endpoints.insert(2, ("latest docs", page_url(base_url, "latest/")))
+        endpoints.insert(1, ("latest docs", page_url(base_url, "latest/")))
+    bodies: dict[str, bytes] = {}
     for label, url in endpoints:
-        fetch_bytes(
+        bodies[label] = fetch_bytes(
             url,
             retries=args.retries,
             retry_delay=args.retry_delay,
             timeout=args.timeout,
         )
         print(f"ok: docs-deploy: {label}: {url}")
+
+    root = bodies["site root"]
+    if b'class="playground"' not in root:
+        fail("site root does not contain the current Playground")
+    if args.expect_latest and f'data-version="{version}"'.encode() not in root:
+        fail(f"site root Playground does not report WavePeek {version}")
+    if b'class="playground"' in bodies["version docs"]:
+        fail("versioned documentation must not contain a Playground")
+
+    demo_url = page_url(base_url, "assets/playground/scr1_axi.fst")
+    demo = fetch_bytes(
+        demo_url,
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    )
+    if hashlib.sha256(demo).hexdigest() != prepare_playground.DEMO_SHA256:
+        fail("deployed Playground demo digest does not match the repository asset")
+    if fetch_header(
+        demo_url,
+        "Access-Control-Allow-Origin",
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    ) != "*":
+        fail("deployed Playground demo must allow cross-origin reads for Surfer")
+    print(f"ok: docs-deploy: Playground demo: {demo_url}")
+
+    check_browser_smoke(
+        base_url,
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    )
+    print(f"ok: docs-deploy: Playground browser smoke: {page_url(base_url)}")
 
     if args.repository:
         site = load_pages_site(

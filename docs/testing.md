@@ -8,13 +8,15 @@ Rust unit tests live next to implementation code under `src/` and cover parsing,
 
 Auxiliary Python tests cover repository tooling, docs-site helpers, and benchmark harnesses. Run them with `./dev just test-aux`; individual suites may also be run with `./dev python3 -B -m unittest ...` while iterating.
 
+`./dev just playground-test` builds Rust/WASM and current documentation as one local Pages preview, then uses headless Chromium for one native/browser FST comparison, documentation navigation, and one local VCD run that must not make off-origin requests.
+
 ## Fixtures
 
 Ordinary reusable waveform fixtures are source-backed. Store their Verilog sources under `tests/fixtures/source/`, declare expected outputs in `tests/fixtures/waveform_policy.json`, and regenerate ignored dumps under `tests/fixtures/generated/` with `./dev just prepare-waveform-fixtures`. The generator uses Icarus Verilog for VCD output and `vcd2fst` for derived FST output.
 
 Checked-in dumps under `tests/fixtures/hand/` are reserved for cases where raw VCD syntax or metadata is the contract, such as event variables, real values, missing initial values, explicit scope kinds, or same-timestamp update ordering. Every checked-in `.vcd` or `.fst` in that directory must have a reason in `tests/fixtures/waveform_policy.json`. Do not commit generated `.fsdb` fixtures.
 
-Large representative `.fst` and related RTL artifacts are provisioned by the shared devcontainer image, not downloaded during tests. Fixture path resolution is documented in `environment.md` and enforced by `just test`, `just ci`, and `just pre-commit`.
+The repository-tracked `web/playground/assets/scr1_axi.fst` is the current public demo and is covered by a fixed SHA-256 check. Other large representative `.fst` and related RTL artifacts are provisioned by the shared devcontainer image, not downloaded during tests. Fixture path resolution is documented in `environment.md` and enforced by `just test`, `just ci`, and `just pre-commit`.
 
 Optional FSDB tests require Verdi. `./dev just test-fsdb` prepares only the generated FSDB fixtures derived from test VCD fixtures and runs `tests/fsdb_cli.rs` with `--features fsdb`; RTL benchmark FSDB artifacts are prepared by the benchmark recipes instead. `fsdb.md` owns the detailed SDK and fixture contract.
 

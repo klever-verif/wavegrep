@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import http.client
 import importlib.util
 import json
@@ -21,9 +22,15 @@ SPEC.loader.exec_module(check_deploy)
 
 
 class Response:
-    def __init__(self, body: bytes = b"ok", status: int = 200) -> None:
+    def __init__(
+        self,
+        body: bytes = b"ok",
+        status: int = 200,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.body = body
         self.status = status
+        self.headers = headers or {}
 
     def __enter__(self) -> Response:
         return self
@@ -87,6 +94,23 @@ class CheckDeployTests(unittest.TestCase):
         self.assertEqual(urlopen.call_count, 2)
         sleep.assert_called_once_with(0.25)
 
+    def test_fetch_header_requires_named_header(self) -> None:
+        with mock.patch.object(
+            check_deploy.urllib.request,
+            "urlopen",
+            return_value=Response(headers={"Access-Control-Allow-Origin": "*"}),
+        ):
+            self.assertEqual(
+                check_deploy.fetch_header(
+                    "https://example.test/file",
+                    "Access-Control-Allow-Origin",
+                    retries=1,
+                    retry_delay=0.0,
+                    timeout=3.0,
+                ),
+                "*",
+            )
+
     def test_fetch_bytes_retries_incomplete_response_body(self) -> None:
         incomplete = Response()
         incomplete.read = mock.Mock(side_effect=http.client.IncompleteRead(b"partial"))
@@ -139,42 +163,43 @@ class CheckDeployTests(unittest.TestCase):
                 "1",
             ]
         )
-        with mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok") as fetch:
+        root = b'<div class="playground" data-version="2.2.0">'
+        with (
+            mock.patch.object(
+                check_deploy,
+                "fetch_bytes",
+                side_effect=lambda url, **_kwargs: (
+                    root
+                    if url.endswith("/wavepeek/")
+                    else b"demo"
+                    if url.endswith("scr1_axi.fst")
+                    else b"docs"
+                ),
+            ) as fetch,
+            mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_browser_smoke") as browser_smoke,
+            mock.patch.object(
+                check_deploy.prepare_playground,
+                "DEMO_SHA256",
+                hashlib.sha256(b"demo").hexdigest(),
+            ),
+        ):
             check_deploy.check_deploy(args)
 
+        browser_smoke.assert_called_once_with(
+            "https://example.test/wavepeek",
+            retries=1,
+            retry_delay=3.0,
+            timeout=20.0,
+        )
         self.assertEqual(
             [call.args[0] for call in fetch.call_args_list],
             [
                 "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/2.2.0/",
                 "https://example.test/wavepeek/latest/",
+                "https://example.test/wavepeek/2.2.0/",
                 "https://example.test/wavepeek/versions.json",
-            ],
-        )
-
-    def test_check_deploy_can_omit_latest(self) -> None:
-        args = check_deploy.parse_args(
-            [
-                "--version",
-                "1.0.0",
-                "--base-url",
-                "https://example.test/wavepeek",
-                "--no-expect-latest",
-                "--retries",
-                "1",
-            ]
-        )
-        with mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok") as fetch:
-            check_deploy.check_deploy(args)
-
-        urls = [call.args[0] for call in fetch.call_args_list]
-        self.assertNotIn("https://example.test/wavepeek/latest/", urls)
-        self.assertEqual(
-            urls,
-            [
-                "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/1.0.0/",
-                "https://example.test/wavepeek/versions.json",
+                "https://example.test/wavepeek/assets/playground/scr1_axi.fst",
             ],
         )
 
@@ -207,7 +232,24 @@ class CheckDeployTests(unittest.TestCase):
         )
         site = {"build_type": "workflow", "html_url": "https://example.test/docs"}
         with (
-            mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok"),
+            mock.patch.object(
+                check_deploy,
+                "fetch_bytes",
+                side_effect=lambda url, **_kwargs: (
+                    b'<div class="playground" data-version="2.2.0">'
+                    if url.endswith("/docs/")
+                    else b"demo"
+                    if url.endswith("scr1_axi.fst")
+                    else b"docs"
+                ),
+            ),
+            mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_browser_smoke"),
+            mock.patch.object(
+                check_deploy.prepare_playground,
+                "DEMO_SHA256",
+                hashlib.sha256(b"demo").hexdigest(),
+            ),
             mock.patch.object(check_deploy, "load_pages_site", return_value=site) as load,
         ):
             check_deploy.check_deploy(args)

@@ -15,7 +15,7 @@ pub struct ScopeArgs {
     /// Regex filter for full scope path
     #[arg(long, default_value = ".*", help_heading = "Selection options")]
     pub filter: String,
-    /// Maximum number of entries (`unlimited` disables truncation, value must be > 0)
+    /// Maximum number of matching scopes (tree ancestors do not count; `unlimited` disables truncation)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
     /// Render hierarchy as an indented tree

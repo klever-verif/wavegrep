@@ -32,13 +32,19 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements-docs.txt /tmp/wavepeek-requirements-docs.txt
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
 RUN . /tmp/wavepeek-env-contract.sh && \
     python3 -m venv /opt/wavepeek-python && \
     /opt/wavepeek-python/bin/pip install --no-cache-dir \
         -r /tmp/wavepeek-requirements-docs.txt \
         "pre-commit==${WAVEPEEK_PRECOMMIT_VERSION}" \
-        "commitizen==${WAVEPEEK_COMMITIZEN_VERSION}" && \
+        "commitizen==${WAVEPEEK_COMMITIZEN_VERSION}" \
+        "playwright==${WAVEPEEK_PLAYWRIGHT_VERSION}" && \
     rm -f /tmp/wavepeek-requirements-docs.txt
+RUN /opt/wavepeek-python/bin/playwright install --with-deps --only-shell chromium && \
+    chmod -R a+rX "${PLAYWRIGHT_BROWSERS_PATH}" && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install GitHub Actions workflow linter for hooks and CI checks.
 RUN . /tmp/wavepeek-env-contract.sh && \
@@ -113,5 +119,7 @@ RUN . /tmp/wavepeek-env-contract.sh && \
     rustup toolchain install ${WAVEPEEK_RUST_VERSION} --profile minimal && \
     rustup default ${WAVEPEEK_RUST_VERSION} && \
     rustup component add rustfmt clippy llvm-tools-preview --toolchain ${WAVEPEEK_RUST_VERSION} && \
+    rustup target add wasm32-unknown-unknown --toolchain ${WAVEPEEK_RUST_VERSION} && \
     cargo install --locked cargo-llvm-cov --version ${WAVEPEEK_CARGO_LLVM_COV_VERSION} && \
+    cargo install --locked wasm-bindgen-cli --version ${WAVEPEEK_WASM_BINDGEN_VERSION} && \
     cargo install --locked just --version ${WAVEPEEK_JUST_VERSION} --root /home/ubuntu/.local

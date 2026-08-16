@@ -12,6 +12,10 @@ from typing import Any
 import yaml
 
 
+PLAYGROUND_URL = "/wavepeek/"
+SITE_ICON = pathlib.Path(__file__).resolve().parents[2] / "docs" / "wavepeek-icon.svg"
+
+
 class PrepareError(Exception):
     pass
 
@@ -105,7 +109,14 @@ def write_generated_config(
         ).as_posix(),
         "docs_dir": pathlib.Path(os.path.relpath(output.resolve(), config_parent)).as_posix(),
         "site_dir": "mkdocs-site",
-        "nav": nav,
+        "nav": [
+            {"Playground": PLAYGROUND_URL},
+            {"Documentation": nav},
+        ],
+        "extra": {
+            "scope": PLAYGROUND_URL,
+            "version": {"provider": "mike"},
+        },
     }
     config_output.parent.mkdir(parents=True, exist_ok=True)
     config_output.write_text(
@@ -126,6 +137,8 @@ def prepare_tree(
     config_output = config_output.resolve()
     if not skill_dir.is_dir():
         fail(f"skill directory does not exist: {skill_dir}")
+    if not SITE_ICON.is_file():
+        fail(f"site icon does not exist: {SITE_ICON}")
     if output.exists() and not force:
         fail(f"output directory already exists: {output}; rerun with --force")
     if config_output.exists() and not force:
@@ -139,7 +152,11 @@ def prepare_tree(
         temp_dir = pathlib.Path(temporary)
         for page in pages:
             shutil.copyfile(references / page, temp_dir / page)
+        shutil.copyfile(SITE_ICON, temp_dir / "wavepeek-icon.svg")
         shutil.copyfile(pathlib.Path(__file__).with_name("monochrome.css"), temp_dir / "monochrome.css")
+        shutil.copyfile(
+            pathlib.Path(__file__).with_name("install-strip.js"), temp_dir / "install-strip.js"
+        )
         if output.exists():
             shutil.rmtree(output)
         temp_dir.replace(output)
