@@ -13,6 +13,7 @@ import yaml
 
 
 PLAYGROUND_URL = "/wavepeek/"
+SITE_ICON = pathlib.Path(__file__).resolve().parents[2] / "docs" / "wavepeek-icon.svg"
 
 
 class PrepareError(Exception):
@@ -136,6 +137,8 @@ def prepare_tree(
     config_output = config_output.resolve()
     if not skill_dir.is_dir():
         fail(f"skill directory does not exist: {skill_dir}")
+    if not SITE_ICON.is_file():
+        fail(f"site icon does not exist: {SITE_ICON}")
     if output.exists() and not force:
         fail(f"output directory already exists: {output}; rerun with --force")
     if config_output.exists() and not force:
@@ -149,6 +152,7 @@ def prepare_tree(
         temp_dir = pathlib.Path(temporary)
         for page in pages:
             shutil.copyfile(references / page, temp_dir / page)
+        shutil.copyfile(SITE_ICON, temp_dir / "wavepeek-icon.svg")
         shutil.copyfile(pathlib.Path(__file__).with_name("monochrome.css"), temp_dir / "monochrome.css")
         shutil.copyfile(
             pathlib.Path(__file__).with_name("install-strip.js"), temp_dir / "install-strip.js"

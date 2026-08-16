@@ -133,6 +133,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             ).evaluate("element => getComputedStyle(element, '::after').content")
             assert "deterministic RTL waveform inspection" in tagline
             assert page.locator(".md-search").is_hidden()
+            assert page.locator(".md-header__button.md-logo img").get_attribute(
+                "src"
+            ) == "wavepeek-icon.svg"
+            assert page.locator('link[rel="icon"]').get_attribute("href") == (
+                "wavepeek-icon.svg"
+            )
 
             page.evaluate("localStorage.clear()")
             page.reload(wait_until="networkidle")
@@ -148,6 +154,12 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
             assert page.locator("main").text_content().strip()
             assert page.locator("body").get_attribute("data-md-color-scheme") == "slate"
             assert page.locator(".md-search").is_visible()
+            assert page.locator(".md-header__button.md-logo img").get_attribute(
+                "src"
+            ) == "wavepeek-icon.svg"
+            assert page.locator('link[rel="icon"]').get_attribute("href") == (
+                "wavepeek-icon.svg"
+            )
             docs_install = page.locator(".playground__install")
             docs_install.wait_for()
             assert docs_install.get_attribute("aria-label") == "Install wavepeek"

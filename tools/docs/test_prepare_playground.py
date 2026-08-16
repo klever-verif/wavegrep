@@ -44,6 +44,10 @@ class PreparePlaygroundTests(unittest.TestCase):
             self.assertTrue((output / "assets/playground/scr1_axi.fst").is_file())
             self.assertTrue((output / "install-strip.js").is_file())
             self.assertEqual(
+                (output / "wavepeek-icon.svg").read_bytes(),
+                (ROOT / "docs/wavepeek-icon.svg").read_bytes(),
+            )
+            self.assertEqual(
                 (output / "assets/playground/wasm/wavepeek_bg.wasm").read_bytes(),
                 b"wasm",
             )

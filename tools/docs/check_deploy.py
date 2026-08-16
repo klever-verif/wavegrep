@@ -275,7 +275,9 @@ def check_deploy(args: argparse.Namespace) -> None:
     base_url = normalize_base_url(args.base_url)
     endpoints = [
         ("site root", page_url(base_url)),
+        ("Playground icon", page_url(base_url, "wavepeek-icon.svg")),
         ("version docs", page_url(base_url, f"{version}/")),
+        ("version icon", page_url(base_url, f"{version}/wavepeek-icon.svg")),
         ("versions.json", page_url(base_url, "versions.json")),
     ]
     if args.expect_latest:

@@ -5,6 +5,8 @@ repo_url: https://github.com/kleverhq/wavepeek
 repo_name: kleverhq/wavepeek
 theme:
   name: material
+  logo: wavepeek-icon.svg
+  favicon: wavepeek-icon.svg
   palette:
     - media: "(prefers-color-scheme)"
       primary: black

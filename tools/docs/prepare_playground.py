@@ -67,6 +67,7 @@ def prepare_tree(
     site_output = site_output.resolve()
     playground = source_root / "web" / "playground"
     demo = playground / "assets" / "scr1_axi.fst"
+    icon = source_root / "docs" / "wavepeek-icon.svg"
 
     if not playground.is_dir():
         fail(f"playground source does not exist: {playground}")
@@ -74,6 +75,8 @@ def prepare_tree(
         fail(f"wasm-bindgen output is incomplete: {wasm_dir}")
     if hashlib.sha256(demo.read_bytes()).hexdigest() != DEMO_SHA256:
         fail(f"bundled demo digest does not match {DEMO_SHA256}: {demo}")
+    if not icon.is_file():
+        fail(f"site icon does not exist: {icon}")
     if output.exists() and not force:
         fail(f"output directory already exists: {output}; rerun with --force")
     if config_output.exists() and not force:
@@ -88,6 +91,7 @@ def prepare_tree(
             "@WAVEPEEK_VERSION@", wavepeek_version
         )
         index.write_text(rendered, encoding="utf-8")
+        shutil.copyfile(icon, temporary_output / "wavepeek-icon.svg")
         playground_assets = temporary_output / "assets" / "playground"
         shutil.copytree(playground / "assets", playground_assets)
         shutil.copytree(

@@ -225,8 +225,10 @@ class CheckDeployTests(unittest.TestCase):
             [call.args[0] for call in fetch.call_args_list],
             [
                 "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/2.2.0/",
+                "https://example.test/wavepeek/wavepeek-icon.svg",
                 "https://example.test/wavepeek/latest/",
+                "https://example.test/wavepeek/2.2.0/",
+                "https://example.test/wavepeek/2.2.0/wavepeek-icon.svg",
                 "https://example.test/wavepeek/versions.json",
                 "https://example.test/wavepeek/assets/playground/scr1_axi.fst",
             ],
@@ -273,7 +275,9 @@ class CheckDeployTests(unittest.TestCase):
             urls,
             [
                 "https://example.test/wavepeek/",
+                "https://example.test/wavepeek/wavepeek-icon.svg",
                 "https://example.test/wavepeek/1.0.0/",
+                "https://example.test/wavepeek/1.0.0/wavepeek-icon.svg",
                 "https://example.test/wavepeek/versions.json",
                 "https://example.test/wavepeek/assets/playground/scr1_axi.fst",
             ],

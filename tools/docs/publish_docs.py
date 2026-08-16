@@ -38,6 +38,7 @@ PLAYGROUND_ROOT_PATHS = (
     "assets",
     "monochrome.css",
     "install-strip.js",
+    "wavepeek-icon.svg",
     "search",
     "sitemap.xml",
     "sitemap.xml.gz",
@@ -45,6 +46,7 @@ PLAYGROUND_ROOT_PATHS = (
 PLAYGROUND_REQUIRED_FILES = (
     "index.html",
     "install-strip.js",
+    "wavepeek-icon.svg",
     "assets/playground/playground.js",
     "assets/playground/worker.js",
     "assets/playground/wasm/wavepeek.js",
@@ -597,6 +599,7 @@ def allowed_path_patterns(version: str, *, promote_latest: bool) -> list[str]:
                 "assets/**",
                 "monochrome.css",
                 "install-strip.js",
+                "wavepeek-icon.svg",
                 "search/**",
                 "latest/**",
                 "install.sh",

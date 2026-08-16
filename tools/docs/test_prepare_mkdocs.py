@@ -66,6 +66,10 @@ class PrepareMkdocsTests(unittest.TestCase):
         self.assertTrue((self.output / "change.md").is_file())
         self.assertTrue((self.output / "monochrome.css").is_file())
         self.assertTrue((self.output / "install-strip.js").is_file())
+        self.assertEqual(
+            (self.output / "wavepeek-icon.svg").read_bytes(),
+            prepare_mkdocs.SITE_ICON.read_bytes(),
+        )
         self.assertFalse((self.output / "docs.json").exists())
         config = yaml.safe_load(self.config.read_text(encoding="utf-8"))
         self.assertEqual(config["docs_dir"], "mkdocs-src")
