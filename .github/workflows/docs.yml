@@ -166,6 +166,18 @@ jobs:
         uses: actions/deploy-pages@v4
 
       - name: Check deployed docs
+        uses: devcontainers/ci@v0.3
         env:
+          BASE_URL: ${{ steps.deployment.outputs.page_url }}
           GH_TOKEN: ${{ github.token }}
-        run: python3 -B tools/docs/workflow_docs.py check-deploy --base-url "${{ steps.deployment.outputs.page_url }}" --repository "${{ github.repository }}"
+        with:
+          configFile: .devcontainer/devcontainer.json
+          cacheFrom: |
+            type=registry,ref=${{ env.DEVCONTAINER_CACHE_REF }}
+          push: never
+          env: |
+            BASE_URL
+            GH_TOKEN
+            GITHUB_REPOSITORY
+            VERSION
+          runCmd: python3 -B tools/docs/workflow_docs.py check-deploy --base-url "$BASE_URL" --repository "$GITHUB_REPOSITORY"

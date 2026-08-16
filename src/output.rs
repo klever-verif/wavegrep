@@ -314,10 +314,18 @@ fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
 }
 
 pub(crate) fn map_stdout_io_error(error: io::Error) -> WavepeekError {
+    map_io_error(error, "stdout")
+}
+
+fn map_stderr_io_error(error: io::Error) -> WavepeekError {
+    map_io_error(error, "stderr")
+}
+
+fn map_io_error(error: io::Error, channel: &str) -> WavepeekError {
     if error.kind() == io::ErrorKind::BrokenPipe {
         WavepeekError::BrokenPipe
     } else {
-        WavepeekError::Internal(format!("failed to write stdout: {error}"))
+        WavepeekError::Internal(format!("failed to write {channel}: {error}"))
     }
 }
 
@@ -797,9 +805,9 @@ fn emit_human_diagnostics<W: Write + ?Sized>(
                 diagnostic.message()
             ),
         }
-        .map_err(map_stdout_io_error)?;
+        .map_err(map_stderr_io_error)?;
     }
-    writer.flush().map_err(map_stdout_io_error)
+    writer.flush().map_err(map_stderr_io_error)
 }
 
 pub(crate) fn write_to<W: Write + ?Sized>(
@@ -939,6 +947,43 @@ mod tests {
         fn flush(&mut self) -> io::Result<()> {
             Ok(())
         }
+    }
+
+    #[test]
+    fn human_diagnostic_write_errors_name_stderr() {
+        struct FailingSink;
+
+        impl io::Write for FailingSink {
+            fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+                Err(io::Error::other("closed"))
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let result = CommandResult {
+            command: CommandName::Scope,
+            output_mode: OutputMode::Human,
+            human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
+            data: CommandData::Scope(Vec::new()),
+            summary: None,
+            diagnostics: vec![Diagnostic::warning(
+                WarningDiagnosticCode::OutputTruncated,
+                "truncated",
+            )],
+        };
+        let error = write_result_to(result, &mut Vec::new(), &mut FailingSink)
+            .expect_err("diagnostic write should fail");
+
+        assert!(matches!(
+            error,
+            crate::error::WavepeekError::Internal(message)
+                if message == "failed to write stderr: closed"
+        ));
     }
 
     #[test]

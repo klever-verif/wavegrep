@@ -60,6 +60,11 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - [x] (2026-08-15 18:49Z) Matched the documentation strip's x/y position, width, height, and line-height to the Playground strip, including native-scrollbar compensation; focused browser checks pass.
 - [x] (2026-08-15 20:26Z) Replaced the eight generic Demo queries with eleven translated SCR1 timing, hierarchy, timer, reset, CSR, and AXI questions; browser checks execute every query.
 - [x] (2026-08-15 20:42Z) Corrected filtered human scope trees at the selection layer so they include every ancestor to the root; `--max` limits matches rather than context ancestors, flat and machine output retain full-path filtering, the superseded sparse-renderer workaround is removed, CLI/browser regressions pass, and bounded Luna plus ponytail re-review found no remaining issues.
+- [x] (2026-08-16 04:49Z) Ran three parallel Luna max-thinking comprehensive reviews: browser integration in WavePeek core, filtered scope-tree behavior, and the Playground/docs/publication product; every reviewer covered architecture, correctness, documentation, performance, security, tests, KISS, YAGNI, and ponytail-review.
+- [x] (2026-08-16 04:58Z) Resolved all confirmed Luna findings: stderr write attribution, atomic/error-safe source loading and races, startup history purity, manual local-file Surfer guidance, and a real post-deployment browser/WASM smoke. Focused Rust, auxiliary, Actions, Playground, and local deployed-smoke checks pass.
+- [ ] Run three parallel Terra high-thinking comprehensive reviews over the same milestones, then resolve confirmed findings and rerun impacted checks.
+- [ ] Run one independent Sol high-thinking control review over the consolidated branch and resolve any confirmed findings.
+- [ ] Run final `just ci` and `just check`, remove branch-local WIP artifacts, push the reviewed branch, and open a PR against `dev3`.
 
 ## Surprises & Discoveries
 
@@ -187,6 +192,14 @@ This work does not add FSDB, `wavepeek skill`, extraction `--source <FILE>`, per
 - Decision: One shared static script and stylesheet own the installation strip across Playground and documentation.
   Rationale: The two sites remain separate Material builds, so a small generated DOM component avoids template overrides and keeps copy behavior and responsive styling identical without duplicating them.
   Date/Author: 2026-08-15 / user and implementation agent.
+
+- Decision: Final review uses three product milestones rather than narrow technical lanes; every reviewer covers correctness, architecture, documentation, performance, security, tests, KISS, YAGNI, and ponytail-review within its milestone.
+  Rationale: Browser integration, scope-tree behavior, and the composed web product have distinct execution paths and failure modes, but each needs a complete review rather than one disciplinary slice.
+  Date/Author: 2026-08-15 / user.
+
+- Decision: Review proceeds in parallel Luna max-thinking and Terra high-thinking waves, followed by one independent Sol high-thinking control pass; completion includes a pushed branch and PR against `dev3`.
+  Rationale: This is the maintainer-requested release review and supersedes the earlier no-push handoff constraint.
+  Date/Author: 2026-08-15 / user.
 
 ## Outcomes & Retrospective
 

@@ -198,6 +198,7 @@ class CheckDeployTests(unittest.TestCase):
             ) as fetch,
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
             mock.patch.object(check_deploy, "check_not_deployed") as absent,
+            mock.patch.object(check_deploy, "check_browser_smoke") as browser_smoke,
             mock.patch.object(
                 check_deploy.prepare_playground,
                 "DEMO_SHA256",
@@ -206,6 +207,12 @@ class CheckDeployTests(unittest.TestCase):
         ):
             check_deploy.check_deploy(args)
 
+        browser_smoke.assert_called_once_with(
+            "https://example.test/wavepeek",
+            retries=1,
+            retry_delay=3.0,
+            timeout=20.0,
+        )
         self.assertEqual(
             [call.args[0] for call in absent.call_args_list],
             [
@@ -251,6 +258,7 @@ class CheckDeployTests(unittest.TestCase):
             ) as fetch,
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
             mock.patch.object(check_deploy, "check_not_deployed"),
+            mock.patch.object(check_deploy, "check_browser_smoke"),
             mock.patch.object(
                 check_deploy.prepare_playground,
                 "DEMO_SHA256",
@@ -313,6 +321,7 @@ class CheckDeployTests(unittest.TestCase):
             ),
             mock.patch.object(check_deploy, "fetch_header", return_value="*"),
             mock.patch.object(check_deploy, "check_not_deployed"),
+            mock.patch.object(check_deploy, "check_browser_smoke"),
             mock.patch.object(
                 check_deploy.prepare_playground,
                 "DEMO_SHA256",

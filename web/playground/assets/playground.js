@@ -1,6 +1,9 @@
 const DEMO_NAME = "scr1_axi.fst";
 const DEMO_URL = new URL("./scr1_axi.fst", import.meta.url);
 const WORKER_URL = new URL("./worker.js", import.meta.url);
+const SURFER_URL = new URL("https://app.surfer-project.org/");
+const DEMO_SURFER_URL = new URL(SURFER_URL);
+DEMO_SURFER_URL.searchParams.set("load_url", DEMO_URL.href);
 const HISTORY_LIMIT = 50;
 
 const examples = {
@@ -48,6 +51,7 @@ let commandHistory = [];
 let historyIndex = null;
 let historyDraft = "";
 let sourceGeneration = 0;
+let sourceLoading = true;
 
 export function tokenize(command) {
   const tokens = [];
@@ -200,9 +204,16 @@ function stopWorker() {
 }
 
 function setSource(name, bytes, kind) {
+  let tokens;
+  try {
+    tokens = currentTokens();
+  } catch {
+    tokens = undefined;
+  }
   if (runningEntry) stopCommand();
   else stopWorker();
   activeSource = { name, bytes: new Uint8Array(bytes), kind };
+  sourceLoading = false;
   elements["source-name"].textContent = name;
   elements["source-size"].textContent = formatBytes(bytes.byteLength);
   elements["source-format"].textContent = name.split(".").pop().toUpperCase();
@@ -211,19 +222,26 @@ function setSource(name, bytes, kind) {
   elements["use-demo"].setAttribute("aria-pressed", String(kind === "demo"));
   elements["open-local"].setAttribute("aria-pressed", String(kind === "local"));
   elements["use-demo"].classList.toggle("md-button--primary", kind === "demo");
-  elements["open-surfer"].hidden = kind !== "demo";
-  const tokens = currentTokens();
-  if (tokens[1] !== "help" && !tokens.includes("--help")) setOption(tokens, "--waves", name);
-  writeTokens(tokens);
+  elements["open-surfer"].href = kind === "demo" ? DEMO_SURFER_URL.href : SURFER_URL.href;
+  elements["open-surfer"].textContent = kind === "demo"
+    ? "Open visually in Surfer ↗"
+    : "Open Surfer and select this file ↗";
+  if (tokens) {
+    if (tokens[1] !== "help" && !tokens.includes("--help")) setOption(tokens, "--waves", name);
+    writeTokens(tokens);
+  }
+}
+
+function startSourceLoad(message) {
+  if (runningEntry) stopCommand();
+  sourceLoading = true;
+  elements["source-status"].textContent = message;
+  elements["source-indicator"].dataset.status = "loading";
 }
 
 async function useDemo() {
   const generation = ++sourceGeneration;
-  elements["source-name"].textContent = DEMO_NAME;
-  elements["source-size"].textContent = "—";
-  elements["source-format"].textContent = "FST";
-  elements["source-status"].textContent = "Loading…";
-  elements["source-indicator"].dataset.status = "loading";
+  startSourceLoad("Loading demo…");
   try {
     const response = await fetch(DEMO_URL);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -234,7 +252,8 @@ async function useDemo() {
     }
   } catch (error) {
     if (generation === sourceGeneration) {
-      elements["source-status"].textContent = `Could not load: ${error.message}`;
+      sourceLoading = false;
+      elements["source-status"].textContent = `Could not load demo: ${error.message}`;
       elements["source-indicator"].dataset.status = "error";
     }
   }
@@ -324,8 +343,12 @@ function handleWorkerMessage({ data }) {
   }
 }
 
-function runCommand() {
+function runCommand(remember = true) {
   if (runningEntry) return;
+  if (sourceLoading) {
+    elements["command-error"].textContent = "Wait for the waveform to finish loading";
+    return;
+  }
   if (!activeSource) {
     elements["command-error"].textContent = "Choose a waveform first";
     return;
@@ -341,11 +364,13 @@ function runCommand() {
 
   runningId += 1;
   runningCommand = renderCommand(argv);
-  if (commandHistory.at(-1) !== elements["command-line"].value) {
-    commandHistory.push(elements["command-line"].value);
-    commandHistory = commandHistory.slice(-HISTORY_LIMIT);
+  if (remember) {
+    if (commandHistory.at(-1) !== elements["command-line"].value) {
+      commandHistory.push(elements["command-line"].value);
+      commandHistory = commandHistory.slice(-HISTORY_LIMIT);
+    }
+    historyIndex = null;
   }
-  historyIndex = null;
   runningStarted = performance.now();
   runningEntry = startTranscriptEntry(runningCommand);
   setRunning(true);
@@ -410,27 +435,30 @@ elements["open-local"].addEventListener("click", () => elements["local-file"].cl
 elements["local-file"].addEventListener("change", async ({ target }) => {
   const file = target.files[0];
   if (!file) return;
+  const generation = ++sourceGeneration;
   if (!/\.(vcd|fst)$/i.test(file.name)) {
+    sourceLoading = false;
     elements["source-status"].textContent = "Choose a .vcd or .fst file";
     elements["source-indicator"].dataset.status = "error";
+    target.value = "";
     return;
   }
-  const generation = ++sourceGeneration;
-  elements["source-name"].textContent = file.name;
-  elements["source-size"].textContent = formatBytes(file.size);
-  elements["source-format"].textContent = file.name.split(".").pop().toUpperCase();
-  elements["source-status"].textContent = "Loading…";
-  elements["source-indicator"].dataset.status = "loading";
-  const bytes = await file.arrayBuffer();
-  if (generation === sourceGeneration) setSource(file.name, bytes, "local");
-  target.value = "";
+  startSourceLoad(`Loading ${file.name}…`);
+  try {
+    const bytes = await file.arrayBuffer();
+    if (generation === sourceGeneration) setSource(file.name, bytes, "local");
+  } catch (error) {
+    if (generation === sourceGeneration) {
+      sourceLoading = false;
+      elements["source-status"].textContent = `Could not load ${file.name}: ${error.message}`;
+      elements["source-indicator"].dataset.status = "error";
+    }
+  } finally {
+    target.value = "";
+  }
 });
-
-const surfer = new URL("https://app.surfer-project.org/");
-surfer.searchParams.set("load_url", DEMO_URL.href);
-elements["open-surfer"].href = surfer.href;
 elements["command-line"].value = commandHelp.help;
 synchronizeOutputMode();
 useDemo().then((loaded) => {
-  if (loaded && elements["command-line"].value === commandHelp.help) runCommand();
+  if (loaded && elements["command-line"].value === commandHelp.help) runCommand(false);
 });

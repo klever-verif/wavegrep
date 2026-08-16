@@ -224,6 +224,10 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
                 "Enter to run · ↑/↓ for command history"
             )
             assert page.locator("#command-line").input_value() == "help"
+            page.locator("#command-line").fill("history is empty")
+            page.locator("#command-line").press("ArrowUp")
+            assert page.locator("#command-line").input_value() == "history is empty"
+            page.locator("#command-line").fill("help")
             assert initial_help.locator("code").text_content() == "$ wavepeek help"
             assert "Usage: wavepeek" in initial_help.locator(".playground__stdout").text_content()
             assert page.locator(".playground__commands button").all_text_contents() == [
@@ -343,16 +347,81 @@ def check(site: pathlib.Path, native_bin: pathlib.Path) -> None:
 
             requests: list[str] = []
             page.on("request", lambda request: requests.append(request.url))
+            page.locator("#command-line").fill("info --waves scr1_axi.fst")
+            page.evaluate(
+                """() => {
+                    const input = document.querySelector('#local-file');
+                    const file = {
+                        name: 'delayed.vcd',
+                        size: 1,
+                        arrayBuffer: () => new Promise(resolve => { window.resolveWaveformRead = resolve; }),
+                    };
+                    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+                    input.dispatchEvent(new Event('change'));
+                    delete input.files;
+                }"""
+            )
+            page.locator("#source-status").filter(has_text="Loading delayed.vcd").wait_for()
+            entries_before_load = page.locator("#transcript .playground__entry").count()
+            page.locator("#run").click()
+            assert page.locator("#command-error").text_content() == (
+                "Wait for the waveform to finish loading"
+            )
+            assert page.locator("#transcript .playground__entry").count() == entries_before_load
+            page.evaluate(
+                """() => {
+                    const input = document.querySelector('#local-file');
+                    Object.defineProperty(input, 'files', {
+                        configurable: true,
+                        value: [{ name: 'invalid.fsdb', size: 1 }],
+                    });
+                    input.dispatchEvent(new Event('change'));
+                    delete input.files;
+                }"""
+            )
+            page.locator("#source-status").filter(has_text="Choose a .vcd or .fst file").wait_for()
+            page.evaluate("bytes => window.resolveWaveformRead(Uint8Array.from(bytes).buffer)", list(VCD))
+            page.wait_for_timeout(100)
+            assert page.locator("#source-status").text_content() == "Choose a .vcd or .fst file"
+            assert page.locator("#source-name").text_content() == "scr1_axi.fst"
+
+            page.evaluate(
+                """() => {
+                    const input = document.querySelector('#local-file');
+                    const file = {
+                        name: 'broken.vcd',
+                        size: 1,
+                        arrayBuffer: () => Promise.reject(new Error('read failed')),
+                    };
+                    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+                    input.dispatchEvent(new Event('change'));
+                    delete input.files;
+                }"""
+            )
+            page.locator("#source-status").filter(has_text="Could not load broken.vcd").wait_for()
+            assert page.locator("#source-name").text_content() == "scr1_axi.fst"
+
+            malformed = 'info --waves "unterminated'
+            page.locator("#command-line").fill(malformed)
             page.locator("#local-file").set_input_files(
                 {"name": "local.vcd", "mimeType": "text/plain", "buffer": VCD}
             )
             page.locator("#source-status").filter(has_text="Ready").wait_for()
+            assert page.locator("#command-line").input_value() == malformed
             assert page.locator("#source-name").text_content() == "local.vcd"
             assert page.locator("#source-format").text_content() == "VCD"
             assert page.locator("#open-local").get_attribute("aria-pressed") == "true"
             assert page.locator("#use-demo").get_attribute("aria-pressed") == "false"
             assert "KiB" in page.locator("#source-size").text_content()
-            assert page.locator("#open-surfer").is_hidden()
+            assert page.locator("#open-surfer").is_visible()
+            assert page.locator("#open-surfer").text_content() == (
+                "Open Surfer and select this file ↗"
+            )
+            local_surfer_url = urllib.parse.urlparse(
+                page.locator("#open-surfer").get_attribute("href")
+            )
+            assert local_surfer_url.netloc == "app.surfer-project.org"
+            assert not local_surfer_url.query
             requests.clear()
             status, stdout, _, _ = run_browser(page, "info --waves local.vcd")
             assert status == 0 and "time_unit: 1ns" in stdout

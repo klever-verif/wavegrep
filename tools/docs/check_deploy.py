@@ -179,6 +179,46 @@ def retry_check(
     fail(f"{label} did not pass after {retries} attempt(s): {last_error}")
 
 
+def check_browser_smoke(
+    base_url: str, *, retries: int, retry_delay: float, timeout: float
+) -> None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        fail("Playwright is required for the deployed Playground smoke check")
+
+    def run() -> None:
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
+                page = browser.new_page()
+                page.goto(page_url(base_url), wait_until="networkidle", timeout=timeout * 1000)
+                page.locator("#source-status").filter(has_text="Ready").wait_for(
+                    timeout=timeout * 1000
+                )
+                page.locator("#command-line").fill("info --waves scr1_axi.fst")
+                page.locator("#run").click()
+                entry = page.locator("#transcript .playground__entry").first
+                page.wait_for_function(
+                    "document.querySelector('#transcript .playground__entry')?.dataset.status === 'ok'",
+                    timeout=timeout * 1000,
+                )
+                if "time_unit:" not in entry.locator(".playground__stdout").text_content():
+                    fail("deployed Playground smoke command returned unexpected output")
+                browser.close()
+        except DeployCheckError:
+            raise
+        except Exception as error:
+            fail(f"deployed Playground smoke command failed: {error}")
+
+    retry_check(
+        "deployed Playground browser smoke",
+        retries=retries,
+        retry_delay=retry_delay,
+        operation=run,
+    )
+
+
 def load_pages_site(
     repository: str,
     *,
@@ -283,6 +323,14 @@ def check_deploy(args: argparse.Namespace) -> None:
     ) != "*":
         fail("deployed Playground demo must allow cross-origin reads for Surfer")
     print(f"ok: docs-deploy: Playground demo: {demo_url}")
+
+    check_browser_smoke(
+        base_url,
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    )
+    print(f"ok: docs-deploy: Playground browser smoke: {page_url(base_url)}")
 
     if args.repository:
         site = load_pages_site(
