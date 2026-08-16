@@ -18,6 +18,6 @@ You can also ask a command directly for detailed help with `wavepeek <command> -
 
 ## Where narrative docs fit
 
-Generated help is the authority for exact syntax, flags, defaults, and required arguments. Use this package's relative links for narrative guidance, workflows, troubleshooting, and stable semantic references.
+Generated help is the authority for exact syntax, flags, defaults, and required arguments. The version-matched output is collected in the [CLI reference](cli-reference.md). Use this package's relative links for narrative guidance, workflows, troubleshooting, and stable semantic references.
 
 Use `wavepeek skill <DIRECTORY>` to extract the complete, version-matched package into a new or empty directory.

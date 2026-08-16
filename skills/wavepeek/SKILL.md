@@ -39,6 +39,7 @@ Read [Command overview](references/overview.md) for command selection and [Help 
 Read only the references needed for the current task:
 
 - Commands: [info](references/info.md), [scope](references/scope.md), [signal](references/signal.md), [value](references/value.md), [change](references/change.md), [property](references/property.md), and [extract](references/extract.md).
+- Exact syntax: [CLI reference](references/cli-reference.md).
 - Shared semantics: [command model](references/command-model.md), [expression language](references/expression-language.md), and [machine output](references/machine-output.md).
 - Workflows: [extract a clocked handshake](references/extract-handshake.md) and [find the first change](references/find-first-change.md).
 - Troubleshooting: [empty results](references/empty-results.md), [clock-edge sampling](references/clock-edge-sampling.md), [scoped versus canonical names](references/scoped-vs-canonical-names.md), [time tokens and alignment](references/time-tokens-and-alignment.md), and [unsupported signal encodings](references/unsupported-signal-encodings.md).

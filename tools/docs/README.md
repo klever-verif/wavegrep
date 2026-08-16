@@ -4,6 +4,7 @@ This directory contains helper scripts and tests for the GitHub Pages documentat
 
 ## Helpers
 
+- `generate_cli_reference.py` captures detailed CLI help in the packaged Markdown reference; use `just update-cli-reference` and `just check-cli-reference`.
 - `prepare_mkdocs.py` validates an extracted skill and stages cumulative versioned documentation with Mike navigation and the shared install strip.
 - `prepare_playground.py` stages the framework-free current Playground, generated WASM, verified bundled demo, and shared install strip for a root Material build.
 - `check_playground.py` smoke-checks the composed preview with one native/browser FST comparison, documentation navigation, and one private local-VCD run.

@@ -36,6 +36,7 @@
     },
     {
       "Reference": [
+        { "CLI reference": "cli-reference.md" },
         { "Command model": "command-model.md" },
         { "Expression language": "expression-language.md" },
         { "Machine output": "machine-output.md" },

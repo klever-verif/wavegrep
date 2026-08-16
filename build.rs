@@ -8,6 +8,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=WAVEPEEK_FSDB_EMBED_RPATH");
     println!("cargo:rerun-if-changed=native/fsdb/wavepeek_fsdb_shim.cpp");
     println!("cargo:rerun-if-changed=native/fsdb/wavepeek_fsdb_shim.h");
+    println!("cargo:rerun-if-changed=skills/wavepeek");
 
     if env::var_os("CARGO_FEATURE_FSDB").is_none() {
         return;
