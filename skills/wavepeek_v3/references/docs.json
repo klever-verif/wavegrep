@@ -3,34 +3,38 @@
     {
       "Start here": [
         { "Overview": "overview.md" },
-        { "Quickstart": "quickstart.md" },
-        { "Commands": "commands.md" },
-        { "Waveforms": "waveforms.md" },
-        { "Output": "output.md" }
+        { "Quickstart": "quickstart.md" }
       ]
     },
     {
-      "Basic usage": [
+      "Concepts": [
+        { "Commands": "commands.md" },
+        { "Waveform formats": "waveforms.md" },
+        { "Paths, signals and scopes": "paths.md" },
+        { "Time units and windows": "timeunits.md" },
+        { "Clocks and sampling": "sampling.md" },
+        { "Boolean conditions": "predicates.md" }
+      ]
+    },
+    {
+      "Usage": [
         { "Explore dump": "explore-dump.md" },
         { "Inspect values": "inspect-values.md" },
         { "Evaluate properties": "evaluate-properties.md" },
-        { "Extract transfers": "extract-transfers.md" }
-      ]
-    },
-    {
-      "Protocol support": [
-        { "AMBA AXI": "extract-axi.md" },
-        { "AMBA AXI-Stream": "extract-axis.md" },
-        { "AMBA AHB": "extract-ahb.md" },
-        { "AMBA APB": "extract-apb.md" },
-        { "AMBA ATB": "extract-atb.md" }
+        { "Extract transfers": "extract-transfers.md" },
+        { "Extract AMBA AXI": "extract-axi.md" },
+        { "Extract AMBA AXI-Stream": "extract-axis.md" },
+        { "Extract AMBA AHB": "extract-ahb.md" },
+        { "Extract AMBA APB": "extract-apb.md" },
+        { "Extract AMBA ATB": "extract-atb.md" }
       ]
     },
     {
       "Reference": [
-        { "CLI reference": "cli-reference.md" },
-        { "Event expressions": "event-expressions.md" },
-        { "Boolean expressions": "boolean-expressions.md" }
+        { "CLI help reference": "cli-reference.md" },
+        { "Machine output format": "machine-output.md"},
+        { "Event expression language": "event-expressions.md" },
+        { "Boolean expression language": "boolean-expressions.md" }
       ]
     }
   ]

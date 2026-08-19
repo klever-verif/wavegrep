@@ -22,30 +22,30 @@ $ wavepeek value --waves dump.vcd --at 10ns --signals top.data
 
 To run `wavepeek` on your machine, see [Quickstart](quickstart.md) or try it in your browser with [Playground](https://kleverhq.github.io/wavepeek).
 
-## Start here
+## Concepts
 
-- [Quickstart](quickstart.md) - install `wavepeek` and set up the skill.
 - [Commands](commands.md) - command model and common conventions.
-- [Waveforms](waveforms.md) - formats, conventions, performance, and FSDB support.
-- [Output](output.md) - machine output details, JSON envelopes, and JSONL objects.
+- [Waveform formats](waveforms.md) - formats, performance, and FSDB support.
+- [Paths, signals and scopes](paths.md) - canonical paths, relative paths, and bit projections.
+- [Time units and windows](timeunits.md) - time tokens and query boundaries.
+- [Clocks and sampling](sampling.md) - event times, sample times, and pre-edge sampling.
+- [Boolean conditions](predicates.md) - Boolean expressions over waveform values.
 
-## Basic usage
+## Usage
 
 - [Explore dump](explore-dump.md) - get dump bounds, navigate the hierarchy, and search signals.
 - [Inspect values](inspect-values.md) - sample values at explicit points and get a table of changes.
 - [Evaluate properties](evaluate-properties.md) - evaluate Boolean expressions and check whether a property holds.
 - [Extract transfers](extract-transfers.md) - find transfers and get payload data under handshakes and valid/ready strobes.
-
-## Protocol support
-
-- [AMBA AXI](extract-axi.md) - map signals, get a table of transfers, and use AXI profiles.
-- [AMBA AXI-Stream](extract-axis.md) - map signals, get a table of transfers, and use AXI-Stream profiles.
-- [AMBA AHB](extract-ahb.md) - map signals, get a table of phase events, and use AHB profiles.
-- [AMBA APB](extract-apb.md) - map signals, get a table of phase events, and use APB profiles.
-- [AMBA ATB](extract-atb.md) - map signals, get a table of events, and use ATB profiles.
+- [Extract AMBA AXI](extract-axi.md) - map signals, get a table of transfers, and use AXI profiles.
+- [Extract AMBA AXI-Stream](extract-axis.md) - map signals, get a table of transfers, and use AXI-Stream profiles.
+- [Extract AMBA AHB](extract-ahb.md) - map signals, get a table of phase events, and use AHB profiles.
+- [Extract AMBA APB](extract-apb.md) - map signals, get a table of phase events, and use APB profiles.
+- [Extract AMBA ATB](extract-atb.md) - map signals, get a table of events, and use ATB profiles.
 
 ## Reference
 
-- [CLI reference](cli-reference.md) - complete CLI help reference.
-- [Event expressions](event-expressions.md) - event expression language contract.
-- [Boolean expressions](boolean-expressions.md) - Boolean expression language contract.
+- [CLI help reference](cli-reference.md) - complete CLI help reference.
+- [Machine output format](machine-output.md) - JSON, JSONL, diagnostics, and exit codes.
+- [Event expression language](event-expressions.md) - event expression language contract.
+- [Boolean expression language](boolean-expressions.md) - Boolean expression language contract.

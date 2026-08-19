@@ -69,7 +69,7 @@ If that succeeds, run:
 
 wavepeek skill ./wavepeek-skill
 
-`wavepeek skill <DIRECTORY>` extracts the complete, version-matched skill package into a new or empty directory. Install the entire extracted package according to your agent harness's skill rules. Replace older version of the skill entirely if current version is newer.
+`wavepeek skill <DIRECTORY>` extracts the complete, version-matched skill package into a new or empty directory. Install the entire extracted package according to your agent harness's skill rules. Replace the older skill entirely if the extracted version is newer.
 ```
 
 ## First run
@@ -90,7 +90,23 @@ wavepeek scope --waves your_waves.fst --tree
 
 ## Next steps
 
+Learn concepts:
+
 - [Commands](commands.md) - command model and common conventions.
-- [Waveforms](waveforms.md) - formats, conventions, performance, and FSDB support.
-- [Output](output.md) - machine output details, JSON envelopes, and JSONL objects.
-- [Basic usage](explore-dump.md) - main usage scenarios and short practical examples.
+- [Waveform formats](waveforms.md) - formats, performance, and FSDB support.
+- [Paths, signals and scopes](paths.md) - canonical paths, relative paths, and bit projections.
+- [Time units and windows](timeunits.md) - time tokens and query boundaries.
+- [Clocks and sampling](sampling.md) - event times, sample times, and pre-edge sampling.
+- [Boolean conditions](predicates.md) - Boolean expressions over waveform values.
+
+Get practical usage examples:
+
+- [Explore dump](explore-dump.md) - get dump bounds, navigate the hierarchy, and search signals.
+- [Inspect values](inspect-values.md) - sample values at explicit points and get a table of changes.
+- [Evaluate properties](evaluate-properties.md) - evaluate Boolean expressions and check whether a property holds.
+- [Extract transfers](extract-transfers.md) - find transfers and get payload data under handshakes and valid/ready strobes.
+- [Extract AMBA AXI](extract-axi.md) - map signals, get a table of transfers, and use AXI profiles.
+- [Extract AMBA AXI-Stream](extract-axis.md) - map signals, get a table of transfers, and use AXI-Stream profiles.
+- [Extract AMBA AHB](extract-ahb.md) - map signals, get a table of phase events, and use AHB profiles.
+- [Extract AMBA APB](extract-apb.md) - map signals, get a table of phase events, and use APB profiles.
+- [Extract AMBA ATB](extract-atb.md) - map signals, get a table of events, and use ATB profiles.
