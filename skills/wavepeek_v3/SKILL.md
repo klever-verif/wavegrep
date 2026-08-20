@@ -196,8 +196,9 @@ A successful JSONL stream starts with `begin`, contains zero or more `data` and 
 
 ## Bundled examples
 
-The examples consume `extract` JSON or JSONL and demonstrate the protocol layer above Wavepeek's transfer-level rows:
+The examples demonstrate common processing above Wavepeek's machine output:
 
+- [Output diff](examples/output_diff/README.md): finds the first or all divergent row blocks between two JSON or JSONL results.
 - [AXI scoreboard](examples/axi_scoreboard/README.md): joins AR/R and AW/W/B channel transfers into AXI4 read and write transactions.
 - [AHB scoreboard](examples/ahb_scoreboard/README.md): joins address, stall, and data-completion phases into AHB transfers.
 - [APB scoreboard](examples/apb_scoreboard/README.md): joins Setup, waited Access, and completion events into APB transactions.
