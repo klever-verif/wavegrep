@@ -20,6 +20,33 @@ Valid tokens:
 1us
 ```
 
+## Conversion helpers
+
+The bundled scripts avoid manual unit conversion and floating-point rounding. Run them from the extracted skill directory.
+
+Convert a value to the largest exact integer unit accepted by `wavepeek`:
+
+```text
+$ python3 scripts/time_convert.py 1.5ns
+1500ps
+```
+
+Select an output unit when a decimal result is useful for display:
+
+```text
+$ python3 scripts/time_convert.py 1500ps --to ns
+1.5ns
+```
+
+Add or subtract values with different units:
+
+```text
+$ python3 scripts/time_math.py 10ns + 250ps
+10250ps
+```
+
+An explicit `--to` conversion can produce a decimal value, which `wavepeek` does not accept as a time token. Omit `--to` when the result will be passed to a `wavepeek` command.
+
 ## Time windows
 
 Commands that accept `--from` and `--to` (`change`, `property`, `extract`) interpret them as an inclusive time window.

@@ -234,6 +234,7 @@ test-aux: require-container
     {{ python }} -m unittest tools/coverage/test_check_coverage.py
     {{ python }} -m unittest discover -s tools/fsdb -p "test_*.py"
     {{ python }} -m unittest discover -s tools/repo -p "test_*.py"
+    {{ python }} -m unittest discover -s tools/skill -p "test_*.py"
 
 # Build the current browser Playground
 playground-build: require-container
