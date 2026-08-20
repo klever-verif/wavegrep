@@ -1,44 +1,51 @@
-# Introduction
+# Overview
 
 `wavepeek` is a command-line tool for RTL waveform inspection. It provides deterministic, machine-friendly output and a small set of primitives that compose into repeatable debug recipes.
 
-The product exists to close the waveform access gap for automation. RTL debug usually depends on visually scanning dense temporal data in GUI viewers, but LLM agents, CI jobs, and post-simulation scripts need a textual, deterministic interface instead. `wavepeek` turns waveform dumps into bounded, composable command results that can be reasoned about, piped, and checked automatically.
+The primary use cases are LLM-driven debugging workflows and other automation. For open-ended interactive exploration, humans may still prefer GUI viewers, but `wavepeek` is useful for scripting, repeatable queries, and compact inspections.
 
-The primary users are LLM-driven debugging workflows and other automation that need stable output contracts. Humans are still expected to use GUI viewers for open-ended interactive exploration, but `wavepeek` is useful for scripting, repeatable queries, and compact inspections.
+`wavepeek` is a stateless CLI. It starts on demand and does not require a background service. It is not a GUI or TUI waveform viewer. It does not provide real-time waveform streaming, live simulator connections, or waveform comparison.
 
-## Scope
+The main usage flow is simple:
 
-Default `wavepeek` builds support VCD and FST waveform dumps, hierarchy and signal discovery, explicit-point value sampling, bounded time-range inspection, property checks over event-selected timestamps, extract row generation, and stateless CLI execution with deterministic output. FSDB support is currently Linux x86_64 only and requires installing with the Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK; FSDB-enabled builds support the same waveform command surface for digital bit-vector/integral signals. FSDB real and string value decoding remain unsupported and fail clearly when a command needs those values.
+- Provide a VCD/FST/FSDB waveform dump.
+- Specify an inspection command and its arguments.
+- Get results in human-readable, JSON, or JSONL format.
+- Analyze the output and repeat.
 
-`wavepeek` is not a GUI or TUI waveform viewer. It does not provide real-time waveform streaming, live simulator connections, or waveform diffing and comparison.
+For example, this command returns the value of the `top.data` signal at the `10ns` time point:
 
-## What to expect
+```text
+$ wavepeek value --waves dump.vcd --at 10ns --signals top.data
+@10ns top.data=8'h0f
+```
 
-`wavepeek` is designed around a few user-visible guarantees:
+To run `wavepeek` on your machine, see [Quickstart](quickstart.md) or try it in your browser with [Playground](https://kleverhq.github.io/wavepeek).
 
-1. **Machine-friendly output.** Command output, command structure, and error messages should be easy for automation and agents to consume reliably.
-2. **Human by default, JSON when requested.** Human-readable output is the default user experience. Stable machine-readable output is opt-in with `--json` where supported.
-3. **Composable commands.** Each command does one focused job so scripts and agents can combine commands into repeatable debug recipes.
-4. **Deterministic output.** Identical inputs should produce identical observable output.
-5. **Stable machine contracts.** JSON and JSONL shapes are documented in [Machine output](machine-output.md) and covered by direct runtime tests, while human-readable output stays intentionally more flexible.
-6. **Minimal footprint.** `wavepeek` is stateless, fast to start, and does not require a background service.
+## Concepts
 
-## Documentation map
+- [Commands](commands.md) - command model and common conventions.
+- [Waveform formats](waveforms.md) - formats, performance, and FSDB support.
+- [Paths, signals and scopes](paths.md) - canonical paths, relative paths, and bit projections.
+- [Time units and windows](timeunits.md) - time tokens and query boundaries.
+- [Clocks and sampling](sampling.md) - event times, sample times, and pre-edge sampling.
+- [Boolean conditions](predicates.md) - Boolean expressions over waveform values.
 
-The packaged references are organized by topic type:
+## Usage
 
-- [Command guides](overview.md) help you choose a command family and find exact CLI help.
-- [Workflows](extract-handshake.md) show repeatable task recipes.
-- [Troubleshooting](empty-results.md) explains surprising but valid results and recovery steps.
-- [Reference material](command-model.md) defines stable semantics and contracts.
+- [Explore dump](explore-dump.md) - get dump bounds, navigate the hierarchy, and search signals.
+- [Inspect values](inspect-values.md) - sample values at explicit points and get a table of changes.
+- [Evaluate properties](evaluate-properties.md) - evaluate Boolean expressions and check whether a property holds.
+- [Extract transfers](extract-transfers.md) - find transfers and get payload data under handshakes and valid/ready strobes.
+- [Extract AMBA AXI](extract-axi.md) - map signals, get a table of transfers, and use AXI profiles.
+- [Extract AMBA AXI-Stream](extract-axis.md) - map signals, get a table of transfers, and use AXI-Stream profiles.
+- [Extract AMBA AHB](extract-ahb.md) - map signals, get a table of phase events, and use AHB profiles.
+- [Extract AMBA APB](extract-apb.md) - map signals, get a table of phase events, and use APB profiles.
+- [Extract AMBA ATB](extract-atb.md) - map signals, get a table of events, and use ATB profiles.
 
-For exact command syntax, defaults, required flags, and examples, use generated help from the installed binary rather than these narrative topics.
+## Reference
 
-## Getting help
-
-Use progressive disclosure when you need help:
-
-- `wavepeek -h` gives compact top-level lookup help.
-- `wavepeek --help` gives detailed top-level reference help.
-- `wavepeek help <command-path...>` gives detailed help for a top-level or nested command, such as `wavepeek help extract axi`.
-- `wavepeek skill <DIRECTORY>` extracts this complete package into a new or empty directory.
+- [CLI help reference](cli-reference.md) - complete CLI help reference.
+- [Machine output format](machine-output.md) - JSON, JSONL, diagnostics, and exit codes.
+- [Event expression language](event-expressions.md) - event expression language contract.
+- [Boolean expression language](boolean-expressions.md) - Boolean expression language contract.

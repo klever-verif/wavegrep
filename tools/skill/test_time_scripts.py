@@ -7,7 +7,7 @@ import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / "skills" / "wavepeek_v3" / "scripts"
+SCRIPTS = ROOT / "skills" / "wavepeek" / "scripts"
 
 
 def load_module(name: str):

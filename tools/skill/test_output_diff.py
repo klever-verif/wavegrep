@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills" / "wavepeek_v3" / "examples" / "output_diff" / "output_diff.py"
+SCRIPT = ROOT / "skills" / "wavepeek" / "examples" / "output_diff" / "output_diff.py"
 
 
 def row(time: str, value: str) -> dict:

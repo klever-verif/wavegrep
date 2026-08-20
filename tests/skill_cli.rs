@@ -55,7 +55,6 @@ fn skill_extracts_complete_bundle_into_missing_directory() {
     extract(&destination);
 
     let mut expected = files_below(&source_root());
-    expected.retain(|path| path != Path::new("examples/.gitkeep"));
     expected.push(PathBuf::from("manifest.json"));
     expected.sort();
     assert_eq!(files_below(&destination), expected);
@@ -72,12 +71,6 @@ fn skill_extracts_complete_bundle_into_missing_directory() {
         );
     }
     assert!(destination.join("examples").is_dir());
-    assert!(
-        fs::read_dir(destination.join("examples"))
-            .expect("examples should be readable")
-            .next()
-            .is_none()
-    );
 
     let manifest: Value = serde_json::from_slice(
         &fs::read(destination.join("manifest.json")).expect("manifest should be readable"),

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "skills" / "wavepeek_v3" / "examples" / "ahb_scoreboard" / "ahb_scoreboard.py"
+SCRIPT = ROOT / "skills" / "wavepeek" / "examples" / "ahb_scoreboard" / "ahb_scoreboard.py"
 
 
 def row(

@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = (
     ROOT
     / "skills"
-    / "wavepeek_v3"
+    / "wavepeek"
     / "examples"
     / "axi_scoreboard"
     / "axi_scoreboard.py"
