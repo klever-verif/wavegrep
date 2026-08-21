@@ -6,10 +6,10 @@ use crate::cli::limits::LimitArg;
 
 #[derive(Debug, Args)]
 pub struct SignalArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
-    /// Exact scope path (e.g. top.cpu)
+    /// Exact scope path (for example, top.cpu)
     #[arg(long, help_heading = "Input options")]
     pub scope: String,
     /// Maximum number of entries (`unlimited` disables truncation, value must be > 0)
@@ -21,7 +21,7 @@ pub struct SignalArgs {
     /// Recursively include nested child scopes
     #[arg(long, help_heading = "Selection options")]
     pub recursive: bool,
-    /// Maximum recursion depth below --scope (`unlimited` disables this limit)
+    /// Maximum recursion depth below --scope; requires --recursive (`unlimited` disables this limit)
     #[arg(
         long,
         default_value = "5",

@@ -6,33 +6,40 @@ This page contains the detailed help from the version-matched `wavepeek` binary.
 ## `wavepeek`
 
 ```text
-wavepeek is a machine-friendly command-line tool for RTL waveform inspection.
-See more with '--help'
+wavepeek queries saved RTL waveform dumps.
 
-General conventions:
-- Waveform-inspection commands require `--waves <FILE>`.
-- VCD/FST input is available in every build.
-- FSDB support is currently Linux x86_64 only and requires a build compiled with Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK.
-- Output is bounded by default (e.g. with `--max` or similar) and recursive traversals are depth-bounded.
-- Default output is human-readable for waveform commands; `--json` enables machine-readable output documented in the packaged `references/machine-output.md`.
-- Time values require explicit units (`zs`, `as`, `fs`, `ps`, `ns`, `us`, `ms`, `s`) and integer magnitudes.
-- Parsed times are normalized to dump `time_unit`; time-window flags (`--from`, `--to`) use inclusive boundaries.
-- Human process-level failures follow `fatal: <category>: <message>`; `--json` and `--jsonl` use typed fatal records documented in `references/machine-output.md`.
+Behavior:
+- Each waveform command opens one waveform dump, runs one query, writes its output, and exits.
+- Every build supports VCD and FST. FSDB requires Linux x86_64, Cargo feature `fsdb`, and the Synopsys Verdi FSDB Reader SDK.
+- Waveform commands write text by default. Use `--json` for one JSON value or `--jsonl` for a stream of JSON records.
+- Time values use an integer and an explicit unit, for example `250ps`, `10ns`, or `2us`. Supported units are `zs`, `as`, `fs`, `ps`, `ns`, `us`, `ms`, and `s`.
+
+Examples:
+  wavepeek info --waves dump.fst
+  wavepeek scope --waves dump.fst --tree --max-depth 2
+  wavepeek help extract axi
+
+Notes:
+- Count and traversal limits keep output bounded by default. Use `unlimited` only when the full result is needed.
+- Parsed times use the dump's `time_unit`. The `--from` and `--to` boundaries are inclusive.
+- Text failures use `fatal: <category>: <message>`. JSON and JSONL use typed fatal records.
+- Names ending in `.md` refer to files in the packaged skill. Run `wavepeek skill ./wavepeek-skill` to extract it, then open the files under `./wavepeek-skill/references/`.
+- See machine-output.md for machine output and timeunits.md for time syntax.
 
 Usage: wavepeek [OPTIONS] [COMMAND]
 
 Waveform commands:
-  info      Show waveform metadata
-  scope     Explore hierarchy scopes
-  signal    Explore signals within scope
-  value     Get signal values at explicit time point(s)
-  change    List signal changes over a time range
-  property  Evaluate properties over a time range
-  extract   Extract event rows from waveform signals
+  info      Show metadata for one waveform dump.
+  scope     List scopes in a waveform hierarchy.
+  signal    List signals in one waveform scope.
+  value     Read selected signal values at one or more times.
+  change    Read signal values at selected events over a time range.
+  property  Evaluate a Boolean expression at selected events.
+  extract   Extract event rows from waveform signals.
 
 Helper commands:
-  skill     Extract the packaged agent skill
-  help      Show help for the given subcommand(s)
+  skill     Extract the packaged agent skill into a directory.
+  help      Show detailed help for a command path.
 
 Options:
   -V
@@ -46,27 +53,30 @@ Options:
 
 Optional features:
 - FSDB - disabled (FSDB support is currently Linux x86_64 only; reinstall with Cargo flag `--features fsdb` and provide the Synopsys Verdi FSDB Reader SDK)
-
-Next steps:
-  wavepeek --help
-  wavepeek help <command-path...>
-  wavepeek skill <DIRECTORY>
 ```
 
 ## `wavepeek info`
 
 ```text
-Reports metadata for the selected waveform dump.
+Show metadata for one waveform dump.
 
 Behavior:
-- Prints available metadata (e.g. time unit, start/end times, etc.) in free form
-- `--json` emits the standard machine-readable envelope.
+- Reports the dump time unit, start time, and end time.
+- Text output uses a simple field list. JSON and JSONL use the standard machine output records.
+
+Example:
+  wavepeek info --waves dump.fst
+
+Notes:
+- Run `info` before choosing values for `--at`, `--from`, or `--to`.
+- See explore-dump.md for the usual inspection flow and timeunits.md for time rules.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek info [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
 Output options:
       --json
@@ -86,23 +96,29 @@ Other options:
 ## `wavepeek scope`
 
 ```text
-Provides deterministic hierarchy traversal over scope paths.
+List scopes in a waveform hierarchy.
 
 Behavior:
-- Finds all scopes matching `--filter` and displays scope name, depth, and kind.
-- Traversal order is stable: pre-order depth-first, with lexicographic child ordering.
-- Includes stable scope kind aliases from hierarchy data (not only modules); excluded backend-specific spellings are normalized to the stable contract surface.
-- `--tree` switches from flat list to visual hierarchy rendering and includes filtered matches' ancestors up to the root.
-- Truncation emits a coded diagnostic; without `--summary`, an empty valid human result prints a short message on stdout.
-- `--json` emits the standard machine-readable envelope.
+- Matches `--filter` against full scope paths and reports each scope's name, depth, and kind.
+- Uses stable pre-order depth-first traversal with lexicographic child ordering.
+- Reports normalized scope kinds for modules and other recorded hierarchy objects.
+- `--tree` prints an indented hierarchy and includes the ancestors of matching scopes.
+- Truncation produces a coded diagnostic. An empty text result prints a short message unless `--summary` is set.
 
-Use this command to explore hierarchy shape before narrowing to signal-level queries.
+Examples:
+  wavepeek scope --waves dump.fst --tree --max-depth 2 --max 30
+  wavepeek scope --waves dump.fst --filter '.*(cpu|axi|uart).*'
+
+Notes:
+- Use `scope` before commands that need an exact scope path.
+- See explore-dump.md for a hierarchy walkthrough and paths.md for path rules.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek scope [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
 Selection options:
       --max-depth <MAX_DEPTH>
@@ -144,27 +160,36 @@ Other options:
 ## `wavepeek signal`
 
 ```text
-Provides scope-local signal listings.
+List signals in one waveform scope.
 
 Behavior:
-- Finds all signals matching `--filter` within the selected scope and displays name, kind, and available metadata (for example width).
-- Default mode lists only direct signals in the selected scope.
-- Recursive mode walks child scopes depth-first in stable lexicographic order; `--max-depth` limits recursion when set.
-- Includes stable signal kind aliases (not only wires); excluded backend-specific VHDL spellings are normalized to the stable contract surface.
-- Ambiguous FSDB signal paths are omitted with a coded diagnostic; no backing record is selected.
-- Truncation emits a coded diagnostic; without `--summary`, an empty valid human result prints a short message on stdout.
-- `--json` emits the standard machine-readable envelope.
+- Matches `--filter` against signal names and reports each signal's name, kind, and available metadata such as width.
+- Lists direct signals by default. `--recursive` also visits child scopes in stable depth-first order.
+- Reports normalized signal kinds for wires and other recorded objects.
+- Omits ambiguous FSDB paths instead of choosing a backing record and produces a coded diagnostic.
+- Truncation produces a coded diagnostic. An empty text result prints a short message unless `--summary` is set.
 
-Use this command after `scope` to inspect available signals in a target scope.
+Examples:
+  wavepeek signal --waves dump.fst \
+    --scope tb.dut.cpu \
+    --filter '.*(clk|reset|state).*'
+
+  wavepeek signal --waves dump.fst \
+    --scope tb.dut --recursive --max-depth 2 --abs
+
+Notes:
+- Use `--abs` to print canonical paths that can be copied into later commands.
+- See explore-dump.md for signal discovery and paths.md for path rules.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek signal [OPTIONS] --waves <FILE> --scope <SCOPE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --scope <SCOPE>
-          Exact scope path (e.g. top.cpu)
+          Exact scope path (for example, top.cpu)
 
 Output options:
       --max <MAX>
@@ -194,7 +219,7 @@ Selection options:
           Recursively include nested child scopes
 
       --max-depth <MAX_DEPTH>
-          Maximum recursion depth below --scope (`unlimited` disables this limit)
+          Maximum recursion depth below --scope; requires --recursive (`unlimited` disables this limit)
 
           [default: 5]
 
@@ -209,41 +234,44 @@ Other options:
 ## `wavepeek value`
 
 ```text
-Provides point sampling for selected signals.
+Read selected signal values at one or more times.
 
 Behavior:
-- Prints values for the requested signals at each selected time point.
-- By default, signal names are top-related canonical paths (e.g. `top.cpu.state`).
-- For deep hierarchies, set `--scope` once with a canonical scope path; signal references may be relative to it or canonical paths inside it.
-- Relative and canonical references inside the selected scope may be mixed in one request.
-- A trailing static `[msb:lsb]` projects a flat integral signal's normalized sampled value; use `[n:n]` for one bit.
-- Exact waveform paths win before projection parsing, and `[n]` remains ordinary waveform path syntax.
-- `--at` and `--signals` accept comma-separated values, repeated options, or both.
-- Output preserves the flattened input order from `--at` and `--signals`, including duplicates.
-- Human output emits one `@<time>` row per requested time with `display=value` fields, matching `change`.
-- When following up a `change` or `property` JSON row, prefer that row's `sample_time` field for `--at`; in `pre-edge` mode, `time` is the selected trigger timestamp and `sample_time` is where values were sampled.
-- Time tokens must include explicit units and align to dump precision.
-- Values are emitted as Verilog literals (`<width>'h<digits>` with `x`/`z` support).
-- Fails fast if any requested signal cannot be resolved or if any selected time point is more precise than dump resolution.
-- `--json` emits the standard machine-readable envelope.
+- `--at` and `--signals` accept comma-separated values, repeated options, or both. The command prints one row per `--at` value and preserves request order and duplicates.
+- Uses canonical signal paths by default. With `--scope`, names may be relative or canonical paths inside that scope, and both forms may be mixed.
+- A trailing `[msb:lsb]` selects bits from a flat integral signal. Use `[n:n]` for one bit; `[n]` remains part of an ordinary waveform path.
+- Exact waveform paths take precedence over projection syntax.
+- Text values use Verilog literals such as `8'h0f`, including `x` and `z` digits.
+- The command fails if a signal cannot be resolved or a requested time is finer than the dump resolution.
 
-Use this command for deterministic spot checks at specific timestamps.
+Examples:
+  wavepeek value --waves dump.fst \
+    --scope tb.dut.cpu --at 120ns --signals state,pc
+
+  wavepeek value --waves dump.fst \
+    --at 100ns,110ns --signals 'top.status[7:4]'
+
+Notes:
+- Time values need explicit units and must align with dump precision.
+- To reproduce a `change` or `property` row, pass its `sample_time` to `--at`. In `pre-edge` mode, `time` is the trigger time and `sample_time` is the value sample time.
+- See inspect-values.md for examples, paths.md for signal names, and timeunits.md for time rules.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek value [OPTIONS] --waves <FILE> --at <AT> --signals <SIGNALS>...
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
 Selection options:
       --at <AT>
-          Time points with explicit units, comma-separated or repeated
+          Time points with explicit units, comma-separated or repeated (for example, 1337ns or 10ns,20ns)
 
       --scope <SCOPE>
-          Canonical scope path for relative or in-scope canonical signal names
+          Scope for relative signal names (for example, top.cpu)
 
       --signals <SIGNALS>...
-          Signal paths or flat [msb:lsb] projections, comma-separated or repeated
+          Signal paths or flat projections, comma-separated or repeated (for example, state,pc or status[7:4])
 
 Output options:
       --abs
@@ -266,46 +294,53 @@ Other options:
 ## `wavepeek change`
 
 ```text
-Provides event-driven tables for selected signals.
+Read signal values at selected events over a time range.
 
 Behavior:
-- Prints requested signal values for each event selected by required `--on`.
-- `--signals` accepts comma-separated values, repeated options, or both; trailing static `[msb:lsb]` projections are supported.
-- Sparse, delta, and wildcard comparisons use projected values.
-- Exact waveform paths win before projection parsing; use `[n:n]` for one bit because `[n]` remains ordinary waveform path syntax.
-- `--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows; the default is `dense`.
-- Pre-edge events without a representable earlier sample point are skipped.
-- `--row-values full|delta` controls whether rows contain all requested signals or only changed signals; the default is `full`, and the first delta row is always full.
-- Range boundaries are inclusive. Dense mode can emit a matching event at `--from`; sparse mode uses `--from` only as its comparison baseline.
-- Value sampling defaults to pre-edge sampling: displayed values are sampled just before edge-only triggers while row timestamps stay at the trigger edge.
-- Use `--sample-mode native` for raw wildcard or plain-signal triggers such as `--on '*'`.
-- JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where values were sampled); text output shows `sample@<time>` only when it differs from `time`.
-- Truncation emits a coded diagnostic; without `--summary`, an empty valid human result prints a short message on stdout.
-- `--json` emits the standard machine-readable envelope.
+- `--on` selects events, and `--signals` selects the values printed for each event. `--signals` accepts comma-separated values, repeated options, or both.
+- Signal names may end in `[msb:lsb]`. Sparse rows, delta rows, and wildcard comparisons use the projected values. Exact waveform paths take precedence, and `[n]` remains path syntax.
+- `--row-mode dense` prints every sampled event. `sparse` prints only samples that changed from the previous selected sample.
+- `--row-values full` prints every requested value. `delta` prints changed values, except that its first row is always full.
+- Pre-edge sampling reads values before edge-only triggers while keeping the trigger timestamp as the row time. Events without an earlier representable sample are skipped.
+- Native sampling reads values at the event timestamp and is required for wildcard triggers such as `--on '*'`.
+- Range boundaries are inclusive. In sparse mode, `--from` provides the comparison baseline and does not force a row.
+- Truncation produces a coded diagnostic. An empty text result prints a short message unless `--summary` is set.
 
-Use this command to inspect event-aligned values or value transitions over bounded time windows.
+Examples:
+  wavepeek change --waves dump.fst \
+    --scope tb.dut.cpu --on 'posedge clk' \
+    --signals state,req,ack
+
+  wavepeek change --waves dump.fst \
+    --from 100ns --to 160ns --on '*' --sample-mode native \
+    --signals top.req,top.ack
+
+Notes:
+- JSON and JSONL rows contain `time` for the selected event and `sample_time` for the sampled values. Text shows `sample@<time>` only when they differ.
+- See inspect-values.md for common queries, sampling.md for sampling modes, and event-expressions.md for `--on` syntax.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek change [OPTIONS] --waves <FILE> --signals <SIGNALS>... --on <ON>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
 Selection options:
       --from <FROM>
-          Start of inclusive time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive time range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive time range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for relative or in-scope canonical signal and trigger names
+          Scope for relative signal and trigger names (for example, top.cpu)
 
       --signals <SIGNALS>...
-          Signal paths or flat [msb:lsb] projections, comma-separated or repeated
+          Signal paths or flat projections, comma-separated or repeated (for example, state,req or status[7:4])
 
       --on <ON>
-          Event trigger expression (required; use `*` only with `--sample-mode native`)
+          Event trigger expression (for example, 'posedge clk'; use `*` only with `--sample-mode native`)
 
       --sample-mode <MODE>
           Value sampling mode for event-selected rows
@@ -354,40 +389,49 @@ Other options:
 ## `wavepeek property`
 
 ```text
-Provides timestamps where the specified property holds over event triggers.
+Evaluate a Boolean expression at selected events.
 
 Behavior:
-- Evaluates `--eval` at timestamps selected by `--on` and prints time plus metadata when the property holds.
-- Level capture (`--capture match`) reports a match at every selected timestamp where the property holds.
-- Edge capture (`--capture switch`, `assert`, or `deassert`) reports transitions: no match to match, or match to no match.
-- `--on` is required. Use explicit clock edges such as `--on 'posedge clk'` for RTL-style sampling.
-- Value sampling defaults to pre-edge sampling: `--eval` reads values just before edge-only triggers while row timestamps stay at the trigger edge.
-- Use `--sample-mode native` for raw wildcard or plain-signal triggers such as `--on '*'`.
-- JSON and JSONL rows include both `time` (selected event timestamp) and `sample_time` (where `--eval` was sampled); text output shows `sample@<time>` only when it differs from `time`.
-- Truncation emits a coded diagnostic; without `--summary`, an empty valid human result prints a short message on stdout.
-- Remotely similar to a SystemVerilog assert, but without temporal expressions.
-- `--json` emits the standard machine-readable envelope.
+- `--on` selects events, and `--eval` defines the expression checked at each event.
+- `--capture match` prints every selected event where the expression is true.
+- `--capture switch` prints both result transitions. `assert` prints false-to-true transitions, and `deassert` prints true-to-false transitions.
+- Pre-edge sampling checks the expression before edge-only triggers while keeping the trigger timestamp as the row time.
+- Native sampling checks at the event timestamp and is required for wildcard triggers such as `--on '*'`.
+- Truncation produces a coded diagnostic. An empty text result prints a short message unless `--summary` is set.
 
-Use this command to check event-driven property matches and transitions over bounded time windows.
+Examples:
+  wavepeek property --waves dump.fst \
+    --scope tb.dut --on 'posedge clk' \
+    --eval 'req && !ack'
+
+  wavepeek property --waves dump.fst \
+    --on '*' --sample-mode native \
+    --eval "top.error != 8'h00" --capture assert
+
+Notes:
+- This is a sampled Boolean check, not a SystemVerilog temporal assertion.
+- JSON and JSONL rows contain `time` for the selected event and `sample_time` for the expression sample. Text shows `sample@<time>` only when they differ.
+- See evaluate-properties.md for common queries, boolean-expressions.md for `--eval`, and sampling.md for sampling modes.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek property [OPTIONS] --waves <FILE> --on <ON> --eval <EVAL>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
 Selection options:
       --from <FROM>
-          Start of inclusive time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive time range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive time range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for relative or in-scope canonical event and expression names
+          Scope for relative event and expression names (for example, top.cpu)
 
       --on <ON>
-          Event trigger expression (required; use `*` only with `--sample-mode native`)
+          Event trigger expression (for example, 'posedge clk'; use `*` only with `--sample-mode native`)
 
       --sample-mode <MODE>
           Value sampling mode for event-selected rows
@@ -396,7 +440,7 @@ Selection options:
           [possible values: native, pre-edge]
 
       --eval <EVAL>
-          Logical expression evaluated at selected event timestamps
+          Logical expression evaluated at selected events (for example, 'ready && !stall')
 
 Output options:
       --capture <MODE>
@@ -430,20 +474,35 @@ Other options:
 ## `wavepeek extract`
 
 ```text
-Extract row-oriented waveform data.
+Extract event rows from waveform signals.
 
-Use nested extractors for protocol-neutral or protocol-specific event rows. The generic extractor selects edge events, evaluates a predicate at the pre-edge sample point, and emits ordered payload values.
+Behavior:
+- `generic` selects clocked events with an event expression and Boolean predicate, then samples an ordered payload.
+- Protocol extractors map standard interface signals and emit protocol-specific channel or phase events.
+
+Examples:
+  wavepeek extract generic --waves dump.fst \
+    --scope top.fifo --on 'posedge clk' \
+    --when 'valid && ready' --payload data
+
+  wavepeek extract axi --waves dump.fst \
+    --scope top.axi --profile axi4 \
+    --map aclk=clk --include '^m_axi_'
+
+Notes:
+- Extractors report sampled events. They do not perform full protocol checking or reconstruct high-level transactions.
+- See extract-transfers.md for generic extraction and extract-axi.md, extract-axis.md, extract-ahb.md, extract-apb.md, or extract-atb.md for AMBA examples.
 
 Usage: wavepeek extract <COMMAND>
 
 Commands:
-  ahb        Extract manager-facing AHB pipeline events.
-  apb        Extract APB Setup and Access event rows.
+  ahb        Extract manager-facing AHB address and data-phase events.
+  apb        Extract APB Setup and Access events.
   atb        Extract ATB transfer, flush, and synchronization-request events.
-  axi        Extract AXI ready/valid transfer rows.
-  axistream  Extract AXI-Stream transfer rows.
-  generic    Extract protocol-neutral event rows from waveform signals.
-  help       Print this message or the help of the given subcommand(s)
+  axi        Extract AXI-family ready/valid channel transfers.
+  axistream  Extract AXI-Stream transfers.
+  generic    Extract custom synchronous events and their payload values.
+  help       Show detailed help for a command path.
 
 Options:
   -h, --help
@@ -453,28 +512,34 @@ Options:
 ## `wavepeek extract ahb`
 
 ```text
-Extract manager-facing AHB pipeline events.
+Extract manager-facing AHB address and data-phase events.
 
 Behavior:
-- Supports AHB-Lite and AHB5 profiles from Arm IHI 0033C, Issue C.
-- Tracks one accepted address phase so real data completions remain distinct from idle clocks.
-- Emits address, data-complete, reset, and desynchronized events by default.
-- --include-stall, --include-idle, and --include-busy independently expose cycle-level events.
-- Samples control and payload values one dump tick before each rising HCLK edge.
-- Uses manager-facing HREADY; HREADYOUT, HSELx, and parity/check signals are outside this interface.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- In source-file mode, --source provides profile, name, inclusion flags, includes, and maps.
-- Source-file fields and behavior are documented in the corresponding protocol topic.
-- JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.
-- Does not reconstruct bursts, aggregate transactions, or join address and data phases.
+- Supports AHB-Lite and AHB5 from Arm IHI 0033C, Issue C.
+- Tracks one accepted address phase so data completions remain separate from idle clocks.
+- Emits address, data-complete, reset, and desynchronized events by default. The include flags add stall, idle, or busy cycle events.
+- Samples control and payload one dump tick before each rising HCLK edge.
+- Uses manager-facing HREADY. HREADYOUT, HSELx, and parity or check signals are outside this interface.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, output name, include flags, regexes, and mappings.
 
-Use this command to inspect accepted AHB transfers and their pipeline completion timing.
+Example:
+  wavepeek extract ahb --waves dump.fst \
+    --scope tb.dut.ahb_m --profile ahb-lite \
+    --map hclk=clk --include '^m_ahb_'
+
+Notes:
+- `--source` conflicts with `--profile`, `--name`, `--map`, `--include`, `--include-stall`, `--include-idle`, and `--include-busy`.
+- Pipeline warm-up starts before `--from`, so an in-range completion may belong to an earlier address phase. JSON field `initial_data_phase` records that state.
+- JSON context includes the Issue C profile, resolved mappings, and ordered event rows.
+- The extractor does not reconstruct bursts, combine transactions, or join address and data phases.
+- See extract-ahb.md for mapping and stall examples. See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek extract ahb [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --profile <PROFILE>
           AHB profile from Arm IHI 0033C
@@ -483,27 +548,27 @@ Input options:
           [possible values: ahb-lite, ahb5]
 
       --source <FILE>
-          JSON AHB source file with profile, inclusion flags, name, includes, and maps
+          JSON AHB source file with profile, include flags, name, regexes, and mappings (for example, ahb-source.json)
 
       --name <NAME>
-          AHB interface name metadata for output (defaults to ahb)
+          Interface name stored in output metadata (default: ahb)
 
 Selection options:
       --from <FROM>
-          Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive event range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive event range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for scope-relative AHB signal names and include regexes
+          Scope for relative AHB signal names and include regexes (for example, top.ahb_m)
 
 Signal mapping options:
       --map <STD=WAVES>
-          Explicit AHB mapping STD_NAME=WAVES_NAME, e.g. haddr=dmem_haddr; may be repeated
+          Explicit AHB signal mapping; may be repeated (for example, haddr=dmem_haddr)
 
       --include <REGEX>
-          Regex selecting waveform signal candidates for AHB auto-mapping; may be repeated
+          Regex for AHB auto-mapping candidates; may be repeated (for example, '^m_ahb_')
 
 Event options:
       --include-stall
@@ -544,28 +609,33 @@ Other options:
 ## `wavepeek extract apb`
 
 ```text
-Extract APB Setup and Access event rows.
+Extract APB Setup and Access events.
 
 Behavior:
-- Supports APB3, APB4, and APB5 profiles from Arm IHI 0024E; APB4 is the default.
-- Source files accept canonical lowercase profile and PREADY-mode values only.
-- Emits setup and access-complete rows by default; --include-wait adds one access-wait row per waited Access cycle.
-- Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Maps one concrete Completer PSELx as canonical psel.
-- Samples reset, event predicates, direction, and payload values at the pre-edge sample point.
-- In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps and conflicts with their CLI flags.
-- Source-file fields and behavior are documented in the corresponding protocol topic.
-- JSON output includes APB metadata, mappings, and event rows.
-- Reports independent sampled events only; it does not correlate or validate transactions.
+- Supports APB3, APB4, and APB5 from Arm IHI 0024E.
+- Emits setup and access-complete rows by default. `--include-wait` adds one row for each waited Access cycle.
+- Mapped PREADY mode requires `pready`. Implicit-high mode forbids `pready` and wait rows.
+- Maps one concrete Completer PSELx signal as `psel`.
+- Samples reset, predicates, direction, and payload at the pre-edge sample point.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, PREADY mode, wait flag, output name, regexes, and mappings. Source files use canonical lowercase profile and mode values.
 
-Use this command to inspect APB activity without writing generic Setup and Access predicates.
+Example:
+  wavepeek extract apb --waves dump.fst \
+    --scope tb.dut.uart_apb --profile apb4 \
+    --map pclk=clk --include '^uart_'
+
+Notes:
+- `--source` conflicts with `--profile`, `--pready-mode`, `--include-wait`, `--name`, `--map`, and `--include`.
+- JSON context includes APB metadata, resolved mappings, and event rows.
+- Rows are independent sampled events. The extractor does not correlate or validate transactions.
+- See extract-apb.md for mapping and wait-state examples. See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek extract apb [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --profile <PROFILE>
           APB profile from Arm IHI 0024E
@@ -583,27 +653,27 @@ Input options:
           Emit one access-wait row per waited Access cycle
 
       --source <FILE>
-          JSON APB source file with profile, mode, wait capture, name, includes, and maps
+          JSON APB source file with profile, PREADY mode, wait flag, name, regexes, and mappings (for example, apb-source.json)
 
       --name <NAME>
-          APB port name metadata for output (defaults to apb)
+          Interface name stored in output metadata (default: apb)
 
 Selection options:
       --from <FROM>
-          Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive event range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive event range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for scope-relative APB signal names and include regexes
+          Scope for relative APB signal names and include regexes (for example, top.uart_apb)
 
 Signal mapping options:
       --map <STD=WAVES>
-          Explicit APB mapping STD_NAME=WAVES_NAME, e.g. psel=uart_psel; may be repeated
+          Explicit APB signal mapping; may be repeated (for example, psel=uart_psel)
 
       --include <REGEX>
-          Regex selecting waveform signal candidates for APB auto-mapping, e.g. '^uart_apb_'; may be repeated
+          Regex for APB auto-mapping candidates; may be repeated (for example, '^uart_apb_')
 
 Output options:
       --max <MAX>
@@ -637,26 +707,32 @@ Other options:
 Extract ATB transfer, flush, and synchronization-request events.
 
 Behavior:
-- Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.
-- Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; source files accept canonical hyphenated profile names only.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.
-- Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.
-- Samples reset, predicates, and mapped transfer payload at the pre-edge sample point.
-- Emits same-edge events in transfer, flush, then sync-request order.
-- Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.
-- In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
-- Source-file fields and behavior are documented in the corresponding protocol topic.
-- JSON output includes ATB metadata, mappings, and event rows.
-- Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
+- Supports ATB-A, ATB-B, and ATB-C from Arm IHI 0032C, Issue C.
+- Builds separate event sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.
+- A mapped SYNCREQ signal on ATB-B or ATB-C adds synchronization-request events.
+- Samples reset, predicates, and transfer payload at the pre-edge sample point.
+- Orders same-edge events as transfer, flush, then synchronization request.
+- Preserves mapped ATBYTES, ATDATA, and ATID values without trace decoding.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, output name, regexes, and mappings. Source files use canonical hyphenated profile names.
 
-Use this command to inspect one ATB interface without writing separate generic extraction sources.
+Example:
+  wavepeek extract atb --waves dump.fst \
+    --scope tb.dut.etm --profile atb-c \
+    --map atclk=trace_clk --include '^trace_(at|af|sync)'
+
+Notes:
+- `--source` conflicts with `--profile`, `--name`, `--map`, and `--include`.
+- CLI profile aliases are `atb_a`, `atb_b`, `atb_c`, `atbv1.0`, and `atbv1.1`.
+- JSON context includes ATB metadata, resolved mappings, and event rows.
+- Rows are stateless sampled events. The extractor does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
+- See extract-atb.md for mapping examples. See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek extract atb [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --profile <PROFILE>
           ATB profile from Arm IHI 0032C Issue C
@@ -665,27 +741,27 @@ Input options:
           [possible values: atb-a, atb-b, atb-c]
 
       --source <FILE>
-          JSON ATB source file with profile, name, includes, and maps
+          JSON ATB source file with profile, name, regexes, and mappings (for example, atb-source.json)
 
       --name <NAME>
-          ATB interface name metadata for output (defaults to atb)
+          Interface name stored in output metadata (default: atb)
 
 Selection options:
       --from <FROM>
-          Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive event range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive event range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for scope-relative ATB signal names and include regexes
+          Scope for relative ATB signal names and include regexes (for example, top.etm)
 
 Signal mapping options:
       --map <STD=WAVES>
-          Explicit ATB mapping STD_NAME=WAVES_NAME, e.g. atvalid=etm_atvalid; may be repeated
+          Explicit ATB signal mapping; may be repeated (for example, atvalid=etm_atvalid)
 
       --include <REGEX>
-          Regex selecting waveform signal candidates for ATB auto-mapping, e.g. '^etm_(at|af)'; may be repeated
+          Regex for ATB auto-mapping candidates; may be repeated (for example, '^etm_(at|af)')
 
 Output options:
       --max <MAX>
@@ -716,30 +792,33 @@ Other options:
 ## `wavepeek extract axi`
 
 ```text
-Extract AXI ready/valid transfer rows.
+Extract AXI-family ready/valid channel transfers.
 
 Behavior:
-- AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 profiles use Arm IHI 0022H.c.
-- AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles use Arm IHI 0022L ready/valid transport.
-- Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles.
-- ACE5-Lite aliases are ace5_lite; ACE5-LiteDVM aliases are ace5-litedvm, ace5_litedvm, and ace5_lite_dvm; ACE5-LiteACP aliases are ace5-liteacp, ace5_liteacp, and ace5_lite_acp.
-- Source files accept canonical hyphenated profile names only.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Builds one extraction source per complete ready/valid channel.
-- AXI5 and ACE5-LiteDVM can add DVM ac and cr channels but do not add cd.
-- Samples reset, ready/valid predicates, and payload values at the pre-edge sample point.
-- In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
-- Source-file fields and behavior are documented in the corresponding protocol topic.
-- JSON output includes AXI metadata, mappings, and transfer rows.
-- Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.
+- Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP.
+- AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 use Arm IHI 0022H.c. The remaining profiles use the Arm IHI 0022L ready/valid transport.
+- Builds one event source for each complete ready/valid channel. AXI5 and ACE5-LiteDVM can add DVM `ac` and `cr` channels, but not `cd`.
+- Samples reset, ready and valid predicates, and payload at the pre-edge sample point.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, output name, regexes, and mappings. Source files use canonical hyphenated profile names.
 
-Use this command to inspect AXI-family handshakes without writing one generic source per channel.
+Example:
+  wavepeek extract axi --waves dump.fst \
+    --scope tb.dut.axi_m --profile axi4 \
+    --map aclk=clk --include '^m_axi_(aw|w|b|ar|r)'
+
+Notes:
+- `--source` conflicts with `--profile`, `--name`, `--map`, and `--include`.
+- CLI aliases include `ace5_lite`, `ace5-litedvm`, `ace5_litedvm`, `ace5_lite_dvm`, `ace5-liteacp`, `ace5_liteacp`, and `ace5_lite_acp`.
+- JSON context includes AXI metadata, resolved mappings, and transfer rows.
+- Rows are raw channel transfers, including eligible `ac` and `cr` transfers. The extractor does not decode DVM messages or coherency state. It does not reconstruct bursts, ordering, or outstanding request state.
+- See extract-axi.md for mapping examples. See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek extract axi [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --profile <PROFILE>
           AXI profile from Arm IHI 0022H.c or IHI 0022L
@@ -748,27 +827,27 @@ Input options:
           [possible values: axi3, axi4, axi4-lite, axi5, axi5-lite, ace, ace-lite, ace5, ace5-lite, ace5-lite-dvm, ace5-lite-acp]
 
       --source <FILE>
-          JSON AXI source file with profile, name, includes, and maps
+          JSON AXI source file with profile, name, regexes, and mappings (for example, axi-source.json)
 
       --name <NAME>
-          AXI port name metadata for output (defaults to axi)
+          Interface name stored in output metadata (default: axi)
 
 Selection options:
       --from <FROM>
-          Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive event range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive event range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for scope-relative AXI signal names and include regexes
+          Scope for relative AXI signal names and include regexes (for example, top.axi_m)
 
 Signal mapping options:
       --map <STD=WAVES>
-          Explicit AXI mapping STD_NAME=WAVES_NAME, e.g. awvalid=cpu_dmem_awvalid; may be repeated
+          Explicit AXI signal mapping; may be repeated (for example, awvalid=cpu_dmem_awvalid)
 
       --include <REGEX>
-          Regex selecting waveform signal candidates for AXI auto-mapping, e.g. '^axi_(aw|w|b|ar|r)_'; may be repeated
+          Regex for AXI auto-mapping candidates; may be repeated (for example, '^axi_(aw|w|b|ar|r)_')
 
 Output options:
       --max <MAX>
@@ -799,26 +878,31 @@ Other options:
 ## `wavepeek extract axistream`
 
 ```text
-Extract AXI-Stream transfer rows.
+Extract AXI-Stream transfers.
 
 Behavior:
-- Supports AXI4-Stream and AXI5-Stream profiles from Arm IHI 0051B Issue B.
-- The default profile is AXI4-Stream.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Mapped TREADY mode requires tvalid and tready; implicit-high mode explicitly declares that physical TREADY is omitted.
-- Samples reset, handshake predicates, and payload values at the pre-edge sample point for posedge aclk.
-- One invocation maps one stream interface and emits one row per completed transfer without a synthetic channel.
-- AXI5-Stream wake-up and parity/check signals are outside this transfer extractor.
-- In source-file mode, --source provides profile, TREADY mode, name, includes, and maps and conflicts with --profile, --tready-mode, --name, --map, and --include.
-- Source-file fields and behavior are documented in the corresponding protocol topic.
+- Supports AXI4-Stream and AXI5-Stream from Arm IHI 0051B, Issue B.
+- Mapped TREADY mode requires `tvalid` and `tready`. Implicit-high mode declares that physical TREADY is absent.
+- Samples reset, handshake predicates, and payload at the pre-edge sample point for each rising ACLK edge.
+- One invocation maps one stream interface and emits one row per completed transfer without adding a channel name.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, TREADY mode, output name, regexes, and mappings.
 
-Use this command to inspect AXI-Stream transfers without writing a generic extraction source.
+Example:
+  wavepeek extract axistream --waves dump.fst \
+    --scope tb.dut.video_out --profile axi4-stream \
+    --map aclk=clk --include '^video_'
+
+Notes:
+- `--source` conflicts with `--profile`, `--tready-mode`, `--name`, `--map`, and `--include`.
+- AXI5-Stream wake-up, parity, and check signals are outside this extractor.
+- See extract-axis.md for mapping and implicit-high examples. See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek extract axistream [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --profile <PROFILE>
           AXI-Stream profile from Arm IHI 0051B Issue B
@@ -833,27 +917,27 @@ Input options:
           [possible values: mapped, implicit-high]
 
       --source <FILE>
-          JSON AXI-Stream source file with profile, TREADY mode, name, includes, and maps
+          JSON AXI-Stream source file with profile, TREADY mode, name, regexes, and mappings (for example, axistream-source.json)
 
       --name <NAME>
-          Stream-port name metadata for output (defaults to axistream)
+          Interface name stored in output metadata (default: axistream)
 
 Selection options:
       --from <FROM>
-          Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive event range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive event range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for scope-relative AXI-Stream signal names and include regexes
+          Scope for relative AXI-Stream signal names and include regexes (for example, top.video_out)
 
 Signal mapping options:
       --map <STD=WAVES>
-          Explicit AXI-Stream mapping STD_NAME=WAVES_NAME, e.g. tvalid=video_tvalid; may be repeated
+          Explicit AXI-Stream signal mapping; may be repeated (for example, tvalid=video_tvalid)
 
       --include <REGEX>
-          Regex selecting waveform signal candidates for AXI-Stream auto-mapping; may be repeated
+          Regex for AXI-Stream auto-mapping candidates; may be repeated (for example, '^video_')
 
 Output options:
       --max <MAX>
@@ -884,51 +968,59 @@ Other options:
 ## `wavepeek extract generic`
 
 ```text
-Extract protocol-neutral event rows from waveform signals.
+Extract custom synchronous events and their payload values.
 
 Behavior:
-- Selects edge-only event timestamps with --on.
-- Always samples --when and --payload at the pre-edge sample point.
-- --payload accepts comma-separated values, repeated options, or both.
-- Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.
-- Use [n:n] for one bit; exact waveform paths win and [n] remains path syntax.
-- In single-source mode, --on, --when, and --payload define one source named by --name or "transfer".
-- In source-file mode, --source provides one or more sources and conflicts with --name, --on, --when, and --payload.
-- Source-file fields and behavior are documented in the corresponding protocol topic.
-- JSON and JSONL rows include time, sample_time, source, and ordered payload values.
+- `--on` selects edge-only events. `--when` and `--payload` are always sampled at the pre-edge sample point.
+- `--payload` accepts comma-separated values, repeated options, or both. Entries may end in `[msb:lsb]`, and request order and duplicates are preserved.
+- Use `[n:n]` for one bit. Exact waveform paths take precedence, and `[n]` remains path syntax.
+- In CLI mode, `--on`, `--when`, and `--payload` define one source named by `--name`.
+- A source file can define one or more sources. `--source` conflicts with `--name`, `--on`, `--when`, and `--payload`.
+- JSON and JSONL rows include `time`, `sample_time`, `source`, and ordered payload values.
 
-Use this command to extract synchronous handshakes or transfer-like rows without joining property and value output outside wavepeek.
+Examples:
+  wavepeek extract generic --waves dump.fst \
+    --scope tb.dut.queue --on 'posedge clk' \
+    --when 'valid && ready' --payload data,last
+
+  wavepeek extract generic --waves dump.fst \
+    --scope tb.dut --source fifo-sources.json
+
+Notes:
+- Use a protocol extractor when it already supports the interface.
+- See extract-transfers.md for generic extraction examples, boolean-expressions.md for `--when`, and event-expressions.md for `--on`.
+- See machine-output.md for JSON and JSONL records.
 
 Usage: wavepeek extract generic [OPTIONS] --waves <FILE>
 
 Input options:
       --waves <FILE>
-          Path to VCD/FST/FSDB waveform file
+          Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
 
       --source <FILE>
-          JSON source file for multi-source extraction
+          JSON file for multi-source extraction (for example, fifo-sources.json)
 
 Selection options:
       --from <FROM>
-          Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+          Start of the inclusive event range (for example, 1234ns; default: dump start)
 
       --to <TO>
-          End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+          End of the inclusive event range (for example, 2000ns; default: dump end)
 
       --scope <SCOPE>
-          Canonical scope path for relative or in-scope canonical event, predicate, and payload names
+          Scope for relative event, predicate, and payload names (for example, top.fifo)
 
       --name <NAME>
-          Source name for single-source CLI mode (defaults to transfer)
+          Source name for single-source CLI mode (default: transfer)
 
       --on <ON>
-          Edge-only event trigger expression for single-source CLI mode
+          Edge-only event expression for single-source CLI mode (for example, 'posedge clk')
 
       --when <WHEN>
-          Logical predicate evaluated at the pre-edge sample point in single-source CLI mode
+          Pre-edge predicate for single-source CLI mode (for example, 'valid && ready')
 
       --payload <SIGNAL[,SIGNAL...]>...
-          Payload paths or flat [msb:lsb] projections, comma-separated or repeated
+          Payload paths or flat projections, comma-separated or repeated (for example, data,last or status[7:4])
 
 Output options:
       --max <MAX>
@@ -961,11 +1053,22 @@ Other options:
 ```text
 Extract the packaged agent skill into a directory.
 
+Behavior:
+- Writes the skill package that matches the installed `wavepeek` version.
+- Requires a new or empty destination directory.
+
+Example:
+  wavepeek skill ./wavepeek-skill
+
+Notes:
+- Follow your agent harness's instructions to install the extracted directory.
+- See quickstart.md for extraction and installation.
+
 Usage: wavepeek skill <DIRECTORY>
 
 Arguments:
   <DIRECTORY>
-          New or empty destination directory
+          New or empty destination directory (for example, ./wavepeek-skill)
 
 Options:
   -h, --help
@@ -975,10 +1078,22 @@ Options:
 ## `wavepeek help`
 
 ```text
-Print this message or the help of the given subcommand(s)
+Show detailed help for a command path.
+
+Behavior:
+- With no command path, prints top-level help.
+- With a command path, prints help for that command or nested subcommand.
+
+Examples:
+  wavepeek help
+  wavepeek help value
+  wavepeek help extract axi
+
+Notes:
+- See commands.md for a summary of the command groups.
 
 Usage: wavepeek help [COMMAND]...
 
 Arguments:
-  [COMMAND]...  Print help for the subcommand(s)
+  [COMMAND]...  Command path to describe (for example, extract axi)
 ```

@@ -42,19 +42,19 @@ pub enum RowValues {
 
 #[derive(Debug, Args)]
 pub struct ChangeArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
-    /// Start of inclusive time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive time range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive time range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for relative or in-scope canonical signal and trigger names
+    /// Scope for relative signal and trigger names (for example, top.cpu)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Signal paths or flat [msb:lsb] projections, comma-separated or repeated
+    /// Signal paths or flat projections, comma-separated or repeated (for example, state,req or status[7:4])
     #[arg(
         long,
         value_delimiter = ',',
@@ -63,7 +63,7 @@ pub struct ChangeArgs {
         help_heading = "Selection options"
     )]
     pub signals: Vec<String>,
-    /// Event trigger expression (required; use `*` only with `--sample-mode native`)
+    /// Event trigger expression (for example, 'posedge clk'; use `*` only with `--sample-mode native`)
     #[arg(long, required = true, help_heading = "Selection options")]
     pub on: String,
     /// Value sampling mode for event-selected rows
