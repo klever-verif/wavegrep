@@ -16,11 +16,11 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
 
 - [x] (2026-08-21 10:27Z) Read issue #124, repository guidance, CLI definitions, runtime normalization, tests, and public references.
 - [x] (2026-08-21 10:27Z) Confirmed current behavior: repeated `--signals` and `--payload` already work through Clap-derived `Vec<String>` fields; repeated `--at` is rejected because it is a scalar `String`.
-- [ ] Change `value --at` to the existing native Clap list pattern and update runtime parsing.
-- [ ] Add focused behavior and help-contract tests for repeated, mixed, ordered, duplicate, and invalid input.
-- [ ] Update packaged references and the Unreleased changelog.
-- [ ] Run focused tests, `just ci`, and `just check`; commit the implementation.
-- [ ] Run parallel Luna Max review lanes, resolve findings, and commit any fixes.
+- [x] (2026-08-21 10:35Z) Changed `value --at` to the native Clap vector/delimiter pattern and updated runtime parsing.
+- [x] (2026-08-21 10:35Z) Added focused behavior and help-contract tests for repeated, mixed, ordered, duplicate, and invalid input.
+- [x] (2026-08-21 10:35Z) Updated packaged references and the Unreleased changelog.
+- [x] (2026-08-21 10:40Z) Ran focused tests, `just ci`, and `just check`; all passed. Commit remains to be created after this plan update.
+- [ ] Run parallel Luna Max review lanes, resolve findings, and commit any fixes. (First pass: code/tests and docs/help were clean; minimal-design found the branch was based on obsolete history. Rebase onto current `origin/dev3` is in progress, after which all lanes will re-check the corrected diff.)
 - [ ] Run parallel Terra High review lanes over the same areas, resolve findings, and commit any fixes.
 - [ ] Run an independent Sol High control review, resolve findings, and commit any fixes.
 - [ ] Remove this branch-local plan, run final gates, push the branch, and open a PR closing issue #124.
@@ -32,6 +32,18 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
 
 - Observation: Existing empty-entry validation remains below Clap and reports command-specific errors.
   Evidence: `--signals top.anchor,,top.late` and `--payload anchor,,late` reach runtime normalization and fail with the existing “must not be empty” messages.
+
+- Observation: Clap's default vector action appends repeated `--at` occurrences while `value_delimiter = ','` splits each occurrence, so no explicit `ArgAction` or merger is needed.
+  Evidence: the manual mixed-form command emitted times `5ns`, `10ns`, `5ns` and signals `anchor`, `late`, `anchor` in exactly that order.
+
+- Observation: The first `just ci` attempt found a direct parser unit assertion that focused integration tests did not compile under the library test configuration.
+  Evidence: `src/cli/mod.rs` compared `args.at` to `"10ns"`; changing the expectation to `vec!["10ns"]` made the full gate pass. This was test-only fallout from the intentional field type change.
+
+- Observation: The initial worktree history had diverged from current `origin/dev3`, so an `origin/main...HEAD` review showed 251 unrelated files.
+  Evidence: the Luna Max minimal-design reviewer flagged `web/playground/index.md`; `git merge-base` showed the issue branch and current `origin/dev3` shared only old commit `72b5600`, while this task itself comprised two commits above `83317d2`.
+
+- Observation: Current `origin/dev3` consolidated the packaged documentation since the original worktree base.
+  Evidence: the old `command-model.md`, `value.md`, `change.md`, and `extract.md` files were deleted and their durable content now belongs in `commands.md`, `inspect-values.md`, `extract-transfers.md`, plus generated `cli-reference.md`.
 
 ## Decision Log
 
@@ -47,6 +59,10 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
   Rationale: The change affects parsing and public documentation but does not touch a meaningful hot path. Every lane must also apply KISS, YAGNI, and ponytail-review criteria.
   Date/Author: 2026-08-21 / coding agent
 
+- Decision: Rebase only this task's two commits onto current `origin/dev3` and target the PR at `dev3`.
+  Rationale: Issue #124 is assigned to the Wavepeek v3 milestone, the worktree and branch are `dev3`-scoped, and comparing against `main` includes the entire v3 development line rather than this issue.
+  Date/Author: 2026-08-21 / coding agent
+
 ## Outcomes & Retrospective
 
 Work is in progress. The expected final outcome is one native Clap list conversion, focused contract coverage for all four option families, aligned help/reference text, clean quality gates, two focused review waves, one independent control review, and an opened pull request.
@@ -55,7 +71,7 @@ Work is in progress. The expected final outcome is one native Clap list conversi
 
 Wavepeek is a Rust command-line tool. Clap derives its argument parser from structs under `src/cli/`. `src/cli/value.rs` defines `ValueArgs`; its `at` field is currently a scalar `String`, while its `signals` field is a comma-delimited `Vec<String>`. `src/cli/change.rs` and `src/cli/extract.rs` use the same vector pattern for `--signals` and generic `--payload`. A list-valued option is an option whose values form one ordered sequence; “flattening” means concatenating values from comma-separated and repeated occurrences in the order the user wrote them.
 
-`src/engine/value.rs` parses and validates requested time tokens before sampling. Signal and payload validation occurs in `src/engine/value.rs`, `src/engine/change.rs`, and `src/engine/extract.rs`. Integration behavior lives in `tests/value_cli.rs`, `tests/change_cli.rs`, and `tests/extract_generic_cli.rs`; help wording is asserted in `tests/cli_contract.rs`. Public, packaged documentation lives under `skills/wavepeek/references/`, especially `command-model.md`, `value.md`, `change.md`, and `extract.md`. User-visible changes belong in `CHANGELOG.md` under `Unreleased`.
+`src/engine/value.rs` parses and validates requested time tokens before sampling. Signal and payload validation occurs in `src/engine/value.rs`, `src/engine/change.rs`, and `src/engine/extract.rs`. Integration behavior lives in `tests/value_cli.rs`, `tests/change_cli.rs`, and `tests/extract_generic_cli.rs`; help wording is asserted in `tests/cli_contract.rs`. Public, packaged documentation lives under `skills/wavepeek/references/`: `commands.md` owns shared command semantics, `inspect-values.md` owns value/change usage, `extract-transfers.md` owns generic extraction usage, and generated `cli-reference.md` mirrors live help. User-visible changes belong in `CHANGELOG.md` under `Unreleased`.
 
 Repository commands run from the repository root through `./dev`. The standard full test gate is `./dev just ci`; the pre-handoff gate is `./dev just check`. Git hooks must be installed with `./dev --install-hooks` and the worktree container must be running before host commits.
 
@@ -73,7 +89,7 @@ Third, update long help in `src/cli/mod.rs`, field help in the CLI structs, pack
 
 Fourth, run formatting, focused tests, `./dev just ci`, and `./dev just check`, then create a conventional commit. Run three parallel read-only Luna Max reviewers over code/tests, docs/help, and minimal design. Fix substantive findings and commit. Repeat those same lanes with fresh Terra High reviewers. Finally run one fresh read-only Sol High control reviewer over the complete diff. Fix any substantive finding, rerun affected gates, and commit.
 
-At completion, update this plan with evidence and outcomes, remove it because `docs/wip/` artifacts are branch-local, rerun final gates if removal affects checks, push the branch to `origin`, and open a GitHub pull request against `main` with `Closes #124`.
+At completion, update this plan with evidence and outcomes, remove it because `docs/wip/` artifacts are branch-local, rerun final gates if removal affects checks, push the branch to `origin`, and open a GitHub pull request against `dev3` with `Closes #124`.
 
 ### Concrete Steps
 
@@ -94,12 +110,12 @@ Expect three rows in requested time order and three values per row in requested 
     ./dev just ci
     ./dev just check
 
-Both gates must exit successfully. Before each review wave, provide reviewers the issue, this plan, the `origin/main...HEAD` range, changed files, and gate results. Review agents are read-only and return severity, `file:line`, impact, and suggested fix, or “No substantive findings.”
+Both gates must exit successfully. Before each review wave, provide reviewers the issue, this plan, the `origin/dev3...HEAD` range, changed files, and gate results. Review agents are read-only and return severity, `file:line`, impact, and suggested fix, or “No substantive findings.”
 
 After clean review and plan removal, run:
 
     git push -u origin dev3-124/repeated-list-options
-    gh pr create --repo kleverhq/wavepeek --base main \
+    gh pr create --repo kleverhq/wavepeek --base dev3 \
       --head dev3-124/repeated-list-options \
       --title "feat(cli): accept repeated list options" \
       --body-file tmp/issue-124-pr.md
@@ -108,7 +124,7 @@ Expect GitHub CLI to print the new pull-request URL.
 
 ### Validation and Acceptance
 
-Acceptance is observable when repeated and comma-separated occurrences of `value --at`, `value --signals`, `change --signals`, and `extract generic --payload` flatten in command-line order; duplicates remain visible; invalid empty or malformed entries still fail; a single occurrence behaves as before; and human, JSON, and JSONL data shapes do not change. Help and packaged references must explicitly mention both comma-separated and repeated forms. `./dev just ci` and `./dev just check` must pass, all required reviewers must return findings or a clean result, and the PR must be open against `main` with issue #124 linked for closure.
+Acceptance is observable when repeated and comma-separated occurrences of `value --at`, `value --signals`, `change --signals`, and `extract generic --payload` flatten in command-line order; duplicates remain visible; invalid empty or malformed entries still fail; a single occurrence behaves as before; and human, JSON, and JSONL data shapes do not change. Help and packaged references must explicitly mention both comma-separated and repeated forms. `./dev just ci` and `./dev just check` must pass, all required reviewers must return findings or a clean result, and the PR must be open against `dev3` with issue #124 linked for closure.
 
 ### Idempotence and Recovery
 
@@ -130,4 +146,4 @@ This proves that only `--at` lacks native append behavior while the other vector
 
 No dependency changes are allowed or needed. Continue using Clap 4, already declared in `Cargo.toml`. At completion, `crate::cli::value::ValueArgs::at` must be `Vec<String>`, required by Clap and split with `value_delimiter = ','`. The value engine’s time normalization must accept the flattened sequence by reference and return the same parsed time representation it returns today. No new trait, helper module, configuration setting, or public output type should exist.
 
-Revision note (2026-08-21): Created the plan after repository and issue discovery. It records the verified baseline, minimal native-Clap design, validation commands, and the required Luna Max, Terra High, and Sol High review sequence.
+Revision note (2026-08-21): Recorded the first Luna Max wave's high-severity branch-base finding, rebased only this task onto current `origin/dev3`, redirected documentation edits to the consolidated v3 package files, and corrected the review/PR base throughout the plan.

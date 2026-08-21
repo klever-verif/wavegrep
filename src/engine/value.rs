@@ -55,7 +55,7 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
     );
 
     let dump_time = parse_dump_time_context(&metadata)?;
-    let query_times_raw = parse_at_tokens(args.at.as_str(), &metadata, dump_time)?;
+    let query_times_raw = parse_at_tokens(&args.at, &metadata, dump_time)?;
     debug.event(
         "time.parse.done",
         || serde_json::json!({"times": query_times_raw.len()}),
@@ -123,12 +123,12 @@ pub fn run(args: ValueArgs) -> Result<CommandResult, WavepeekError> {
 }
 
 fn parse_at_tokens(
-    at: &str,
+    at: &[String],
     metadata: &WaveformMetadata,
     dump_time: DumpTimeContext,
 ) -> Result<Vec<u64>, WavepeekError> {
     let mut raw_times = Vec::new();
-    for token in at.split(',') {
+    for token in at {
         let token = token.trim();
         if token.is_empty() {
             return Err(WavepeekError::Args(
@@ -241,7 +241,7 @@ mod tests {
             Some("top"),
             &ValueArgs {
                 waves: PathBuf::from(fixture.path()),
-                at: "5ns".to_string(),
+                at: vec!["5ns".to_string()],
                 scope: Some("top".to_string()),
                 signals: vec!["sig".to_string()],
                 abs: false,
@@ -257,7 +257,7 @@ mod tests {
                 None,
                 &ValueArgs {
                     waves: PathBuf::from(fixture.path()),
-                    at: "5ns".to_string(),
+                    at: vec!["5ns".to_string()],
                     scope: None,
                     signals: vec!["  ".to_string()],
                     abs: false,
@@ -312,19 +312,34 @@ mod tests {
 
         let dump_time = parse_dump_time_context(&metadata).expect("dump time should parse");
         assert_eq!(
-            parse_at_tokens("5ns, 0ns ,5ns", &metadata, dump_time).expect("time list should parse"),
+            parse_at_tokens(
+                &["5ns".to_string(), " 0ns ".to_string(), "5ns".to_string()],
+                &metadata,
+                dump_time,
+            )
+            .expect("time list should parse"),
             vec![5, 0, 5]
         );
         assert!(
-            parse_at_tokens("5ns,,0ns", &metadata, dump_time)
-                .expect_err("empty time list entries should fail")
+            parse_at_tokens(
+                &["5ns".to_string(), "".to_string(), "0ns".to_string()],
+                &metadata,
+                dump_time,
+            )
+            .expect_err("empty time list entries should fail")
+            .to_string()
+            .contains("time list in --at must not contain empty entries")
+        );
+        assert!(
+            parse_at_tokens(&[], &metadata, dump_time)
+                .expect_err("empty time lists should fail")
                 .to_string()
-                .contains("time list in --at must not contain empty entries")
+                .contains("time list in --at must not be empty")
         );
 
         let result = run(ValueArgs {
             waves: PathBuf::from(fixture.path()),
-            at: "5ns".to_string(),
+            at: vec!["5ns".to_string()],
             scope: Some("top".to_string()),
             signals: vec!["sig".to_string()],
             abs: true,

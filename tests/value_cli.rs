@@ -153,7 +153,7 @@ fn value_human_output_accepts_comma_separated_times() {
 }
 
 #[test]
-fn value_json_preserves_time_order_and_duplicates() {
+fn value_json_flattens_repeated_and_comma_separated_lists_in_order() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -164,11 +164,15 @@ fn value_json_preserves_time_order_and_duplicates() {
             "--waves",
             fixture.as_str(),
             "--at",
-            "10ns,5ns,10ns",
+            "10ns,5ns",
+            "--at",
+            "10ns",
             "--scope",
             "top",
             "--signals",
-            "clk,data",
+            "clk",
+            "--signals",
+            "data,clk",
             "--json",
         ])
         .assert()
@@ -184,21 +188,24 @@ fn value_json_preserves_time_order_and_duplicates() {
                 "time": "10ns",
                 "signals": [
                     {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
-                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             },
             {
                 "time": "5ns",
                 "signals": [
                     {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
-                    {"path": "top.data", "relative_path": "data", "value": "8'h00"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             },
             {
                 "time": "10ns",
                 "signals": [
                     {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
-                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])

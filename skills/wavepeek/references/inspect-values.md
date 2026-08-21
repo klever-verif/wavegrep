@@ -14,13 +14,13 @@ $ wavepeek value --waves dump.fst \
 @120ns state=4'h3 pc=32'h00001040 instr_valid=1'h1
 ```
 
-Several points can be requested in one command:
+Several points can be requested in one command. List-valued options accept comma-separated values, repeated options, or both; mixed forms preserve command-line order and duplicates:
 
 ```text
 wavepeek value --waves dump.fst \
   --scope tb.dut.cpu \
-  --at 100ns,110ns,120ns \
-  --signals state,pc
+  --at 100ns,110ns --at 120ns \
+  --signals state --signals pc
 ```
 
 Use a static projection when only part of a flat vector matters:
@@ -39,7 +39,7 @@ $ wavepeek change --waves dump.fst \
     --scope tb.dut.cpu \
     --from 100ns --to 160ns \
     --on '*' --sample-mode native \
-    --signals req,ack,state --max 20
+    --signals req --signals ack,state --max 20
 @110ns req=1'h1 ack=1'h0 state=4'h2
 @130ns req=1'h1 ack=1'h1 state=4'h3
 @150ns req=1'h0 ack=1'h0 state=4'h0

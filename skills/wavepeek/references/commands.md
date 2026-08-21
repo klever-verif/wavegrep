@@ -68,6 +68,8 @@ Pass `--summary` when only completeness metadata, optional command context, and 
 
 Deterministic output is a repository-wide design requirement. Given identical input data and identical command arguments, `wavepeek` must emit results in a stable order.
 
+The list-valued `value --at`, `value --signals`, `change --signals`, and `extract generic --payload` options accept comma-separated values, repeated options, or both. Mixed forms flatten in command-line order and preserve duplicates.
+
 The main ordering rules are:
 
 - `scope` traverses hierarchy in pre-order depth-first order with lexicographic child ordering.

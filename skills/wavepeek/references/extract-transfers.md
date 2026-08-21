@@ -11,12 +11,12 @@ $ wavepeek extract generic --waves dump.fst \
     --scope tb.dut.queue \
     --on 'posedge clk iff reset_n' \
     --when 'valid && ready' \
-    --payload data,last
+    --payload data --payload last
 @250ns sample@249ns data=32'hdeadbeef last=1'h0
 @270ns sample@269ns data=32'hcafebabe last=1'h1
 ```
 
-`--on` selects the clock edge. `--when` and `--payload` are evaluated immediately before that edge. The command emits one row only when the predicate is true.
+`--on` selects the clock edge. `--when` and `--payload` are evaluated immediately before that edge. `--payload` accepts comma-separated values, repeated options, or both; mixed forms preserve command-line order and duplicates. The command emits one row only when the predicate is true.
 
 The same pattern works for enables, FIFO pushes and pops, request/acknowledge pairs, and other clocked events:
 

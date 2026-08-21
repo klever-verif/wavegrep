@@ -54,7 +54,7 @@ pub struct ChangeArgs {
     /// Canonical scope path for relative or in-scope canonical signal and trigger names
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Comma-separated signal paths or flat [msb:lsb] projections
+    /// Signal paths or flat [msb:lsb] projections, comma-separated or repeated
     #[arg(
         long,
         value_delimiter = ',',

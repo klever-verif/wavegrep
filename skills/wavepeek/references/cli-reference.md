@@ -218,8 +218,8 @@ Behavior:
 - Relative and canonical references inside the selected scope may be mixed in one request.
 - A trailing static `[msb:lsb]` projects a flat integral signal's normalized sampled value; use `[n:n]` for one bit.
 - Exact waveform paths win before projection parsing, and `[n]` remains ordinary waveform path syntax.
-- `--at` accepts one explicit time token or a comma-separated list in one argument.
-- Output preserves the input order from `--at` and `--signals`, including duplicates.
+- `--at` and `--signals` accept comma-separated values, repeated options, or both.
+- Output preserves the flattened input order from `--at` and `--signals`, including duplicates.
 - Human output emits one `@<time>` row per requested time with `display=value` fields, matching `change`.
 - When following up a `change` or `property` JSON row, prefer that row's `sample_time` field for `--at`; in `pre-edge` mode, `time` is the selected trigger timestamp and `sample_time` is where values were sampled.
 - Time tokens must include explicit units and align to dump precision.
@@ -237,13 +237,13 @@ Input options:
 
 Selection options:
       --at <AT>
-          Time point(s) with explicit units (e.g. 1337ns or 10ns,20ns)
+          Time points with explicit units, comma-separated or repeated
 
       --scope <SCOPE>
           Canonical scope path for relative or in-scope canonical signal names
 
       --signals <SIGNALS>...
-          Comma-separated signal paths or flat [msb:lsb] projections
+          Signal paths or flat [msb:lsb] projections, comma-separated or repeated
 
 Output options:
       --abs
@@ -270,7 +270,8 @@ Provides event-driven tables for selected signals.
 
 Behavior:
 - Prints requested signal values for each event selected by required `--on`.
-- `--signals` accepts trailing static `[msb:lsb]` projections; sparse, delta, and wildcard comparisons use the projected values.
+- `--signals` accepts comma-separated values, repeated options, or both; trailing static `[msb:lsb]` projections are supported.
+- Sparse, delta, and wildcard comparisons use projected values.
 - Exact waveform paths win before projection parsing; use `[n:n]` for one bit because `[n]` remains ordinary waveform path syntax.
 - `--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows; the default is `dense`.
 - Pre-edge events without a representable earlier sample point are skipped.
@@ -301,7 +302,7 @@ Selection options:
           Canonical scope path for relative or in-scope canonical signal and trigger names
 
       --signals <SIGNALS>...
-          Comma-separated signal paths or flat [msb:lsb] projections
+          Signal paths or flat [msb:lsb] projections, comma-separated or repeated
 
       --on <ON>
           Event trigger expression (required; use `*` only with `--sample-mode native`)
@@ -888,6 +889,7 @@ Extract protocol-neutral event rows from waveform signals.
 Behavior:
 - Selects edge-only event timestamps with --on.
 - Always samples --when and --payload at the pre-edge sample point.
+- --payload accepts comma-separated values, repeated options, or both.
 - Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.
 - Use [n:n] for one bit; exact waveform paths win and [n] remains path syntax.
 - In single-source mode, --on, --when, and --payload define one source named by --name or "transfer".
@@ -926,7 +928,7 @@ Selection options:
           Logical predicate evaluated at the pre-edge sample point in single-source CLI mode
 
       --payload <SIGNAL[,SIGNAL...]>...
-          Comma-separated payload paths or flat [msb:lsb] projections
+          Payload paths or flat [msb:lsb] projections, comma-separated or repeated
 
 Output options:
       --max <MAX>
