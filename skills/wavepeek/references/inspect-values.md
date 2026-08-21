@@ -14,7 +14,7 @@ $ wavepeek value --waves dump.fst \
 @120ns state=4'h3 pc=32'h00001040 instr_valid=1'h1
 ```
 
-Several points can be requested in one command. List-valued options accept comma-separated values, repeated options, or both; mixed forms preserve command-line order and duplicates:
+Several points can be requested in one command:
 
 ```text
 wavepeek value --waves dump.fst \

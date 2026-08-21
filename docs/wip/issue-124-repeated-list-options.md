@@ -20,7 +20,7 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
 - [x] (2026-08-21 10:35Z) Added focused behavior and help-contract tests for repeated, mixed, ordered, duplicate, and invalid input.
 - [x] (2026-08-21 10:35Z) Updated packaged references and the Unreleased changelog.
 - [x] (2026-08-21 10:40Z) Ran focused tests, `just ci`, and `just check`; all passed. Commit remains to be created after this plan update.
-- [ ] Run parallel Luna Max review lanes, resolve findings, and commit any fixes. (First pass: code/tests and docs/help were clean; minimal-design found the branch was based on obsolete history. Rebase onto current `origin/dev3` is in progress, after which all lanes will re-check the corrected diff.)
+- [x] (2026-08-21) Ran parallel Luna Max review lanes, rebased the task onto current `origin/dev3`, rechecked all lanes, and resolved documentation findings. The requested plan cleanup remains intentionally scheduled after all review waves.
 - [ ] Run parallel Terra High review lanes over the same areas, resolve findings, and commit any fixes.
 - [ ] Run an independent Sol High control review, resolve findings, and commit any fixes.
 - [ ] Remove this branch-local plan, run final gates, push the branch, and open a PR closing issue #124.
@@ -44,6 +44,9 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
 
 - Observation: Current `origin/dev3` consolidated the packaged documentation since the original worktree base.
   Evidence: the old `command-model.md`, `value.md`, `change.md`, and `extract.md` files were deleted and their durable content now belongs in `commands.md`, `inspect-values.md`, `extract-transfers.md`, plus generated `cli-reference.md`.
+
+- Observation: The corrected Luna Max wave found no code/test issues and identified only documentation precision, duplication, and planned WIP cleanup.
+  Evidence: changelog wording now distinguishes newly repeatable `--at` from already-repeatable vector fields; shared flattening semantics remain only in `commands.md`; usage pages keep examples without duplicating the contract. Both docs and minimal-design lanes also confirmed this plan must be removed before PR.
 
 ## Decision Log
 
@@ -146,4 +149,4 @@ This proves that only `--at` lacks native append behavior while the other vector
 
 No dependency changes are allowed or needed. Continue using Clap 4, already declared in `Cargo.toml`. At completion, `crate::cli::value::ValueArgs::at` must be `Vec<String>`, required by Clap and split with `value_delimiter = ','`. The value engine’s time normalization must accept the flattened sequence by reference and return the same parsed time representation it returns today. No new trait, helper module, configuration setting, or public output type should exist.
 
-Revision note (2026-08-21): Recorded the first Luna Max wave's high-severity branch-base finding, rebased only this task onto current `origin/dev3`, redirected documentation edits to the consolidated v3 package files, and corrected the review/PR base throughout the plan.
+Revision note (2026-08-21): Completed the Luna Max wave after rebase, recorded its clean code result and documentation findings, and applied the changelog/duplication fixes. Terra High review remains.
