@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added scope-relative paths to `signal` JSON and JSONL entries while retaining leaf names and canonical paths ([issue #82](https://github.com/kleverhq/wavepeek/issues/82)).
 
 ### Changed
+- Replaced the bundled Wavepeek skill with the v3 package, including task-oriented guides, generated CLI reference, time helper scripts, protocol scoreboard examples, and an output-diff example ([pull request #123](https://github.com/kleverhq/wavepeek/pull/123)).
 - Changed `change` to emit every selected event with full signal values by default, added independent `--row-mode dense|sparse` and `--row-values full|delta` controls, and provided the version 2 sparse/full row shape through `--row-mode sparse --row-values full`; sparse comparisons now use the previous selected sample rather than the preceding dump timestamp ([issue #85](https://github.com/kleverhq/wavepeek/issues/85)).
 - Normalized successful JSON and JSONL results so JSON `data` is always an array, protocol metadata uses `context`, and streamed rows match JSON data elements ([issue #106](https://github.com/kleverhq/wavepeek/issues/106)).
 - Replaced the overlapping embedded documentation surfaces with `wavepeek skill <DIRECTORY>`, which extracts a complete version-matched package containing `SKILL.md`, flat offline references with explicit navigation, an examples directory, and a provenance manifest ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
