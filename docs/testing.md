@@ -1,6 +1,6 @@
 # Testing Guide
 
-Tests should prove the public command and machine-output contracts, not just exercise code paths. The stable behavior references are `skills/wavepeek/references/command-model.md`, `skills/wavepeek/references/machine-output.md`, and `skills/wavepeek/references/expression-language.md`.
+Tests should prove the public command and machine-output contracts, not just exercise code paths. The stable behavior references are `skills/wavepeek/references/command-model.md`, `skills/wavepeek/references/machine-output.md`, and `skills/wavepeek/references/boolean-expressions.md`.
 
 ## Test Levels
 

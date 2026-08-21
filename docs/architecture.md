@@ -148,7 +148,7 @@ Development dependencies include `assert_cmd`, `predicates`, `tempfile`, and `in
 
 ## Expression Engine Architecture
 
-The `change`, `property`, and `extract` commands share a typed expression stack in `src/expr/`. The language contract itself lives in `skills/wavepeek/references/expression-language.md`; this section describes how the implementation is arranged.
+The `change`, `property`, and `extract` commands share a typed expression stack in `src/expr/`. The language contract itself lives in `skills/wavepeek/references/boolean-expressions.md`; this section describes how the implementation is arranged.
 
 The pipeline is:
 

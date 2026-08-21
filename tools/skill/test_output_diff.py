@@ -86,6 +86,25 @@ class OutputDiffTests(unittest.TestCase):
         self.assertEqual(comparison.stdout, "EQUAL rows=1\n")
         self.assertEqual(comparison.stderr, "")
 
+    def test_rejects_records_after_jsonl_end(self) -> None:
+        records = [
+            {"type": "begin", "seq": 0, "command": "change"},
+            {"type": "end", "seq": 1, "summary": {"complete": True}},
+            {"type": "data", "seq": 2, "data": row("10ns", "1'h0")},
+        ]
+        valid_records = [records[0], records[2], records[1]]
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = pathlib.Path(temporary)
+            left = directory / "before.jsonl"
+            right = directory / "after.jsonl"
+            left.write_text("\n".join(map(json.dumps, records)) + "\n", encoding="utf-8")
+            right.write_text("\n".join(map(json.dumps, valid_records)) + "\n", encoding="utf-8")
+            comparison = self.run_diff(left, right)
+
+        self.assertEqual(comparison.returncode, 1)
+        self.assertIn("end record must be final", comparison.stderr)
+        self.assertEqual(comparison.stdout, "")
+
     def test_rejects_incomplete_results(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = pathlib.Path(temporary)

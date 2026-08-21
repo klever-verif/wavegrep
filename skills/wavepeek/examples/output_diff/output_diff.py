@@ -25,9 +25,14 @@ def load_result(path: Path) -> tuple[str, list[dict]]:
         require_complete(path, result.get("summary"))
         return result["command"], result.get("data", [])
 
-    end = next((record for record in records if record.get("type") == "end"), None)
-    if end is None:
+    end_positions = [
+        index for index, record in enumerate(records) if record.get("type") == "end"
+    ]
+    if not end_positions:
         raise SystemExit(f"{path}: incomplete JSONL stream: missing end record")
+    if len(end_positions) != 1 or end_positions[0] != len(records) - 1:
+        raise SystemExit(f"{path}: invalid JSONL stream: end record must be final")
+    end = records[end_positions[0]]
     require_complete(path, end.get("summary"))
 
     begin = next((record for record in records if record.get("type") == "begin"), {})
