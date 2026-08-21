@@ -17,19 +17,19 @@ pub enum CaptureMode {
 
 #[derive(Debug, Args)]
 pub struct PropertyArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
-    /// Start of inclusive time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive time range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive time range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for relative or in-scope canonical event and expression names
+    /// Scope for relative event and expression names (for example, top.cpu)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Event trigger expression (required; use `*` only with `--sample-mode native`)
+    /// Event trigger expression (for example, 'posedge clk'; use `*` only with `--sample-mode native`)
     #[arg(long, required = true, help_heading = "Selection options")]
     pub on: String,
     /// Value sampling mode for event-selected rows
@@ -41,7 +41,7 @@ pub struct PropertyArgs {
         help_heading = "Selection options"
     )]
     pub sample_mode: SampleMode,
-    /// Logical expression evaluated at selected event timestamps
+    /// Logical expression evaluated at selected events (for example, 'ready && !stall')
     #[arg(long, allow_hyphen_values = true, help_heading = "Selection options")]
     pub eval: String,
     /// Capture mode: level (`match`) or edge (`switch`, `assert`, `deassert`)

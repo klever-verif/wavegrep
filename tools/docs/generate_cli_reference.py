@@ -31,8 +31,6 @@ def listed_commands(help_text: str) -> list[str]:
 
 def append_command(binary: pathlib.Path, command: tuple[str, ...], sections: list[str]) -> None:
     invocation = [str(binary), *command, "--help"]
-    if command == ("help",):
-        invocation = [str(binary), "help", "help"]
     result = subprocess.run(invocation, check=True, capture_output=True, text=True)
     help_text = "\n".join(line.rstrip() for line in result.stdout.splitlines())
     name = " ".join(("wavepeek", *command))

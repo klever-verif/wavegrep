@@ -63,7 +63,7 @@ fn extract_axistream_help_exposes_profiles_and_tready_modes() {
         .args(["extract", "axistream", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Extract AXI-Stream transfer rows"))
+        .stdout(predicate::str::contains("Extract AXI-Stream transfers."))
         .stdout(predicate::str::contains("axi4-stream"))
         .stdout(predicate::str::contains("axi5-stream"))
         .stdout(predicate::str::contains("implicit-high"))
