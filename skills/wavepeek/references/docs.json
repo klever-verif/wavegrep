@@ -2,44 +2,39 @@
   "navigation": [
     {
       "Start here": [
-        { "Introduction": "index.md" }
+        { "Overview": "index.md" },
+        { "Quickstart": "quickstart.md" }
       ]
     },
     {
-      "Commands": [
-        { "Overview": "overview.md" },
-        { "Info": "info.md" },
-        { "Scope": "scope.md" },
-        { "Signal": "signal.md" },
-        { "Value": "value.md" },
-        { "Change": "change.md" },
-        { "Property": "property.md" },
-        { "Extract": "extract.md" },
-        { "Help": "help.md" },
-        { "Skill": "skill.md" }
+      "Concepts": [
+        { "Commands": "commands.md" },
+        { "Waveform formats": "waveforms.md" },
+        { "Paths, signals and scopes": "paths.md" },
+        { "Time units and windows": "timeunits.md" },
+        { "Clocks and sampling": "sampling.md" },
+        { "Boolean conditions": "predicates.md" }
       ]
     },
     {
-      "Workflows": [
-        { "Extract a clocked handshake": "extract-handshake.md" },
-        { "Find the first change": "find-first-change.md" }
-      ]
-    },
-    {
-      "Troubleshooting": [
-        { "Empty results": "empty-results.md" },
-        { "Clock-edge sampling": "clock-edge-sampling.md" },
-        { "Scoped vs canonical names": "scoped-vs-canonical-names.md" },
-        { "Time tokens and alignment": "time-tokens-and-alignment.md" },
-        { "Unsupported signal encodings": "unsupported-signal-encodings.md" }
+      "Usage": [
+        { "Explore dump": "explore-dump.md" },
+        { "Inspect values": "inspect-values.md" },
+        { "Evaluate properties": "evaluate-properties.md" },
+        { "Extract transfers": "extract-transfers.md" },
+        { "Extract AMBA AXI": "extract-axi.md" },
+        { "Extract AMBA AXI-Stream": "extract-axis.md" },
+        { "Extract AMBA AHB": "extract-ahb.md" },
+        { "Extract AMBA APB": "extract-apb.md" },
+        { "Extract AMBA ATB": "extract-atb.md" }
       ]
     },
     {
       "Reference": [
-        { "Command model": "command-model.md" },
-        { "Expression language": "expression-language.md" },
-        { "Machine output": "machine-output.md" },
-        { "Waveform performance": "waveform-performance.md" }
+        { "CLI help reference": "cli-reference.md" },
+        { "Machine output format": "machine-output.md"},
+        { "Event expression language": "event-expressions.md" },
+        { "Boolean expression language": "boolean-expressions.md" }
       ]
     }
   ]

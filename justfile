@@ -234,6 +234,7 @@ test-aux: require-container
     {{ python }} -m unittest tools/coverage/test_check_coverage.py
     {{ python }} -m unittest discover -s tools/fsdb -p "test_*.py"
     {{ python }} -m unittest discover -s tools/repo -p "test_*.py"
+    {{ python }} -m unittest discover -s tools/skill -p "test_*.py"
 
 # Build the current browser Playground
 playground-build: require-container
@@ -269,8 +270,23 @@ playground-test: playground-preview-build build-release
 playground-serve: playground-preview-build
     cd "{{ playground_preview_dir }}" && {{ python }} -m http.server 8000 --bind 0.0.0.0
 
+# Regenerate the packaged CLI reference from clap help
+update-cli-reference: require-container
+    cargo build --quiet --locked
+    {{ python }} tools/docs/generate_cli_reference.py \
+        --binary target/debug/wavepeek \
+        --output skills/wavepeek/references/cli-reference.md
+
+# Verify the packaged CLI reference matches clap help
+check-cli-reference: require-container
+    cargo build --quiet --locked
+    {{ python }} tools/docs/generate_cli_reference.py \
+        --binary target/debug/wavepeek \
+        --output skills/wavepeek/references/cli-reference.md \
+        --check
+
 # Build the generated MkDocs site from the bundled skill references
-docs-site-build: require-container
+docs-site-build: require-container check-cli-reference
     @rm -rf "{{ docs_site_dir }}/skill"
     cargo run --quiet --locked -- skill "{{ docs_site_dir }}/skill"
     {{ python }} tools/docs/prepare_mkdocs.py "{{ docs_site_dir }}/skill" \
@@ -284,7 +300,7 @@ docs-site-build: require-container
 docs-site-serve: playground-serve
 
 # Check docs site generation and root Pages artifacts without touching gh-pages
-docs-site-check: require-container
+docs-site-check: require-container check-cli-reference
     {{ python }} tools/docs/publish_docs.py check \
         --version "{{ docs_version }}" \
         --source-root . \

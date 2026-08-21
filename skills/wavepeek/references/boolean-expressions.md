@@ -1,119 +1,7 @@
-# Expression Language Contract
+# Boolean expression language contract
 
-This document defines the shipped `wavepeek` expression language used by
-`property --on` / `property --eval`, `change --on`, and `extract`, e.g. `extract generic --on` / `extract generic --when`.
-
-It is the public reference for the expression syntax and semantics available in
-this build.
-
-The contract is based on IEEE 1800-2023 SystemVerilog and aims to preserve
-SystemVerilog-compatible syntax and semantics wherever practical for dump-based
-waveform values. This document is a whitelist specification: only the syntax
-and semantics explicitly described here are supported; anything not described
-here is out of scope.
-
-## 1. Event Expressions
-
-This section defines the event-language surface. It follows the
-semantics of SystemVerilog clocking events - the forms ordinarily written inside
-`@(...)` - but omits the outer `@` and parentheses.
-
-### 1.1 Surface Forms
-
-Event expressions support these forms:
-
-- wildcard event: `*`
-- named event: `name`
-- edge events: `posedge name`, `negedge name`, `edge name`
-- unions: `event or event`, `event, event`
-- gated events: `event iff logical_expr`
-
-`*` denotes any change in the command-defined tracked set. `change` binds that
-set to the resolved `--signals`; `property` binds it to the signals referenced
-by `--eval`. `extract` does not support wildcard triggers. `change`,
-`property`, and `extract` require an explicit `--on`; use `--on '*' --sample-mode native` for `change` or `property` when the intended trigger is the tracked-set wildcard.
-
-### 1.2 Names and Resolution
-
-A name may appear as a simple signal, a hierarchical path, or another canonical
-dump-derived signal token accepted by the command surface. With `--scope`, names
-may be relative or canonical paths inside that scope, and both forms may be
-mixed. Names must resolve to signals; unresolved names are errors.
-
-### 1.3 Basic Event Semantics
-
-Named event `name` means any value change of that signal. Wildcard event `*`
-means any value change in the tracked set defined by the command. Edge events
-use the previous sampled value strictly before the candidate timestamp and the
-current sampled value at that timestamp.
-
-Only the least-significant bit participates in edge classification. Nine-state
-waveform values `h`, `u`, `w`, `l`, and `-` are normalized to `x` before edge
-classification.
-
-Edge classification follows SystemVerilog clocking-event semantics:
-
-- `posedge` matches `0 -> 1/x/z` and `x/z -> 1`
-- `negedge` matches `1 -> 0/x/z` and `x/z -> 0`
-- `edge` matches either `posedge` or `negedge`
-
-If no previous sampled value exists strictly before the timestamp, no edge is
-detected at that timestamp.
-
-### 1.4 Unions and `iff`
-
-Union is logical OR over event terms. `or` and `,` are exact synonyms. If
-multiple terms match at the same timestamp, they select the same candidate
-timestamp rather than distinct duplicate events.
-
-`iff` attaches only to the immediately preceding event term, not to the entire
-union. For example, `negedge clk iff rstn or ready` means
-`(negedge clk iff rstn) or ready`.
-
-`logical_expr` uses the Boolean Expression language defined in section `2`.
-Parentheses are part of that `logical_expr` syntax; Event Expressions do not
-define an independent parenthesized grouping form.
-
-For pre-edge sampling, the default for `change` and `property` and the only mode for `extract`, the `--on` event expression still uses dump-native event detection at the trigger timestamp. This includes edge classification and any `iff` guard. Only the values printed by `change --signals`, evaluated by `property --eval`, or evaluated/sampled by `extract` predicates and payloads move to the pre-edge sample point recorded as `sample_time` in JSON and JSONL rows. The pre-edge mode is accepted only for explicit edge-only `--on` expressions: `posedge`, `negedge`, or `edge`, optionally with `iff`. For `change` and `property`, wildcard, plain-signal, and mixed triggers require `--sample-mode native`. For `extract`, wildcard, plain-signal, and mixed triggers are rejected because the command always samples pre-edge.
-
-### 1.5 Precedence and Grouping
-
-Event expressions have one composition operator: union. `iff` binds tighter than
-union and applies to a single preceding event term. `or` and `,` have equal
-precedence and associate left-to-right.
-
-This gives the practical precedence order:
-
-1. basic event forms: `*`, `name`, `posedge name`, `negedge name`, `edge name`
-2. gated event term: `event iff logical_expr`
-3. union: `event or event`, `event, event`
-
-### 1.6 Grammar Sketch
-
-```text
-event_expr ::= event_term { ("or" | ",") event_term }
-
-event_term ::= basic_event
-             | basic_event "iff" logical_expr
-
-basic_event ::= "*"
-              | operand_reference
-              | "posedge" operand_reference
-              | "negedge" operand_reference
-              | "edge" operand_reference
-```
-
-Notes:
-
-- `operand_reference` follows the same name-resolution rules as elsewhere in
-  this document, with command-specific scope handling.
-- `iff` binds only to the immediately preceding `basic_event`.
-- `or` and `,` are exact synonyms.
-
-## 2. Boolean Expressions
-
-This section defines the value-expression language over sampled dump values:
-operand types, operand forms, casts, implicit conversions, operators, and
+This document defines the shipped `wavepeek` boolean expression language over sampled dump values used by
+`property --eval` and `extract`, e.g. `extract generic --when`. It covers operand types, operand forms, casts, implicit conversions, operators, and
 grammar.
 
 Boolean expressions follow IEEE 1800-2023 SystemVerilog as closely as
@@ -124,7 +12,7 @@ practical, with a small dump-oriented surface specialization:
 references such as `type(enum_operand_reference)::LABEL` (for example,
 `type(fsm_state)::BUSY`).
 
-### 2.1 Operand Types
+## 1.1 Operand Types
 
 Boolean expressions operate on typed operands. Operands may carry 2-state or
 4-state values internally; final property decisions are reduced to 2-state.
@@ -171,11 +59,11 @@ follows only the explicit literal, cast, and operator caveats below.
     participate directly in casts, implicit conversions, operators, selection,
     concatenation, or replication
 
-### 2.2 Operand Forms
+## 1.2 Operand Forms
 
 This section lists the leaf forms that can appear as direct operands.
 
-#### 2.2.1 Literals
+### 1.2.1 Literals
 
 - `integral literal`
   - unsized decimal integer, for example `12`
@@ -194,7 +82,7 @@ This section lists the leaf forms that can appear as direct operands.
 - `string literal`
   - produces `string`; self-determined
 
-#### 2.2.2 Primary Expressions
+### 1.2.2 Primary Expressions
 
 - `operand reference`
   - a resolved signal reference uses the operand type defined by dump metadata
@@ -233,16 +121,16 @@ This section lists the leaf forms that can appear as direct operands.
   - chaining `.triggered()` is invalid
   - bare `.triggered` remains part of ordinary operand references and is not reserved syntax
 
-### 2.3 Type Casts
+## 1.3 Type Casts
 
 This section defines explicit casts only. Implicit conversions and operator
 coercion are specified separately.
 
-#### 2.3.1 Cast Syntax
+### 1.3.1 Cast Syntax
 
 Casts use the SystemVerilog-style form `type'(expr)`.
 
-#### 2.3.2 Supported Cast Targets
+### 1.3.2 Supported Cast Targets
 
 Supported cast targets are explicitly written `bit-vector`,
 `integer-like`, `real`, and `string` types; signedness-only targets
@@ -250,32 +138,32 @@ Supported cast targets are explicitly written `bit-vector`,
 `type(operand_reference)`. Enum labels are referenced through
 `type(enum_operand_reference)::LABEL`.
 
-#### 2.3.3 General Cast Rules
+### 1.3.3 General Cast Rules
 
 `type'(expr)` produces a value of the target type. Casts may change width,
 signedness, state domain, and operand kind. Integral casts use deterministic
 bit-level conversion.
 
-#### 2.3.4 Signedness-Only Casts
+### 1.3.4 Signedness-Only Casts
 
 `signed'(expr)` and `unsigned'(expr)` are width-preserving reinterpret casts.
 They do not resize the operand or change the 2-state/4-state domain. They are
 valid only for integral operands (`bit-vector`, `integer-like`, `enum`) and
 invalid for `real`, `string`, and `event`.
 
-#### 2.3.5 Integral Resize Rules
+### 1.3.5 Integral Resize Rules
 
 When an integral cast changes width, a wider signed source is sign-extended and
 a wider unsigned source is zero-extended. A narrower target keeps the
 least-significant `N` bits and truncates higher bits. After resize, the result
 signedness is defined by the target type.
 
-#### 2.3.6 State-Domain Rules
+### 1.3.6 State-Domain Rules
 
 When casting between integral types, casting to a 4-state target preserves `x`
 and `z`, while casting to a 2-state target converts `x -> 0` and `z -> 0`.
 
-#### 2.3.7 Inline Vector Types
+### 1.3.7 Inline Vector Types
 
 - `bit[N]` is an unsigned 2-state bit-vector of width `N`.
 - `logic[N]` is an unsigned 4-state bit-vector of width `N`.
@@ -286,13 +174,13 @@ and `z`, while casting to a 2-state target converts `x -> 0` and `z -> 0`.
 - `bit` is equivalent to `bit[1]`.
 - `logic` is equivalent to `logic[1]`.
 
-#### 2.3.8 Operand-Type Casts
+### 1.3.8 Operand-Type Casts
 
 `type(operand_reference)'(expr)` casts `expr` to the recovered operand type of
 `operand_reference`. It is the primary way to cast into enum types recovered
 from dump metadata. Example: `type(fsm_state)'(value)`.
 
-#### 2.3.9 Enum Label References
+### 1.3.9 Enum Label References
 
 `type(enum_operand_reference)::LABEL` references a label in the enum type
 recovered from the referenced operand. It is a primary expression, not a cast
@@ -300,14 +188,14 @@ target, and produces a value of that enum type. It is invalid if the referenced
 operand does not resolve to an enum type or if the label is not present in that
 enum type.
 
-#### 2.3.10 Enum Casts
+### 1.3.10 Enum Casts
 
 Enum values are cast through their underlying bit-vector representation.
 Casting to an enum type applies the target enum width and label set. If the
 resulting bit pattern matches a declared enum label, the result carries that
 label. Otherwise, it remains enum-typed but has no label.
 
-#### 2.3.11 Real Casts
+### 1.3.11 Real Casts
 
 `real'(expr)` is a numeric cast, not a bit reinterpret cast. Casting from an
 integral source to `real` first evaluates the source in its own self-determined
@@ -317,25 +205,25 @@ from `real` to an integral target truncates toward zero, then applies the
 target integral type's normal resize, signedness, and state-domain rules.
 `signed'(expr)` and `unsigned'(expr)` are invalid for `real`.
 
-#### 2.3.12 String Casts
+### 1.3.12 String Casts
 
 Explicit string casts are intentionally narrow in this contract:
 `string'(expr)` is supported only as an identity cast from `string` to
 `string`; all other explicit casts to or from `string` are invalid.
 
-#### 2.3.13 Event Casts
+### 1.3.13 Event Casts
 
 By the operand rules above, raw `event` is not castable as a plain value. After
 `.triggered()`, the result is a `bit` and follows the ordinary integral cast
 rules of this section.
 
-### 2.4 Implicit Conversions and Common-Type Rules
+## 1.4 Implicit Conversions and Common-Type Rules
 
 This section defines conversions applied by operator semantics when no explicit
 cast is written. Except where an operator defines self-determined operands,
 operands are converted to an operator common type before evaluation.
 
-#### 2.4.1 Boolean Context
+### 1.4.1 Boolean Context
 
 Boolean context applies to logical operators such as `!`, `&&`, `||`, and to
 the condition operand of `?:`. For the integral family (`bit-vector`,
@@ -345,7 +233,7 @@ true. In this contract, true `string` values do not implicitly convert in
 boolean context. Boolean-context conversion produces a temporary 1-bit truth
 value and does not otherwise change the operand type.
 
-#### 2.4.2 Integral Common Type
+### 1.4.2 Integral Common Type
 
 The integral family consists of `bit-vector`, `integer-like`, and `enum`.
 Within that family, width follows the operator's width rule or, if none is
@@ -356,7 +244,7 @@ common width, use sign extension for `signed` and zero extension for
 `unsigned`. Conversion to a `2-state` common type maps `x -> 0` and `z -> 0`;
 conversion to a `4-state` common type preserves `x` and `z`.
 
-#### 2.4.3 Enum Participation
+### 1.4.3 Enum Participation
 
 `enum` participates in implicit conversions through its underlying bit-vector
 representation. For generic mixed-type common-type resolution, enum labels do
@@ -365,7 +253,7 @@ the same enum type, the result preserves that enum type. In all other
 mixed-type implicit conversions involving `enum`, the value is treated as an
 integral operand and labels are not preserved by that conversion step.
 
-#### 2.4.4 Real Common Type
+### 1.4.4 Real Common Type
 
 `real` forms a separate numeric family. If an operator allows mixed `integral`
 and `real` operands, the common type is `real`. Before conversion to `real`, an
@@ -374,7 +262,7 @@ state domain. Implicit conversion from `integral` to `real` is invalid if the
 integral value contains `x` or `z`. `real` does not implicitly convert to
 `string`, and `string` does not implicitly convert to `real`.
 
-#### 2.4.5 String Restrictions
+### 1.4.5 String Restrictions
 
 True `string` values do not participate in generic numeric common-type
 resolution. Equality on `string` is defined separately as an operator-specific
@@ -383,7 +271,7 @@ operator-specific rule says otherwise. `?:` with both arms of type `string`
 produces `string`; with one `string` arm and one non-`string` arm, it is
 invalid unless a later operator-specific rule says otherwise.
 
-#### 2.4.6 Result-Type Guidance
+### 1.4.6 Result-Type Guidance
 
 Logical operators consume boolean-context conversion and produce a 1-bit
 4-state integral result. Operators over the integral family follow the
@@ -392,9 +280,9 @@ Operators mixing `integral` and `real` produce `real` when the operator admits
 mixed numeric operands. `?:` uses a self-determined condition and applies
 common-type resolution only to its two result arms.
 
-### 2.5 Operators
+## 1.5 Operators
 
-#### 2.5.1 Supported Operator Families
+### 1.5.1 Supported Operator Families
 
 - selection: `expr[idx]`, `expr[msb:lsb]`, `expr[base +: width]`,
   `expr[base -: width]`
@@ -411,7 +299,7 @@ common-type resolution only to its two result arms.
 - concatenation: `{a, b, c}`
 - replication: `{N{expr}}`
 
-#### 2.5.2 Operator Matrix
+### 1.5.2 Operator Matrix
 
 | Family | Operators | Allowed operands | Conversion rule | Result |
 |---|---|---|---|---|
@@ -437,7 +325,7 @@ bit-vector, including derived packed values such as the result of selection,
 concatenation, or replication. Selection of scalar integral values is still
 invalid.
 
-#### 2.5.3 Selection Operators
+### 1.5.3 Selection Operators
 
 Selection supports bit-select `expr[idx]`, non-indexed part-select
 `expr[msb:lsb]`, and indexed part-select `expr[base +: width]` /
@@ -458,14 +346,14 @@ partially out-of-range read yields source bits for the in-range region and `x`
 for the out-of-range region. Invalid part-select reads therefore produce a
 4-state result even when the source is 2-state.
 
-#### 2.5.4 Logical Operators
+### 1.5.4 Logical Operators
 
 Logical operators apply boolean-context conversion to each operand. They
 support `integral` and `real` operands, but not true `string` values. Results
 are 1-bit unsigned 4-state values. `&&` and `||` short-circuit, and `!` maps
 ambiguous truth to `x`.
 
-#### 2.5.5 Bitwise Operators
+### 1.5.5 Bitwise Operators
 
 Bitwise operators accept only `integral` operands. Binary bitwise operators use
 the integral common type, and unary `~` preserves operand width. `enum`
@@ -473,13 +361,13 @@ operands participate through their underlying bit-vector values. Full 4-state
 bitwise truth-table semantics are intended, including preserving controlling
 values such as `0 & x -> 0` and `1 | x -> 1`.
 
-#### 2.5.6 Reduction Operators
+### 1.5.6 Reduction Operators
 
 Reduction operators accept only `integral` operands. The operand is
 self-determined. The result is a 1-bit unsigned 4-state value. `x` and `z`
 participate through the reduction truth tables and may produce `x`.
 
-#### 2.5.7 Exponentiation Operator
+### 1.5.7 Exponentiation Operator
 
 Exponentiation accepts `integral` and `real` operands. If either operand is
 `real`, the result is `real`. Otherwise, exponentiation follows the ordinary
@@ -487,7 +375,7 @@ integral sizing and signedness rules of this section, and the exponent operand
 is self-determined. Special cases follow SystemVerilog-style rules: exponent
 `0` yields `1`, and integral `0 ** negative` yields all-`x`.
 
-#### 2.5.8 Arithmetic Operators
+### 1.5.8 Arithmetic Operators
 
 Arithmetic operators support `integral` and `real` operands. Pure integral
 arithmetic uses the integral common type; mixed `integral` and `real`
@@ -495,7 +383,7 @@ arithmetic promotes to `real`. For integral arithmetic, any `x` or `z` bit in
 an operand makes the result all-`x`. Division truncates toward zero.
 Divide-by-zero and modulo-by-zero produce all-`x` for integral arithmetic.
 
-#### 2.5.9 Shift Operators
+### 1.5.9 Shift Operators
 
 Shift operators accept only `integral` operands. Result width is the
 left-operand width. The right operand is self-determined and treated as
@@ -503,14 +391,14 @@ unsigned. `<<`, `>>`, and `<<<` fill vacated bits with `0`; `>>>` fills them
 with `0` for unsigned results and with the left operand MSB for signed results.
 If the right operand contains `x` or `z`, the result is all-`x`.
 
-#### 2.5.10 Comparison Operators
+### 1.5.10 Comparison Operators
 
 Comparison operators support `integral` and `real` operands. Mixed `integral`
 and `real` comparison promotes the integral operand to `real`. The result is a
 1-bit unsigned 4-state value. For integral comparison, any `x` or `z` bit in
 either operand yields `x`.
 
-#### 2.5.11 Equality Operators
+### 1.5.11 Equality Operators
 
 `==` and `!=` support `integral`, `real`, and `string` operands. `===` and
 `!==` support `integral` operands, and `==?` and `!=?` also support `integral`
@@ -526,7 +414,7 @@ does not use numeric coercion, width extension, padding, truncation, or
 wildcard semantics. String literals participate in string equality as `string`
 values. String equality always returns a known `0` or `1`.
 
-#### 2.5.12 Conditional Operator
+### 1.5.12 Conditional Operator
 
 The condition operand of `?:` is self-determined and evaluated in boolean
 context. The two result arms use the common-type rules defined earlier. If both
@@ -537,7 +425,7 @@ both arms are the same enum type, the result is that enum type with a merged
 underlying value; the label is present only if the merged bit pattern matches a
 declared label.
 
-#### 2.5.13 Inside Operator
+### 1.5.13 Inside Operator
 
 `inside` is supported in a narrowed form. The left operand must be `integral`.
 Right-hand set items may be integral expressions or inclusive integral ranges
@@ -547,7 +435,7 @@ result is `x`. Advanced `inside` forms are not supported in the initial target
 semantics: open-range `$` bounds, `+/-`, `+%-`, unpacked-array matching, and
 scan-order dependent behavior.
 
-#### 2.5.14 Concatenation and Replication
+### 1.5.14 Concatenation and Replication
 
 Concatenation and replication accept only `integral` operands and produce plain
 unsigned bit-vector results. They never preserve `integer-like` or `enum`
@@ -558,7 +446,7 @@ preserved. Unsized constants are not allowed in integral concatenation.
 Replication multiplier `N` must be a positive constant integer expression.
 Concatenation and replication results may themselves be selected.
 
-### 2.6 Precedence and Associativity
+## 1.6 Precedence and Associativity
 
 SystemVerilog-style precedence is followed for the supported operator
 families.
@@ -623,7 +511,7 @@ Guidance:
   same
   tight binding as other primary postfix operations.
 
-### 2.7 Parser-Level Grammar Sketch
+## 1.7 Parser-Level Grammar Sketch
 
 This is a parser-oriented sketch of the supported surface syntax, not a full
 lexical grammar. Semantic validation still enforces rules such as

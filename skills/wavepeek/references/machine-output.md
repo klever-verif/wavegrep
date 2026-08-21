@@ -1,4 +1,4 @@
-# Machine Output Contract
+# Machine output contract
 
 This document is normative for stdout, stderr, JSON-mode behavior, JSONL stream behavior, diagnostics, and exit codes.
 
@@ -14,7 +14,7 @@ If a downstream consumer intentionally closes stdout early, `wavepeek` stops wri
 
 ## 2. JSON envelopes
 
-A successful `--json` command emits `type`, `command`, optional `context`, optional `data`, optional `summary`, and `diagnostics`. `type` is `result`. When present, `data` is an array; `diagnostics` is always an array. `info` returns one metadata row; an empty query returns `data: []`. Commands with numeric or unlimited `--max` always include `summary`.
+A successful `--json` command emits `type`, `command`, optional `context`, optional `data`, optional `summary`, and `diagnostics`. `type` is `result`. When present, `data` is an array; `diagnostics` is an array. `info` returns one metadata row; an empty query returns `data: []`. Commands with numeric or unlimited `--max` always include `summary`.
 
 ```json
 {"type":"result","command":"info","data":[{"time_unit":"1ns","time_start":"0ns","time_end":"10ns"}],"diagnostics":[]}
@@ -36,7 +36,175 @@ Protocol extractors put command-wide metadata in `context` and rows directly in 
 {"type":"result","command":"extract apb","context":{"name":"apb","profile":"apb4","issue":"E","pready_mode":"mapped","include_wait":false,"mappings":{"pclk":{"path":"top.uart_apb_p_clk_i"},"penable":{"path":"top.uart_apb_penable_o"},"pready":{"path":"top.uart_apb_pready_i"},"psel":{"path":"top.uart_apb_psel_o"},"pwrite":{"path":"top.uart_apb_pwrite_o"}}},"data":[{"time":"5ns","sample_time":"4ns","profile":"apb4","event":"setup","direction":"write","payload":{"pwrite":"1'h1"}}],"summary":{"complete":true,"returned":1,"limit":50,"total":1},"diagnostics":[]}
 ```
 
-Machine-readable `path` fields are canonical. For a flat `[msb:lsb]` projection in `value`, `change`, or `extract generic`, `path` is the canonical source path plus the range and `relative_path` is the scoped relative source path plus the same range; no separate projection field is emitted. Scoped `signal`, `value`, `change`, and `extract generic` results include the exact selected scope in `context.scope`, including when `data` is empty. Their signal or payload rows also include `relative_path`; immediate children use a basename and descendants retain their child scope components. Without `--scope`, `value`, `change`, and `extract generic` omit both `context` and `relative_path` in JSON; their JSONL `begin` records also omit `context`. Protocol context fields are documented in [Extract command](extract.md); row fields remain command-specific. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
+Machine-readable `path` fields are canonical. For a flat `[msb:lsb]` projection in `value`, `change`, or `extract generic`, `path` is the canonical source path plus the range and `relative_path` is the scoped relative source path plus the same range; no separate projection field is emitted. Scoped `signal`, `value`, `change`, and `extract generic` results include the exact selected scope in `context.scope`, including when `data` is empty. Their signal or payload rows also include `relative_path`; immediate children use a basename and descendants retain their child scope components. Without `--scope`, `value`, `change`, and `extract generic` omit both `context` and `relative_path` in JSON; their JSONL `begin` records also omit `context`. Command-specific context and row fields are defined below. Waveform commands support JSON envelopes. Unsupported `--json` combinations fail as argument errors.
+
+### Command data contracts
+
+In the compact record notation below, `?` marks a field that is omitted when it does not apply. `Time` is a normalized integer time token, `Path` is a canonical waveform path, and `Value` is a normalized Verilog-style sampled value such as `8'h0f`.
+
+The non-protocol commands use these contexts and rows:
+
+```text
+info
+  context: none
+  row: { time_unit: string, time_start: Time, time_end: Time }
+
+scope
+  context: none
+  row: { path: Path, depth: integer, kind: ScopeKind }
+
+signal
+  context: { scope: Path }
+  row: { name: string, path: Path, relative_path: string,
+         kind: SignalKind, width?: integer }
+
+value
+  context?: { scope: Path }
+  row: { time: Time,
+         signals: [{ path: Path, relative_path?: string, value: Value }] }
+
+change
+  context?: { scope: Path }
+  row: { time: Time, sample_time: Time,
+         signals: [{ path: Path, relative_path?: string, value: Value }] }
+
+property
+  context: none
+  row: { time: Time, sample_time: Time,
+         kind: "match" | "assert" | "deassert" }
+
+extract generic
+  context?: { scope: Path }
+  row: { time: Time, sample_time: Time, source: string,
+         payload: [{ path: Path, relative_path?: string, value: Value }] }
+```
+
+`change.signals` follows `--row-values`: full rows contain every requested signal, while delta rows may contain a subset or be empty. The first emitted delta row is full. `extract generic.payload` preserves the declared order and duplicates.
+
+`ScopeKind` is `module`, `task`, `function`, `begin`, `fork`, `generate`, `struct`, `union`, `class`, `interface`, `package`, `program`, or `unknown`.
+
+`SignalKind` is one of:
+
+```text
+event integer parameter real reg supply0 supply1 time
+tri triand trior trireg tri0 tri1 wand wire wor string
+port sparse_array real_time real_parameter bit logic int
+short_int long_int byte enum short_real boolean bit_vector
+```
+
+Protocol extractors use a common mapping form:
+
+```text
+mappings: { "<standard-signal-name>": { "path": Path }, ... }
+payload:  { "<standard-signal-name>": Value, ... }
+```
+
+Payload paths are available through `context.mappings`. Every protocol row repeats the `profile` from its context.
+
+#### `extract ahb`
+
+```text
+context: {
+  name: string,
+  profile: "ahb-lite" | "ahb5",
+  issue: "C",
+  include_stall: boolean,
+  include_idle: boolean,
+  include_busy: boolean,
+  initial_data_phase: {
+    state: "empty" | "pending" | "desynchronized",
+    address?: { time: Time, sample_time: Time,
+                transfer: "nonseq" | "seq",
+                direction: "read" | "write" | "unknown",
+                payload: object }
+  },
+  mappings: object
+}
+row: {
+  time: Time,
+  sample_time: Time,
+  profile: "ahb-lite" | "ahb5",
+  event: "address" | "idle" | "busy" | "data-stall" |
+         "data-complete" | "reset" | "desynchronized",
+  transfer?: "idle" | "busy" | "nonseq" | "seq",
+  direction?: "read" | "write" | "unknown",
+  payload?: object
+}
+```
+
+AHB-Lite mappings may use `hclk`, `hresetn`, `htrans`, `hready`, `hwrite`, `haddr`, `hburst`, `hmastlock`, `hprot`, `hsize`, `hauser`, `hwdata`, `hwstrb`, `hwuser`, `hrdata`, `hruser`, `hbuser`, and `hresp`. AHB5 also allows `hnonsec`, `hexcl`, `hmaster`, and `hexokay`.
+
+Address rows use mapped address-phase fields. Data rows may contain `hresp`, write fields (`hwdata`, `hwstrb`, `hwuser`), read fields (`hrdata`, `hruser`), and successful-completion fields (`hbuser`, `hexokay`) when applicable and mapped. An `unknown` direction combines eligible read and write fields. Empty row payloads are omitted. `initial_data_phase.address` appears only for `pending`.
+
+#### `extract apb`
+
+```text
+context: { name: string, profile: "apb3" | "apb4" | "apb5",
+           issue: "E", pready_mode: "mapped" | "implicit-high",
+           include_wait: boolean, mappings: object }
+row: { time: Time, sample_time: Time,
+       profile: "apb3" | "apb4" | "apb5",
+       event: "setup" | "access-wait" | "access-complete",
+       direction: "read" | "write" | "unknown",
+       payload: object }
+```
+
+APB3 mappings use `pclk`, `presetn`, `psel`, `penable`, `pwrite`, `pready`, `paddr`, `pwdata`, `prdata`, and `pslverr`. APB4 adds `pprot` and `pstrb`; APB5 adds `pnse`, `pauser`, `pwuser`, `pruser`, and `pbuser`.
+
+Payloads exclude `pclk`, `presetn`, `psel`, `penable`, and `pready`. Only `access-complete` may contain `prdata`, `pslverr`, `pruser`, or `pbuser`. Read rows omit `pwdata` and `pwuser`; write rows omit `prdata` and `pruser`. An unknown direction retains either side when mapped. `access-wait` appears only when `include_wait` is true.
+
+#### `extract atb`
+
+```text
+context: { name: string, profile: "atb-a" | "atb-b" | "atb-c",
+           issue: "C", mappings: object }
+row: { time: Time, sample_time: Time,
+       profile: "atb-a" | "atb-b" | "atb-c",
+       event: "transfer" | "flush" | "sync-request",
+       payload: object }
+```
+
+ATB mappings use `atclk`, `atresetn`, `atvalid`, `atready`, `atbytes`, `atdata`, `atid`, `afvalid`, and `afready`. ATB-B and ATB-C also allow `syncreq`. Transfer payloads may contain `atbytes`, `atdata`, and `atid`; flush and synchronization-request payloads are empty.
+
+#### `extract axi`
+
+```text
+context: { name: string, profile: AxiProfile,
+           issue: "H.c" | "L", mappings: object }
+row: { time: Time, sample_time: Time, profile: AxiProfile,
+       channel: "aw" | "w" | "b" | "ar" | "r" | "ac" | "cr" | "cd",
+       payload: object }
+```
+
+The profile determines the issue and available channels:
+
+| Profile | Issue | Channels |
+|---|---|---|
+| `axi3`, `axi4`, `axi4-lite` | `H.c` | `aw`, `w`, `b`, `ar`, `r` |
+| `axi5` | `L` | `aw`, `w`, `b`, `ar`, `r`, `ac`, `cr` |
+| `axi5-lite` | `L` | `aw`, `w`, `b`, `ar`, `r` |
+| `ace` | `H.c` | `aw`, `w`, `b`, `ar`, `r`, `ac`, `cr`, `cd` |
+| `ace-lite` | `H.c` | `aw`, `w`, `b`, `ar`, `r` |
+| `ace5` | `H.c` | `aw`, `w`, `b`, `ar`, `r`, `ac`, `cr`, `cd` |
+| `ace5-lite` | `L` | `aw`, `w`, `b`, `ar`, `r` |
+| `ace5-lite-dvm` | `L` | `aw`, `w`, `b`, `ar`, `r`, `ac`, `cr` |
+| `ace5-lite-acp` | `L` | `aw`, `w`, `b`, `ar`, `r` |
+
+Mappings contain `aclk`, optional `aresetn`, and mapped standard signals allowed by the selected profile. A row payload contains the mapped signals for its channel except the channel's `valid` and `ready` signals. It may be empty.
+
+#### `extract axistream`
+
+```text
+context: { name: string,
+           profile: "axi4-stream" | "axi5-stream",
+           issue: "B", tready_mode: "mapped" | "implicit-high",
+           mappings: object }
+row: { time: Time, sample_time: Time,
+       profile: "axi4-stream" | "axi5-stream",
+       payload: object }
+```
+
+AXI-Stream mappings use `aclk`, `aresetn`, `tvalid`, `tready`, `tdata`, `tstrb`, `tkeep`, `tlast`, `tid`, `tdest`, and `tuser`. Payloads may contain the mapped `tdata`, `tstrb`, `tkeep`, `tlast`, `tid`, `tdest`, and `tuser` fields, and may be empty.
 
 The summary fields describe the selected public result set after filtering:
 
@@ -154,7 +322,3 @@ Exit codes do not depend on output mode:
 | `2` | File-level failure such as open, parse, or unsupported-format failures |
 
 If stdout cannot be serialized or written, including a broken pipe, a fatal object is not guaranteed. Ordinary diagnostics retain the forms described above.
-
-## 6. Human output flexibility
-
-Human-readable output is intentionally less rigid than machine output. Formatting may improve while preserving the semantic guarantees in [Command model](command-model.md) and command-specific help or tests.
