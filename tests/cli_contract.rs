@@ -431,9 +431,9 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         "`--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows",
         "`--row-values full|delta` controls whether rows contain all requested signals or only changed signals",
         "Range boundaries are inclusive",
-        "`--signals` accepts trailing static `[msb:lsb]` projections",
+        "`--signals` accepts comma-separated values, repeated options, or both",
         "use `[n:n]` for one bit because `[n]` remains ordinary waveform path syntax",
-        "wildcard comparisons use the projected values",
+        "wildcard comparisons use projected values",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -456,7 +456,11 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(help.contains(
             "Canonical scope path for relative or in-scope canonical signal and trigger names"
         ));
-        assert!(help.contains("Comma-separated signal paths or flat [msb:lsb] projections"));
+        assert!(
+            help.contains(
+                "Signal paths or flat [msb:lsb] projections, comma-separated or repeated"
+            )
+        );
         assert!(
             help.contains("Select whether every sampled event or only changed samples become rows")
         );
@@ -698,8 +702,8 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
 
     for fragment in [
         "Prints values for the requested signals at each selected time point.",
-        "`--at` accepts one explicit time token or a comma-separated list in one argument.",
-        "Output preserves the input order from `--at` and `--signals`, including duplicates.",
+        "`--at` and `--signals` accept comma-separated values, repeated options, or both.",
+        "Output preserves the flattened input order from `--at` and `--signals`, including duplicates.",
         "By default, signal names are top-related canonical paths",
         "set `--scope` once with a canonical scope path",
         "Relative and canonical references inside the selected scope may be mixed",
@@ -719,11 +723,15 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(help.contains("Output options:"));
         assert!(help.contains("Other options:"));
         assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
-        assert!(help.contains("Time point(s) with explicit units (e.g. 1337ns or 10ns,20ns)"));
+        assert!(help.contains("Time points with explicit units, comma-separated or repeated"));
         assert!(
             help.contains("Canonical scope path for relative or in-scope canonical signal names")
         );
-        assert!(help.contains("Comma-separated signal paths or flat [msb:lsb] projections"));
+        assert!(
+            help.contains(
+                "Signal paths or flat [msb:lsb] projections, comma-separated or repeated"
+            )
+        );
         assert!(help.contains("Show canonical signal paths"));
         assert!(help.contains("Machine-readable JSON output"));
         assert!(!help.contains("(`--waves <FILE>` is required)"));
@@ -957,9 +965,10 @@ fn extract_generic_help_is_self_descriptive() {
         "Extract protocol-neutral event rows from waveform signals.",
         "Selects edge-only event timestamps with --on.",
         "Always samples --when and --payload at the pre-edge sample point.",
+        "--payload accepts comma-separated values, repeated options, or both.",
         "Payload entries accept flat trailing [msb:lsb] projections and preserve order and duplicates.",
         "Use [n:n] for one bit; exact waveform paths win and [n] remains path syntax.",
-        "Comma-separated payload paths or flat [msb:lsb] projections",
+        "Payload paths or flat [msb:lsb] projections, comma-separated or repeated",
         "Canonical scope path for relative or in-scope canonical event, predicate, and payload names",
         "In source-file mode, --source provides one or more sources",
         "Source-file fields and behavior are documented in the corresponding protocol topic.",

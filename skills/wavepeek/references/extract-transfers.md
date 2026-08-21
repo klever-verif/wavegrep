@@ -11,7 +11,7 @@ $ wavepeek extract generic --waves dump.fst \
     --scope tb.dut.queue \
     --on 'posedge clk iff reset_n' \
     --when 'valid && ready' \
-    --payload data,last
+    --payload data --payload last
 @250ns sample@249ns data=32'hdeadbeef last=1'h0
 @270ns sample@269ns data=32'hcafebabe last=1'h1
 ```

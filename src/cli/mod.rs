@@ -113,8 +113,8 @@ Behavior:
 - Relative and canonical references inside the selected scope may be mixed in one request.
 - A trailing static `[msb:lsb]` projects a flat integral signal's normalized sampled value; use `[n:n]` for one bit.
 - Exact waveform paths win before projection parsing, and `[n]` remains ordinary waveform path syntax.
-- `--at` accepts one explicit time token or a comma-separated list in one argument.
-- Output preserves the input order from `--at` and `--signals`, including duplicates.
+- `--at` and `--signals` accept comma-separated values, repeated options, or both.
+- Output preserves the flattened input order from `--at` and `--signals`, including duplicates.
 - Human output emits one `@<time>` row per requested time with `display=value` fields, matching `change`.
 - When following up a `change` or `property` JSON row, prefer that row's `sample_time` field for `--at`; in `pre-edge` mode, `time` is the selected trigger timestamp and `sample_time` is where values were sampled.
 - Time tokens must include explicit units and align to dump precision.
@@ -131,7 +131,8 @@ Use this command for deterministic spot checks at specific timestamps."#
 
 Behavior:
 - Prints requested signal values for each event selected by required `--on`.
-- `--signals` accepts trailing static `[msb:lsb]` projections; sparse, delta, and wildcard comparisons use the projected values.
+- `--signals` accepts comma-separated values, repeated options, or both; trailing static `[msb:lsb]` projections are supported.
+- Sparse, delta, and wildcard comparisons use projected values.
 - Exact waveform paths win before projection parsing; use `[n:n]` for one bit because `[n]` remains ordinary waveform path syntax.
 - `--row-mode dense|sparse` controls whether every sampled event or only changed samples become rows; the default is `dense`.
 - Pre-edge events without a representable earlier sample point are skipped.
@@ -846,7 +847,7 @@ mod tests {
         match command {
             EngineCommand::Value(args) => {
                 assert_eq!(args.waves, PathBuf::from("fixtures/sample.vcd"));
-                assert_eq!(args.at, "10ns");
+                assert_eq!(args.at, vec!["10ns"]);
                 assert_eq!(args.scope.as_deref(), Some("top"));
                 assert_eq!(args.signals, vec!["clk", "data"]);
                 assert!(args.abs);

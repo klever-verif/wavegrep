@@ -7,13 +7,18 @@ pub struct ValueArgs {
     /// Path to VCD/FST/FSDB waveform file
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
-    /// Time point(s) with explicit units (e.g. 1337ns or 10ns,20ns)
-    #[arg(long, help_heading = "Selection options")]
-    pub at: String,
+    /// Time points with explicit units, comma-separated or repeated
+    #[arg(
+        long,
+        value_delimiter = ',',
+        required = true,
+        help_heading = "Selection options"
+    )]
+    pub at: Vec<String>,
     /// Canonical scope path for relative or in-scope canonical signal names
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Comma-separated signal paths or flat [msb:lsb] projections
+    /// Signal paths or flat [msb:lsb] projections, comma-separated or repeated
     #[arg(
         long,
         value_delimiter = ',',

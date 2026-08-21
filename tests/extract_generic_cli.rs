@@ -143,7 +143,7 @@ const HANDSHAKE_VCD: &str = concat!(
 );
 
 #[test]
-fn extract_generic_json_preserves_repeated_identical_payload_rows() {
+fn extract_generic_flattens_repeated_and_comma_separated_payload_in_order() {
     let fixture = write_fixture(HANDSHAKE_VCD, "extract-generic-handshake.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
 
@@ -160,7 +160,9 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
             "--when",
             "valid && ready",
             "--payload",
-            "data,last",
+            "data",
+            "--payload",
+            "last,data",
             "--json",
         ])
         .output()
@@ -179,7 +181,8 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
                 "source": "transfer",
                 "payload": [
                     {"path": "top.data", "relative_path": "data", "value": "8'haa"},
-                    {"path": "top.last", "relative_path": "last", "value": "1'h1"}
+                    {"path": "top.last", "relative_path": "last", "value": "1'h1"},
+                    {"path": "top.data", "relative_path": "data", "value": "8'haa"}
                 ]
             },
             {
@@ -188,7 +191,8 @@ fn extract_generic_json_preserves_repeated_identical_payload_rows() {
                 "source": "transfer",
                 "payload": [
                     {"path": "top.data", "relative_path": "data", "value": "8'haa"},
-                    {"path": "top.last", "relative_path": "last", "value": "1'h1"}
+                    {"path": "top.last", "relative_path": "last", "value": "1'h1"},
+                    {"path": "top.data", "relative_path": "data", "value": "8'haa"}
                 ]
             }
         ])

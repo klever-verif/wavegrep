@@ -476,6 +476,37 @@ fn change_default_when_matches_expected_json_payload() {
 }
 
 #[test]
+fn change_flattens_repeated_and_comma_separated_signals_in_order() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "10ns",
+            "--to",
+            "10ns",
+            "--signals",
+            "top.clk",
+            "--signals",
+            "top.data,top.clk",
+            "--on",
+            "*",
+            "--sample-mode",
+            "native",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::eq(
+            "@10ns top.clk=1'h1 top.data=8'h0f top.clk=1'h1\n",
+        ))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
 fn change_requires_on_flag() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
