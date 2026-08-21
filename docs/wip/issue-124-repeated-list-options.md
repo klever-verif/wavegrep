@@ -21,7 +21,7 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
 - [x] (2026-08-21 10:35Z) Updated packaged references and the Unreleased changelog.
 - [x] (2026-08-21 10:40Z) Ran focused tests, `just ci`, and `just check`; all passed. Commit remains to be created after this plan update.
 - [x] (2026-08-21) Ran parallel Luna Max review lanes, rebased the task onto current `origin/dev3`, rechecked all lanes, and resolved documentation findings. The requested plan cleanup remains intentionally scheduled after all review waves.
-- [ ] Run parallel Terra High review lanes over the same areas, resolve findings, and commit any fixes.
+- [x] (2026-08-21) Ran parallel Terra High review lanes over code/tests, docs/help, and minimal design; all three returned no substantive findings.
 - [ ] Run an independent Sol High control review, resolve findings, and commit any fixes.
 - [ ] Remove this branch-local plan, run final gates, push the branch, and open a PR closing issue #124.
 
@@ -68,7 +68,7 @@ This work does not introduce a generic argument-merging layer, change scalar-opt
 
 ## Outcomes & Retrospective
 
-Work is in progress. The expected final outcome is one native Clap list conversion, focused contract coverage for all four option families, aligned help/reference text, clean quality gates, two focused review waves, one independent control review, and an opened pull request.
+Implementation and two review waves are complete. `value --at` now uses native Clap vector/delimiter behavior, all four affected list option families have mixed-form ordering and duplicate contracts, help and packaged references are aligned, and quality gates pass. Luna Max found and drove correction of the stale branch base plus small documentation issues; the corrected Luna pass and all Terra High lanes were clean. Remaining work is to remove this branch-local plan, run Sol High control review and final gates, then push and open the PR.
 
 ## Context and Orientation
 
@@ -149,4 +149,4 @@ This proves that only `--at` lacks native append behavior while the other vector
 
 No dependency changes are allowed or needed. Continue using Clap 4, already declared in `Cargo.toml`. At completion, `crate::cli::value::ValueArgs::at` must be `Vec<String>`, required by Clap and split with `value_delimiter = ','`. The value engine’s time normalization must accept the flattened sequence by reference and return the same parsed time representation it returns today. No new trait, helper module, configuration setting, or public output type should exist.
 
-Revision note (2026-08-21): Completed the Luna Max wave after rebase, recorded its clean code result and documentation findings, and applied the changelog/duplication fixes. Terra High review remains.
+Revision note (2026-08-21): Recorded the clean three-lane Terra High wave and updated the retrospective. The plan is ready for required branch-local cleanup before Sol High control review.
