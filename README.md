@@ -1,12 +1,10 @@
-<h1 align="center"><code>wavepeek</code></h1>
-
 <p align="center">
   <img src="docs/wavepeek.svg" alt="wavepeek" width="900">
 </p>
 
 <p align="center">
   A CLI for querying RTL waveform dumps.<br>
-  Supports signal inspection, clocked Boolean conditions, and generic or AMBA event extraction.
+  Supports hierarchy browsing, signal inspection, Boolean condition checking, and event extraction.
 </p>
 
 <p align="center">
@@ -22,16 +20,16 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/kleverhq/wavepeek" alt="Apache-2.0 license"></a>
 </p>
 
-`wavepeek` runs non-interactive queries over saved waveform files. Its main use cases are LLM-driven debugging and other automated workflows. GUI viewers are better suited to open-ended interactive exploration. `wavepeek` can also be used in scripts that need repeatable queries with limited output.
+`wavepeek` is a stateless CLI that runs non-interactive queries over waveform files. Its main use cases are LLM-driven debugging and other automated workflows.
 
-`wavepeek` is a stateless CLI. Each invocation opens one VCD/FST/FSDB file, runs one query, writes text, JSON, or JSONL, and exits. It starts on demand and does not require a background service. It is not a GUI or TUI waveform viewer. It does not provide real-time waveform streaming, live simulator connections, or waveform comparison.
-
-For example, this command returns the value of `top.data` at `10ns`:
+Each invocation opens one VCD/FST/FSDB file, runs one query, writes text, JSON, or JSONL, and exits. It starts on demand and does not require a background service. For example, this command returns the value of `top.data` at `10ns`:
 
 ```text
 $ wavepeek value --waves dump.vcd --at 10ns --signals top.data
 @10ns top.data=8'h0f
 ```
+
+`wavepeek` is not a GUI or TUI waveform viewer. It does not provide real-time waveform streaming, live simulator connections, or waveform comparison.
 
 ## Commands
 
@@ -43,7 +41,7 @@ $ wavepeek value --waves dump.vcd --at 10ns --signals top.data
 | Extract custom handshakes or synchronous events              | `extract generic`                                                               |
 | Extract AMBA transfers or phase events                       | `extract axi`, `extract axistream`, `extract ahb`, `extract apb`, `extract atb` |
 
-The protocol extractors support AXI and ACE, AXI-Stream, AHB, APB, and ATB. Their output contains observed channel transfers or protocol phase events with sampled payload and context. They do not check protocol compliance or reconstruct high-level transactions.
+The protocol extractors do not check protocol compliance or reconstruct high-level transactions. Their output contains observed channel transfers or protocol phase events with sampled payload and context.
 
 ## Getting started
 
