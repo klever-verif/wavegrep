@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::io::Write;
 
 mod common;
-use common::{expected_schema_url, fixture_path, rtl_fixture_path, wavepeek_cmd};
+use common::{fixture_path, rtl_fixture_path, wavepeek_cmd};
 
 #[test]
 fn info_human_output_is_default_for_vcd_fixture() {
@@ -37,14 +37,12 @@ fn info_json_contract_for_vcd_fixture() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("info output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
-    assert_eq!(value["data"]["time_unit"], "1ns");
-    assert!(value["data"].get("time_precision").is_none());
-    assert_eq!(value["data"]["time_start"], "0ns");
-    assert_eq!(value["data"]["time_end"], "10ns");
+    assert_eq!(value["data"][0]["time_unit"], "1ns");
+    assert!(value["data"][0].get("time_precision").is_none());
+    assert_eq!(value["data"][0]["time_start"], "0ns");
+    assert_eq!(value["data"][0]["time_end"], "10ns");
 }
 
 #[test]
@@ -61,14 +59,12 @@ fn info_json_contract_for_fst_fixture() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("info output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
-    assert_eq!(value["data"]["time_unit"], "1ns");
-    assert!(value["data"].get("time_precision").is_none());
-    assert_eq!(value["data"]["time_start"], "0ns");
-    assert_eq!(value["data"]["time_end"], "10ns");
+    assert_eq!(value["data"][0]["time_unit"], "1ns");
+    assert!(value["data"][0].get("time_precision").is_none());
+    assert_eq!(value["data"][0]["time_start"], "0ns");
+    assert_eq!(value["data"][0]["time_end"], "10ns");
 }
 
 #[test]
@@ -127,10 +123,10 @@ fn info_json_contract_for_external_picorv32_fixture() {
     let value: Value = serde_json::from_str(&stdout).expect("info output should be valid json");
 
     assert_eq!(value["command"], "info");
-    assert!(value["data"]["time_unit"].as_str().is_some());
-    assert!(value["data"]["time_start"].as_str().is_some());
-    assert!(value["data"]["time_end"].as_str().is_some());
-    assert!(value["data"].get("time_precision").is_none());
+    assert!(value["data"][0]["time_unit"].as_str().is_some());
+    assert!(value["data"][0]["time_start"].as_str().is_some());
+    assert!(value["data"][0]["time_end"].as_str().is_some());
+    assert!(value["data"][0].get("time_precision").is_none());
 }
 
 #[test]

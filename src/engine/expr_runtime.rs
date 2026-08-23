@@ -10,8 +10,9 @@ use crate::expr::sema::{
 };
 use crate::expr::{
     BoundEventExpr, BoundLogicalExpr, EventEvalFrame, ExprDiagnostic, ExprValuePayload,
-    ExpressionHost, SampledValue, SignalHandle, Span, bind_event_expr_ast, bind_logical_expr_ast,
-    eval_logical_expr_at, event_matches_at, parse_event_expr_ast, parse_logical_expr_ast,
+    ExpressionHost, SampledValue, SignalHandle, bind_event_expr_ast, bind_logical_expr_ast,
+    eval_logical_expr_at, event_matches_at, event_matches_at_with_any_tracked,
+    parse_event_expr_ast, parse_logical_expr_ast,
 };
 use crate::waveform::{ExprResolvedSignal, Waveform, expr_host::WaveformExprHost};
 
@@ -34,8 +35,7 @@ impl<'a> ScopedExprHost<'a> {
 
 impl ExpressionHost for ScopedExprHost<'_> {
     fn resolve_signal(&self, name: &str) -> Result<SignalHandle, ExprDiagnostic> {
-        let resolved_name =
-            scoped_signal_path(name, self.scope).ok_or_else(|| unknown_signal_diagnostic(name))?;
+        let resolved_name = scoped_signal_path(name, self.scope);
         self.inner.resolve_signal(resolved_name.as_str())
     }
 
@@ -61,7 +61,7 @@ pub(crate) fn bind_waveform_event_expr(
     scope: Option<&str>,
     source: &str,
 ) -> Result<(WaveformExprHost, BoundEventExpr), WavepeekError> {
-    let host = WaveformExprHost::from_shared(waveform);
+    let host = WaveformExprHost::from_shared_scoped(waveform, scope);
     let scoped = ScopedExprHost::new(&host, scope);
     let ast =
         parse_event_expr_ast(source).map_err(|diagnostic| expr_diagnostic(source, diagnostic))?;
@@ -103,6 +103,17 @@ pub(crate) fn event_expr_matches(
     frame: &EventEvalFrame<'_>,
 ) -> Result<bool, WavepeekError> {
     event_matches_at(expr, host, frame).map_err(|diagnostic| expr_diagnostic(source, diagnostic))
+}
+
+pub(crate) fn event_expr_matches_with_any_tracked(
+    source: &str,
+    expr: &BoundEventExpr,
+    host: &dyn ExpressionHost,
+    frame: &EventEvalFrame<'_>,
+    any_tracked: bool,
+) -> Result<bool, WavepeekError> {
+    event_matches_at_with_any_tracked(expr, host, frame, any_tracked)
+        .map_err(|diagnostic| expr_diagnostic(source, diagnostic))
 }
 
 pub(crate) fn expr_diagnostic(source: &str, diagnostic: ExprDiagnostic) -> WavepeekError {
@@ -261,16 +272,6 @@ fn collect_selection_handles(
     }
 }
 
-fn unknown_signal_diagnostic(name: &str) -> ExprDiagnostic {
-    ExprDiagnostic {
-        layer: crate::expr::DiagnosticLayer::Semantic,
-        code: "HOST-UNKNOWN-SIGNAL",
-        message: format!("unknown signal '{name}'"),
-        primary_span: Span::new(0, 0),
-        notes: vec![],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -292,7 +293,6 @@ mod tests {
         candidate_sources_for_handles, eval_bound_logical_truth, event_candidate_handles,
         event_expr_contains_wildcard, event_expr_is_any_tracked_only, event_expr_is_edge_only,
         event_expr_matches, expr_diagnostic, open_shared_waveform, referenced_signal_handles,
-        unknown_signal_diagnostic,
     };
 
     const TEST_VCD: &str = concat!(
@@ -392,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn scoped_host_resolves_descendants_and_rejects_active_scope_prefix() {
+    fn scoped_host_resolves_relative_and_canonical_descendants() {
         let host = StubHost;
         let scoped = ScopedExprHost::new(&host, Some("top"));
         assert_eq!(
@@ -401,12 +401,12 @@ mod tests {
                 .expect("scoped descendant should resolve"),
             SignalHandle(6)
         );
-
-        let error = scoped
-            .resolve_signal("top.clk")
-            .expect_err("active scope prefix should fail");
-        assert_eq!(error.code, "HOST-UNKNOWN-SIGNAL");
-        assert_eq!(error.message, "unknown signal 'top.clk'");
+        assert_eq!(
+            scoped
+                .resolve_signal("top.clk")
+                .expect("canonical descendant should resolve"),
+            SignalHandle(1)
+        );
     }
 
     #[test]
@@ -542,13 +542,12 @@ mod tests {
         };
         assert!(event_expr_matches("posedge clk", &bound_event, &host, &frame).expect("match"));
 
-        let error = bind_waveform_event_expr(
+        bind_waveform_event_expr(
             open_shared_waveform(fixture.path()).expect("waveform should reopen"),
             Some("top"),
             "top.clk",
         )
-        .expect_err("scoped dotted token should fail");
-        assert!(error.to_string().contains("unknown signal 'top.clk'"));
+        .expect("scoped canonical token should bind");
 
         let nested = BoundLogicalExpr {
             root: BoundLogicalNode {
@@ -714,10 +713,6 @@ mod tests {
                 SignalHandle(6),
             ]
         );
-
-        let error = unknown_signal_diagnostic("missing.sig");
-        assert_eq!(error.code, "HOST-UNKNOWN-SIGNAL");
-        assert_eq!(error.message, "unknown signal 'missing.sig'");
     }
 
     #[test]

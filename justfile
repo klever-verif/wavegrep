@@ -1,16 +1,15 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 export RTL_ARTIFACTS_DIR := `. ./.devcontainer/env_contract.sh; printf '%s\n' "$RTL_ARTIFACTS_DIR"`
-schema_check_dir := "tmp/schema-check"
 bench_e2e_fsdb_tests := "bench/e2e/tests_fsdb.json"
 bench_e2e_fsdb_smoke_filter := "^(info_picorv32_ez|scope_scr1_all_depth7_json|signal_scr1_top_recursive_depth2_json|value_scr1_signals_1|change_scr1_signals_1_window_2ns_trigger_any)$"
 bench_e2e_fsdb_smoke_artifact_filter := "^(picorv32_test_ez_vcd|scr1_max_axi_riscv_compliance)[.]fst$"
 wavepeek_release_bin := "./target/release/wavepeek"
 wavepeek_fsdb_release_bin := "./target/fsdb/release/wavepeek"
-codex_setup_script := "tools/codex/codex_setup.sh"
-codex_resume_script := "tools/codex/codex_resume.sh"
 python := "python3 -B"
 docs_site_dir := "tmp/docs-site"
+playground_dir := "tmp/playground"
+playground_preview_dir := playground_dir + "/preview"
 docs_pages_url := "https://kleverhq.github.io/wavepeek"
 docs_repository := env_var_or_default("DOCS_REPOSITORY", "")
 docs_version := `python3 -B -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["package"]["version"])'`
@@ -64,16 +63,6 @@ check-rtl-artifacts: require-container
 prepare-waveform-fixtures: require-container
     {{ python }} tools/waveform/prepare_fixtures.py
 
-# Regenerate canonical schema artifacts from Rust contract code
-update-schema: require-container
-    cargo run --quiet --manifest-path tools/schema-gen/Cargo.toml -- --out schema
-
-# Validate canonical schema freshness and JSON contract URL
-check-schema: require-container prepare-waveform-fixtures
-    @rm -rf "{{ schema_check_dir }}"
-    cargo run --quiet --manifest-path tools/schema-gen/Cargo.toml -- --out "{{ schema_check_dir }}"
-    @{{ python }} tools/schema/check_schema_contract.py --schema-dir schema --generated-dir "{{ schema_check_dir }}"
-
 # Lint GitHub Actions workflows
 check-actions: require-container
     actionlint .github/workflows/*.yml
@@ -86,32 +75,25 @@ update-bench-e2e-fsdb-catalog: require-container
 check-bench-e2e-fsdb-catalog: require-container
     @{{ python }} tools/fsdb/generate_bench_catalog.py --check
 
-# Prepare local devcontainer environment and install git hooks
+# Verify the local devcontainer environment
 dev-setup: require-container
     rustup show >/dev/null
     cargo --version
     cargo fmt --version
     cargo clippy --version
     actionlint -version
-    devcontainer --version
-    gtkwave --version
+    gh --version
     iverilog -V >/dev/null
     vvp -V >/dev/null
     vcd2fst --help >/dev/null
     fst2vcd --help >/dev/null
-    surfer --version
     mkdocs --version
     mike --version
+    wasm-bindgen --version
+    playwright --version
     just --version
-    pre-commit install --hook-type commit-msg --hook-type pre-commit
-
-# Prepare Codex cloud environment for non-dev just recipes
-codex-setup: require-container
-    bash "{{ codex_setup_script }}"
-
-# Repair Codex cloud environment after cache resume
-codex-resume: require-container
-    bash "{{ codex_resume_script }}"
+    cz version
+    pre-commit --version
 
 # Format root justfile in place
 format-justfile: require-container
@@ -249,27 +231,76 @@ test-aux: require-container
     {{ python }} -m unittest discover -s tools/bench -p "test_*.py"
     {{ python }} -m unittest discover -s tools/docs -p "test_*.py"
     {{ python }} -m unittest discover -s tools/release -p "test_*.py"
-    {{ python }} -m unittest discover -s tools/schema -p "test_*.py"
     {{ python }} -m unittest tools/coverage/test_check_coverage.py
     {{ python }} -m unittest discover -s tools/fsdb -p "test_*.py"
     {{ python }} -m unittest discover -s tools/repo -p "test_*.py"
+    {{ python }} -m unittest discover -s tools/skill -p "test_*.py"
 
-# Build the generated MkDocs site from current embedded docs
-docs-site-build: require-container
-    cargo run --quiet -- docs export "{{ docs_site_dir }}/export" --force
-    {{ python }} tools/docs/prepare_mkdocs.py "{{ docs_site_dir }}/export" \
+# Build the current browser Playground
+playground-build: require-container
+    @rm -rf "{{ playground_dir }}"
+    cargo build --locked --release --target wasm32-unknown-unknown --lib
+    mkdir -p "{{ playground_dir }}/wasm"
+    wasm-bindgen --target web --no-typescript \
+        --out-dir "{{ playground_dir }}/wasm" \
+        target/wasm32-unknown-unknown/release/wavepeek.wasm
+    {{ python }} tools/docs/prepare_playground.py . \
+        --wasm-dir "{{ playground_dir }}/wasm" \
+        --output "{{ playground_dir }}/mkdocs-src" \
+        --config-output "{{ playground_dir }}/mkdocs.yml" \
+        --site-output "{{ playground_dir }}/site" \
+        --version "{{ docs_version }}" \
+        --force
+    mkdocs build --strict --config-file "{{ playground_dir }}/mkdocs.yml"
+
+# Compose the current Playground and documentation as one local Pages preview
+playground-preview-build: playground-build docs-site-build
+    rm -rf "{{ playground_preview_dir }}"
+    mkdir -p "{{ playground_preview_dir }}/wavepeek/latest"
+    cp -a "{{ playground_dir }}/site/." "{{ playground_preview_dir }}/wavepeek/"
+    cp -a "{{ docs_site_dir }}/mkdocs-site/." "{{ playground_preview_dir }}/wavepeek/latest/"
+
+# Test the composed browser Playground against native WavePeek
+playground-test: playground-preview-build build-release
+    {{ python }} tools/docs/check_playground.py \
+        --site "{{ playground_preview_dir }}" \
+        --native-bin "{{ wavepeek_release_bin }}"
+
+# Serve the composed Playground and current documentation locally
+playground-serve: playground-preview-build
+    cd "{{ playground_preview_dir }}" && {{ python }} -m http.server 8000 --bind 0.0.0.0
+
+# Regenerate the packaged CLI reference from clap help
+update-cli-reference: require-container
+    cargo build --quiet --locked
+    {{ python }} tools/docs/generate_cli_reference.py \
+        --binary target/debug/wavepeek \
+        --output skills/wavepeek/references/cli-reference.md
+
+# Verify the packaged CLI reference matches clap help
+check-cli-reference: require-container
+    cargo build --quiet --locked
+    {{ python }} tools/docs/generate_cli_reference.py \
+        --binary target/debug/wavepeek \
+        --output skills/wavepeek/references/cli-reference.md \
+        --check
+
+# Build the generated MkDocs site from the bundled skill references
+docs-site-build: require-container check-cli-reference
+    @rm -rf "{{ docs_site_dir }}/skill"
+    cargo run --quiet --locked -- skill "{{ docs_site_dir }}/skill"
+    {{ python }} tools/docs/prepare_mkdocs.py "{{ docs_site_dir }}/skill" \
         --output "{{ docs_site_dir }}/mkdocs-src" \
         --config-output "{{ docs_site_dir }}/mkdocs.yml" \
         --version "{{ docs_version }}" \
         --force
     mkdocs build --strict --config-file "{{ docs_site_dir }}/mkdocs.yml"
 
-# Serve the generated docs site locally
-docs-site-serve: docs-site-build
-    mkdocs serve --config-file "{{ docs_site_dir }}/mkdocs.yml"
+# Serve current documentation inside the composed local Pages preview
+docs-site-serve: playground-serve
 
 # Check docs site generation and root Pages artifacts without touching gh-pages
-docs-site-check: require-container
+docs-site-check: require-container check-cli-reference
     {{ python }} tools/docs/publish_docs.py check \
         --version "{{ docs_version }}" \
         --source-root . \
@@ -319,11 +350,9 @@ docs-site-check-deploy version=docs_version base_url=docs_pages_url repository=d
         if [ -n "{{ repository }}" ]; then \
             repo_arg=(--repository "{{ repository }}"); \
         fi; \
-        schema_args=($({{ python }} -c 'import json, pathlib, tomllib, urllib.parse; requested="{{ version }}"; package=tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["package"]["version"]; p=pathlib.Path("schema/catalog.json"); c=json.loads(p.read_text(encoding="utf-8")) if requested == package and p.is_file() else {"families": []}; flags={"wavepeek.output":"--schema-artifact","wavepeek.stream-record":"--stream-schema-artifact","wavepeek.input":"--input-schema-artifact"}; [print(flags[e["id"]], pathlib.PurePosixPath(urllib.parse.urlparse(e["url"]).path).name) for e in c.get("families", []) if e.get("id") in flags]')); \
         {{ python }} tools/docs/check_deploy.py \
             --version "{{ version }}" \
             --base-url "{{ base_url }}" \
-            "${schema_args[@]}" \
             "${repo_arg[@]}"
 
 # Build release binary
@@ -367,20 +396,20 @@ bench-e2e-fsdb-smoke-commit: prepare-and-check-fsdb-smoke-rtl-artifacts build-re
 pre-commit: require-container check-rtl-artifacts prepare-waveform-fixtures
     pre-commit run --all-files
 
-# Check commit messages
-check-commit: require-container
-    cz check --commit-msg-file "$(git rev-parse --git-path COMMIT_EDITMSG)"
+# Check a commit message, defaulting to Git's standard message file
+check-commit message=`git rev-parse --git-path COMMIT_EDITMSG`: require-container
+    cz check --commit-msg-file {{ quote(message) }}
 
 # Check everything
-check: format-check lint check-schema check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check check-commit
+check: format-check lint check-actions check-bench-e2e-fsdb-catalog check-build docs-site-check playground-test check-commit
     @just run-if-verdi check-fsdb-build
 
 # CI quality gate (no commit-msg hook)
-ci: format-check lint check-schema check-actions test-aux coverage-src-check check-build docs-site-check
+ci: format-check lint check-actions test-aux coverage-src-check check-build docs-site-check playground-test
     @just run-if-verdi test-fsdb
 
 # Fix everything
-fix: format lint-fix update-schema
+fix: format lint-fix
 
 # Clean up
 clean: require-container

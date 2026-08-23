@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import http.client
 import json
 import re
@@ -15,12 +16,12 @@ import urllib.request
 from collections.abc import Callable, Sequence
 from typing import Any
 
+import prepare_playground
+
 VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 DEFAULT_BASE_URL = "https://kleverhq.github.io/wavepeek"
 USER_AGENT = "wavepeek-docs-deploy-check"
-STREAM_SCHEMA_MIN_VERSION = (1, 1, 0)
-INPUT_SCHEMA_MIN_VERSION = (2, 1, 0)
 
 
 class DeployCheckError(Exception):
@@ -39,19 +40,14 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         dest="expect_latest",
         action="store_true",
         default=True,
-        help="require the latest documentation endpoint",
     )
     parser.add_argument(
         "--no-expect-latest",
         dest="expect_latest",
         action="store_false",
-        help="check the version without requiring the latest endpoint",
     )
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
-    parser.add_argument("--schema-artifact")
-    parser.add_argument("--stream-schema-artifact")
-    parser.add_argument("--input-schema-artifact")
     parser.add_argument("--timeout", type=float, default=20.0)
     return parser.parse_args(list(argv))
 
@@ -64,43 +60,6 @@ def validate_version(version: str) -> str:
     if VERSION_RE.fullmatch(version) is None:
         fail(f"version must be SemVer X.Y.Z, got {version!r}")
     return version
-
-
-def version_tuple(version: str) -> tuple[int, int, int]:
-    validate_version(version)
-    major, minor, patch = version.split(".")
-    return int(major), int(minor), int(patch)
-
-
-def stream_schema_required(version: str) -> bool:
-    return version_tuple(version) >= STREAM_SCHEMA_MIN_VERSION
-
-
-def input_schema_required(version: str) -> bool:
-    return version_tuple(version) >= INPUT_SCHEMA_MIN_VERSION
-
-
-def schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if (major, minor) >= (2, 1):
-        return f"schema-output-v{major}.{minor}.json"
-    if major >= 2:
-        return f"wavepeek_v{major}.{minor}.json"
-    return f"wavepeek_v{major}.json"
-
-
-def stream_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    if (major, minor) >= (2, 1):
-        return f"schema-stream-v{major}.{minor}.json"
-    if major >= 2:
-        return f"wavepeek-stream-v{major}.{minor}.json"
-    return f"wavepeek-stream-v{major}.json"
-
-
-def input_schema_artifact_name(version: str) -> str:
-    major, minor, _patch = version_tuple(version)
-    return f"schema-input-v{major}.{minor}.json"
 
 
 def normalize_base_url(base_url: str) -> str:
@@ -145,6 +104,36 @@ def fetch_bytes(url: str, *, retries: int, retry_delay: float, timeout: float) -
     fail(f"{url} did not return HTTP 200 after {retries} attempt(s): {last_error}")
 
 
+def fetch_header(
+    url: str,
+    name: str,
+    *,
+    retries: int,
+    retry_delay: float,
+    timeout: float,
+) -> str:
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+
+    def load() -> str:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                value = response.headers.get(name)
+                if value is None:
+                    fail(f"{url} is missing required {name} header")
+                return value
+        except urllib.error.HTTPError as error:
+            fail(f"{url} returned HTTP {error.code}")
+        except (TimeoutError, OSError, http.client.HTTPException) as error:
+            fail(f"{url} failed: {error}")
+
+    return retry_check(
+        f"{name} check",
+        retries=retries,
+        retry_delay=retry_delay,
+        operation=load,
+    )
+
+
 def retry_check(
     label: str,
     *,
@@ -163,6 +152,46 @@ def retry_check(
         if attempt < retries:
             time.sleep(retry_delay)
     fail(f"{label} did not pass after {retries} attempt(s): {last_error}")
+
+
+def check_browser_smoke(
+    base_url: str, *, retries: int, retry_delay: float, timeout: float
+) -> None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        fail("Playwright is required for the deployed Playground smoke check")
+
+    def run() -> None:
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
+                page = browser.new_page()
+                page.goto(page_url(base_url), wait_until="networkidle", timeout=timeout * 1000)
+                page.locator("#source-status").filter(has_text="Ready").wait_for(
+                    timeout=timeout * 1000
+                )
+                page.locator("#command-line").fill("info --waves scr1_axi.fst")
+                page.locator("#run").click()
+                entry = page.locator("#transcript .playground__entry").first
+                page.wait_for_function(
+                    "document.querySelector('#transcript .playground__entry')?.dataset.status === 'ok'",
+                    timeout=timeout * 1000,
+                )
+                if "time_unit:" not in entry.locator(".playground__stdout").text_content():
+                    fail("deployed Playground smoke command returned unexpected output")
+                browser.close()
+        except DeployCheckError:
+            raise
+        except Exception as error:
+            fail(f"deployed Playground smoke command failed: {error}")
+
+    retry_check(
+        "deployed Playground browser smoke",
+        retries=retries,
+        retry_delay=retry_delay,
+        operation=run,
+    )
 
 
 def load_pages_site(
@@ -219,31 +248,57 @@ def validate_pages_site(site: Any, base_url: str) -> None:
 def check_deploy(args: argparse.Namespace) -> None:
     version = validate_version(args.version)
     base_url = normalize_base_url(args.base_url)
-    output_artifact = args.schema_artifact or schema_artifact_name(version)
-    stream_artifact = args.stream_schema_artifact or stream_schema_artifact_name(version)
-    input_artifact = args.input_schema_artifact or input_schema_artifact_name(version)
-
     endpoints = [
         ("site root", page_url(base_url)),
         ("version docs", page_url(base_url, f"{version}/")),
         ("versions.json", page_url(base_url, "versions.json")),
-        (output_artifact, page_url(base_url, output_artifact)),
     ]
     if args.expect_latest:
-        endpoints.insert(2, ("latest docs", page_url(base_url, "latest/")))
-    if args.stream_schema_artifact is not None or stream_schema_required(version):
-        endpoints.append((stream_artifact, page_url(base_url, stream_artifact)))
-    if args.input_schema_artifact is not None or input_schema_required(version):
-        endpoints.append((input_artifact, page_url(base_url, input_artifact)))
-
+        endpoints.insert(1, ("latest docs", page_url(base_url, "latest/")))
+    bodies: dict[str, bytes] = {}
     for label, url in endpoints:
-        fetch_bytes(
+        bodies[label] = fetch_bytes(
             url,
             retries=args.retries,
             retry_delay=args.retry_delay,
             timeout=args.timeout,
         )
         print(f"ok: docs-deploy: {label}: {url}")
+
+    root = bodies["site root"]
+    if b'class="playground"' not in root:
+        fail("site root does not contain the current Playground")
+    if args.expect_latest and f'data-version="{version}"'.encode() not in root:
+        fail(f"site root Playground does not report WavePeek {version}")
+    if b'class="playground"' in bodies["version docs"]:
+        fail("versioned documentation must not contain a Playground")
+
+    demo_url = page_url(base_url, "assets/playground/scr1_axi.fst")
+    demo = fetch_bytes(
+        demo_url,
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    )
+    if hashlib.sha256(demo).hexdigest() != prepare_playground.DEMO_SHA256:
+        fail("deployed Playground demo digest does not match the repository asset")
+    if fetch_header(
+        demo_url,
+        "Access-Control-Allow-Origin",
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    ) != "*":
+        fail("deployed Playground demo must allow cross-origin reads for Surfer")
+    print(f"ok: docs-deploy: Playground demo: {demo_url}")
+
+    check_browser_smoke(
+        base_url,
+        retries=args.retries,
+        retry_delay=args.retry_delay,
+        timeout=args.timeout,
+    )
+    print(f"ok: docs-deploy: Playground browser smoke: {page_url(base_url)}")
 
     if args.repository:
         site = load_pages_site(

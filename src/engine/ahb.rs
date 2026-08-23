@@ -7,18 +7,17 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AhbArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{
     SharedWaveform, bind_waveform_event_expr, candidate_sources_for_handles,
     event_candidate_handles, event_expr_matches, open_shared_waveform,
 };
-use crate::engine::extract::{initial_diagnostics, max_entries, parse_bound_time};
+use crate::engine::extract::{max_entries, parse_bound_time};
 use crate::engine::signal_mapping;
 use crate::engine::time::{format_raw_timestamp, parse_dump_time_context};
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, EventEvalFrame};
 use crate::waveform::{
@@ -201,10 +200,6 @@ const AHB5_PROFILE: AhbProfileSpec = AhbProfileSpec {
     signals: AHB5_SIGNALS,
 };
 
-pub(crate) fn profile_specs() -> &'static [AhbProfileSpec] {
-    &[AHB_LITE_PROFILE, AHB5_PROFILE]
-}
-
 #[derive(Debug, Clone, Copy)]
 struct AhbProfile {
     spec: &'static AhbProfileSpec,
@@ -230,8 +225,6 @@ impl AhbProfile {
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -343,7 +336,7 @@ struct BuiltAhb {
 struct AhbOutcome {
     context: AhbContext,
     diagnostics: Vec<Diagnostic>,
-    truncated: bool,
+    summary: ResultSummary,
 }
 
 trait AhbEventSink {
@@ -376,7 +369,7 @@ impl<W: std::io::Write> AhbEventSink for JsonlAhbSink<'_, W> {
     }
 
     fn emit(&mut self, event: AhbEvent) -> Result<(), WavepeekError> {
-        self.writer.item(&event)
+        self.writer.data(&event)
     }
 }
 
@@ -779,6 +772,7 @@ impl Walker {
 pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingAhbSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -789,6 +783,8 @@ pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
+        summary_only,
         data: CommandData::ExtractAhb(AhbData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -800,6 +796,7 @@ pub fn run(args: AhbArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             events: sink.events,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -808,6 +805,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: AhbArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlAhbSink { writer };
         run_with_sink(args, &mut sink)?
@@ -815,7 +813,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: AhbEventSink + ?Sized>(
@@ -823,7 +821,7 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
     sink: &mut S,
 ) -> Result<AhbOutcome, WavepeekError> {
     let max = max_entries(&args.max)?;
-    let mut diagnostics = initial_diagnostics(&args.max);
+    let mut diagnostics = Vec::new();
     let BuiltAhb {
         waveform,
         mut context,
@@ -934,12 +932,6 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
         },
     )?;
 
-    if emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no AHB events found in selected time range",
-        ));
-    }
     if let Some(limit) = max
         && truncated
     {
@@ -960,7 +952,7 @@ fn run_with_sink<S: AhbEventSink + ?Sized>(
     Ok(AhbOutcome {
         context,
         diagnostics,
-        truncated,
+        summary: ResultSummary::from_run(emitted, max, truncated),
     })
 }
 
@@ -1222,14 +1214,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AhbConfig, WavepeekError
             path.display()
         ))
     })?;
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AHB extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AHB extract source file '{}' has kind {}; expected {}",
@@ -1403,8 +1387,10 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
-        let resolved = resolved.remove(0);
+        let resolved =
+            waveform
+                .borrow()
+                .resolve_local_signal_with_diagnostic(&query_path, waves, scope)?;
         result.insert(
             standard.clone(),
             AhbSignalMapping {
@@ -1563,10 +1549,10 @@ fn tokenize_candidate(name: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AHB_LITE_SIGNALS, AHB5_SIGNALS, AhbSignalMapping, Direction, EdgeSamples, Inclusion,
-        PipelineState, SignalCandidate, Walker, auto_mappings, candidate_chunk_raw_span,
-        candidate_matching_standards, is_mapping_decoy, parse_cli_maps, parse_profile,
-        profile_specs,
+        AHB_LITE_PROFILE, AHB_LITE_SIGNALS, AHB5_PROFILE, AHB5_SIGNALS, AhbSignalMapping,
+        Direction, EdgeSamples, Inclusion, PipelineState, SignalCandidate, Walker, auto_mappings,
+        candidate_chunk_raw_span, candidate_matching_standards, is_mapping_decoy, parse_cli_maps,
+        parse_profile,
     };
     use std::collections::HashMap;
 
@@ -1588,14 +1574,14 @@ mod tests {
         assert_eq!(parse_profile("ahb5").unwrap().name(), "ahb5");
         assert!(parse_profile("ahb").is_err());
         assert_eq!(
-            profile_specs()
+            [AHB_LITE_PROFILE, AHB5_PROFILE]
                 .iter()
                 .map(|profile| (profile.name, profile.issue))
                 .collect::<Vec<_>>(),
             [("ahb-lite", "C"), ("ahb5", "C")]
         );
-        assert_eq!(profile_specs()[0].signals, AHB_LITE_SIGNALS);
-        assert_eq!(profile_specs()[1].signals, AHB5_SIGNALS);
+        assert_eq!(AHB_LITE_PROFILE.signals, AHB_LITE_SIGNALS);
+        assert_eq!(AHB5_PROFILE.signals, AHB5_SIGNALS);
     }
 
     #[test]

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import importlib.util
 import json
 import pathlib
@@ -21,219 +19,108 @@ class PrepareMkdocsTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.temp.name)
-        self.export = self.root / "export"
+        self.skill = self.root / "skill"
         self.output = self.root / "mkdocs-src"
         self.config = self.root / "mkdocs.yml"
-        self.export.mkdir()
-        self.write_topic(
-            "intro",
-            "Introduction",
-            "intro",
-            description="Start here.",
-            see_also=["commands/change"],
+        (self.skill / "references").mkdir(parents=True)
+        (self.skill / "references" / "index.md").write_text(
+            "# Introduction\n\nStart here.\n", encoding="utf-8"
         )
-        self.write_topic(
-            "commands/change",
-            "Change command",
-            "commands",
-            description="Find changes.",
+        (self.skill / "references" / "change.md").write_text(
+            "# Change command\n\nFind changes.\n", encoding="utf-8"
         )
-        self.write_manifest(
-            [
-                {
-                    "id": "intro",
-                    "title": "Introduction",
-                    "description": "Start here.",
-                    "section": "intro",
-                    "see_also": ["commands/change"],
-                },
-                {
-                    "id": "commands/change",
-                    "title": "Change command",
-                    "description": "Find changes.",
-                    "section": "commands",
-                },
-            ]
-        )
+        self.write_manifest()
+        self.write_navigation()
 
     def tearDown(self) -> None:
         self.temp.cleanup()
 
-    def write_manifest(self, topics: list[dict[str, object]], **overrides: object) -> None:
-        manifest = {
-            "kind": "wavepeek-docs-export",
-            "export_format_version": 1,
-            "cli_name": "wavepeek",
-            "cli_version": "0.5.0",
-            "topics": topics,
-        }
+    def write_manifest(self, **overrides: object) -> None:
+        manifest = {"wavepeek_version": "0.5.0"}
         manifest.update(overrides)
-        (self.export / "manifest.json").write_text(
+        (self.skill / "manifest.json").write_text(
             json.dumps(manifest), encoding="utf-8"
         )
 
-    def write_topic(
-        self,
-        topic_id: str,
-        title: str,
-        section: str,
-        *,
-        description: str | None = None,
-        see_also: list[str] | None = None,
-    ) -> None:
-        front: dict[str, object] = {
-            "id": topic_id,
-            "title": title,
-            "section": section,
-        }
-        if description is not None:
-            front["description"] = description
-        if see_also is not None:
-            front["see_also"] = see_also
-        relpath = pathlib.Path(*topic_id.split("/")).with_suffix(".md")
-        path = self.export / relpath
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            "---\n"
-            + yaml.safe_dump(front, sort_keys=False)
-            + "---\n"
-            + f"# {title}\n\nBody.\n",
-            encoding="utf-8",
+    def write_navigation(self, navigation: object | None = None) -> None:
+        if navigation is None:
+            navigation = [
+                {"Start here": [{"Introduction": "index.md"}]},
+                {"Commands": [{"Change": "change.md"}]},
+            ]
+        (self.skill / "references" / "docs.json").write_text(
+            json.dumps({"navigation": navigation}), encoding="utf-8"
         )
 
     def prepare(self, *, force: bool = True, version: str = "0.5.0"):
         return prepare_mkdocs.prepare_tree(
-            self.export, self.output, self.config, version, force=force
+            self.skill, self.output, self.config, version, force=force
         )
 
-    def test_prepares_tree_nav_and_description_front_matter(self) -> None:
-        self.prepare()
+    def test_prepares_flat_reference_tree_and_explicit_nav(self) -> None:
+        version, pages = self.prepare()
 
+        self.assertEqual(version, "0.5.0")
+        self.assertEqual(pages, ["index.md", "change.md"])
         self.assertTrue((self.output / "index.md").is_file())
-        self.assertTrue((self.output / "commands" / "change.md").is_file())
-        self.assertFalse((self.output / "manifest.json").exists())
-
-        intro = (self.output / "index.md").read_text(encoding="utf-8")
-        self.assertIn("description: Start here.", intro)
-        self.assertNotIn("summary:", intro)
-
+        self.assertTrue((self.output / "change.md").is_file())
+        self.assertTrue((self.output / "monochrome.css").is_file())
+        self.assertTrue((self.output / "install-strip.js").is_file())
+        self.assertEqual(
+            (self.output / "wavepeek-icon.svg").read_bytes(),
+            prepare_mkdocs.SITE_ICON.read_bytes(),
+        )
+        self.assertFalse((self.output / "docs.json").exists())
         config = yaml.safe_load(self.config.read_text(encoding="utf-8"))
         self.assertEqual(config["docs_dir"], "mkdocs-src")
         self.assertEqual(config["site_dir"], "mkdocs-site")
-        self.assertIn({"Introduction": "index.md"}, config["nav"])
-        self.assertIn(
-            {"Commands": [{"Change command": "commands/change.md"}]},
+        self.assertEqual(
             config["nav"],
-        )
-
-    def test_rejects_legacy_summary_metadata(self) -> None:
-        self.write_manifest(
             [
+                {"Playground": "/wavepeek/"},
                 {
-                    "id": "intro",
-                    "title": "Introduction",
-                    "summary": "Legacy intro.",
-                    "section": "intro",
-                    "see_also": ["commands/change"],
-                }
-            ]
-        )
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "unsupported legacy field"):
-            self.prepare()
-
-        self.write_manifest(
-            [
-                {
-                    "id": "intro",
-                    "title": "Introduction",
-                    "description": "Start here.",
-                    "section": "intro",
-                    "see_also": ["commands/change"],
+                    "Documentation": [
+                        {"Start here": [{"Introduction": "index.md"}]},
+                        {"Commands": [{"Change": "change.md"}]},
+                    ]
                 },
-                {
-                    "id": "commands/change",
-                    "title": "Change command",
-                    "description": "Find changes.",
-                    "section": "commands",
-                },
-            ]
+            ],
         )
-        change = self.export / "commands" / "change.md"
-        change.write_text(
-            change.read_text(encoding="utf-8").replace(
-                "description: Find changes.", "summary: Legacy summary."
-            ),
-            encoding="utf-8",
+        self.assertEqual(
+            config["extra"],
+            {"scope": "/wavepeek/", "version": {"provider": "mike"}},
         )
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "unsupported legacy field"):
-            self.prepare()
 
     def test_force_is_required_to_replace_outputs(self) -> None:
         self.prepare()
-
         with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "rerun with --force"):
             self.prepare(force=False)
 
-    def test_rejects_unsupported_manifest_version(self) -> None:
-        self.write_manifest([], export_format_version=999)
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "export_format_version"):
-            self.prepare()
-
-    def test_rejects_wrong_cli_name_and_version(self) -> None:
-        self.write_manifest([], cli_name="other")
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "cli_name"):
-            self.prepare()
-
-        self.write_manifest([], cli_version="0.6.0")
+    def test_rejects_mismatched_wavepeek_version(self) -> None:
+        self.write_manifest(wavepeek_version="0.6.0")
         with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "does not match"):
             self.prepare()
 
-    def test_rejects_missing_required_topic_field(self) -> None:
-        self.write_manifest(
-            [{"id": "intro", "title": "Introduction", "section": "intro"}]
-        )
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "description"):
-            self.prepare()
-
-    def test_rejects_unsafe_topic_ids(self) -> None:
-        self.write_manifest(
+    def test_rejects_noncanonical_alias_path(self) -> None:
+        self.write_navigation(
             [
-                {
-                    "id": "../escape",
-                    "title": "Escape",
-                    "description": "No.",
-                    "section": "commands",
-                }
+                {"Start here": [{"Introduction": "index.md"}]},
+                {"Commands": [{"Change": "./change.md"}]},
             ]
         )
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "unsafe topic"):
+        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "flat Markdown filename"):
             self.prepare()
 
-    def test_rejects_invalid_see_also_values(self) -> None:
-        self.write_manifest(
-            [
-                {
-                    "id": "intro",
-                    "title": "Introduction",
-                    "description": "Start.",
-                    "section": "intro",
-                    "see_also": ["../escape"],
-                }
-            ]
-        )
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "unsafe topic"):
+    def test_navigation_must_match_flat_markdown_inventory(self) -> None:
+        self.write_navigation([{"Start here": [{"Introduction": "index.md"}]}])
+        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "every flat Markdown file"):
             self.prepare()
 
-    def test_rejects_missing_exported_source_file(self) -> None:
-        (self.export / "commands" / "change.md").unlink()
-
-        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "missing exported topic"):
+        nested = self.skill / "references" / "commands"
+        nested.mkdir()
+        (nested / "info.md").write_text("# Info\n", encoding="utf-8")
+        self.write_navigation()
+        with self.assertRaisesRegex(prepare_mkdocs.PrepareError, "every flat Markdown file"):
             self.prepare()
 
 

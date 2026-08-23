@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{expected_schema_url, fixture_path, wavepeek_cmd};
+use common::{fixture_path, wavepeek_cmd};
 
 fn parse_json(stdout: &[u8]) -> Value {
     serde_json::from_slice(stdout).expect("stdout should be valid json")
@@ -16,6 +16,156 @@ fn write_fixture(contents: &str, suffix: &str) -> NamedTempFile {
     let fixture = NamedTempFile::with_suffix(suffix).expect("temp fixture should create");
     fs::write(fixture.path(), contents).expect("fixture should write");
     fixture
+}
+
+const ROW_MODES_VCD: &str = concat!(
+    "$timescale 1ns $end\n",
+    "$scope module top $end\n",
+    "$var wire 1 ! clk $end\n",
+    "$var wire 1 \" a $end\n",
+    "$var wire 1 # b $end\n",
+    "$upscope $end\n",
+    "$enddefinitions $end\n",
+    "#0\n0!\n0\"\n0#\n",
+    "#5\n1!\n",
+    "#10\n0!\n",
+    "#15\n1!\n1\"\n",
+    "#20\n0!\n",
+    "#25\n1!\n",
+    "#30\n0!\n",
+    "#35\n1!\n1#\n",
+);
+
+#[test]
+fn change_row_mode_and_values_matrix() {
+    let fixture = write_fixture(ROW_MODES_VCD, "change-row-modes.vcd");
+    let fixture = fixture.path().to_string_lossy().into_owned();
+    let run = |mode: &str, values: &str| {
+        let output = wavepeek_cmd()
+            .args([
+                "change",
+                "--waves",
+                fixture.as_str(),
+                "--from",
+                "5ns",
+                "--to",
+                "35ns",
+                "--signals",
+                "top.a,top.b",
+                "--on",
+                "posedge top.clk",
+                "--sample-mode",
+                "native",
+                "--row-mode",
+                mode,
+                "--row-values",
+                values,
+                "--json",
+            ])
+            .output()
+            .expect("change should execute");
+        assert!(output.status.success());
+        let value = parse_json(&output.stdout);
+        assert!(value.get("context").is_none());
+        value["data"].clone()
+    };
+
+    assert_eq!(
+        run("dense", "full"),
+        json!([
+            {"time":"5ns","sample_time":"5ns","signals":[{"path":"top.a","value":"1'h0"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"25ns","sample_time":"25ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+    assert_eq!(
+        run("dense", "delta"),
+        json!([
+            {"time":"5ns","sample_time":"5ns","signals":[{"path":"top.a","value":"1'h0"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"}]},
+            {"time":"25ns","sample_time":"25ns","signals":[]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+    assert_eq!(
+        run("sparse", "full"),
+        json!([
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+    assert_eq!(
+        run("sparse", "delta"),
+        json!([
+            {"time":"15ns","sample_time":"15ns","signals":[{"path":"top.a","value":"1'h1"},{"path":"top.b","value":"1'h0"}]},
+            {"time":"35ns","sample_time":"35ns","signals":[{"path":"top.b","value":"1'h1"}]}
+        ])
+    );
+
+    let limited = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "5ns",
+            "--to",
+            "35ns",
+            "--signals",
+            "top.a,top.b",
+            "--on",
+            "posedge top.clk",
+            "--sample-mode",
+            "native",
+            "--row-mode",
+            "sparse",
+            "--max",
+            "1",
+            "--json",
+        ])
+        .output()
+        .expect("limited change should execute");
+    let limited = parse_json(&limited.stdout);
+    assert_eq!(limited["data"][0]["time"], "15ns");
+    assert_eq!(limited["diagnostics"][0]["code"], "WPK-W0002");
+}
+
+#[test]
+fn change_dense_pre_edge_delta_keeps_empty_rows() {
+    let fixture = write_fixture(RTL_SAMPLING_VCD, "change-dense-pre-edge.vcd");
+    let fixture = fixture.path().to_string_lossy().into_owned();
+    let output = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "5ns",
+            "--to",
+            "25ns",
+            "--scope",
+            "top",
+            "--signals",
+            "data",
+            "--on",
+            "posedge clk",
+            "--row-values",
+            "delta",
+            "--json",
+        ])
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    assert_eq!(
+        parse_json(&output.stdout)["data"],
+        json!([
+            {"time":"5ns","sample_time":"4ns","signals":[{"path":"top.data", "relative_path": "data","value":"8'h00"}]},
+            {"time":"15ns","sample_time":"14ns","signals":[{"path":"top.data", "relative_path": "data","value":"8'haa"}]},
+            {"time":"25ns","sample_time":"24ns","signals":[]}
+        ])
+    );
 }
 
 const RTL_SAMPLING_VCD: &str = concat!(
@@ -78,6 +228,8 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -97,6 +249,8 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
             "data",
             "--on",
             "posedge clk",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -116,6 +270,8 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
             "data",
             "--on",
             "posedge clk",
+            "--row-mode",
+            "sparse",
         ])
         .output()
         .expect("change should execute");
@@ -128,7 +284,7 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
         json!([{
             "time": "5ns",
             "sample_time": "5ns",
-            "signals": [{"path": "top.data", "value": "8'haa"}]
+            "signals": [{"path": "top.data", "relative_path": "data", "value": "8'haa"}]
         }])
     );
     assert_eq!(
@@ -136,7 +292,7 @@ fn change_sample_mode_pre_edge_samples_before_trigger_edge() {
         json!([{
             "time": "15ns",
             "sample_time": "14ns",
-            "signals": [{"path": "top.data", "value": "8'haa"}]
+            "signals": [{"path": "top.data", "relative_path": "data", "value": "8'haa"}]
         }])
     );
     assert_eq!(
@@ -167,6 +323,8 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
             "posedge clk",
             "--sample-mode",
             "pre-edge",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -188,6 +346,8 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
             "posedge clk",
             "--sample-mode",
             "pre-edge",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -196,17 +356,14 @@ fn change_sample_mode_pre_edge_preserves_from_baseline() {
     assert!(short_output.status.success());
     let short_json = parse_json(&short_output.stdout);
     assert_eq!(short_json["data"], json!([]));
-    assert_eq!(
-        short_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(short_json["diagnostics"], json!([]));
     assert!(long_output.status.success());
     assert_eq!(
         parse_json(&long_output.stdout)["data"],
         json!([{
             "time": "35ns",
             "sample_time": "34ns",
-            "signals": [{"path": "top.data", "value": "8'h55"}]
+            "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h55"}]
         }])
     );
 }
@@ -293,7 +450,6 @@ fn change_default_when_matches_expected_json_payload() {
     assert!(output.stderr.is_empty());
 
     let value = parse_json(&output.stdout);
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "change");
     assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
@@ -320,11 +476,42 @@ fn change_default_when_matches_expected_json_payload() {
 }
 
 #[test]
-fn change_requires_on_flag() {
+fn change_flattens_repeated_and_comma_separated_signals_in_order() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "10ns",
+            "--to",
+            "10ns",
+            "--signals",
+            "top.clk",
+            "--signals",
+            "top.data,top.clk",
+            "--on",
+            "*",
+            "--sample-mode",
+            "native",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::eq(
+            "@10ns top.clk=1'h1 top.data=8'h0f top.clk=1'h1\n",
+        ))
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn change_requires_on_flag() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
         .args([
             "change",
             "--waves",
@@ -337,13 +524,20 @@ fn change_requires_on_flag() {
             "top.clk,top.data",
             "--json",
         ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("--on <ON>"))
-        .stderr(predicate::str::contains("See 'wavepeek change --help'."));
+        .output()
+        .expect("change should execute");
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stderr.is_empty());
+    let fatal = parse_json(&output.stdout);
+    assert_eq!(fatal["type"], "fatal");
+    assert_eq!(fatal["code"], "WPK-F0001");
+    assert!(fatal["message"].as_str().unwrap().contains("--on <ON>"));
+    assert!(
+        fatal["message"]
+            .as_str()
+            .unwrap()
+            .contains("See 'wavepeek change --help'.")
+    );
 }
 
 #[test]
@@ -385,8 +579,8 @@ fn change_named_non_edge_trigger_emits_expected_single_row() {
                 "time": "10ns",
                 "sample_time": "10ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h0f"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -394,7 +588,7 @@ fn change_named_non_edge_trigger_emits_expected_single_row() {
 }
 
 #[test]
-fn change_scoped_descendant_names_resolve() {
+fn change_scope_mixes_relative_and_canonical_names() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -406,9 +600,9 @@ fn change_scoped_descendant_names_resolve() {
             "--scope",
             "top",
             "--signals",
-            "cpu.valid",
+            "cpu.valid,top.clk",
             "--on",
-            "posedge cpu.valid",
+            "posedge top.cpu.valid",
             "--sample-mode",
             "native",
             "--json",
@@ -419,12 +613,19 @@ fn change_scoped_descendant_names_resolve() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"][0]["time"], "5ns");
-    assert_eq!(value["data"][0]["signals"][0]["path"], "top.cpu.valid");
+    assert_eq!(
+        value["data"][0]["signals"],
+        json!([
+            {"path": "top.cpu.valid", "relative_path": "cpu.valid", "value": "1'h1"},
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
+        ])
+    );
 }
 
 #[test]
-fn change_zero_delta_path_returns_empty_data_with_warning() {
+fn change_zero_delta_path_returns_empty_data_without_diagnostic() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -445,6 +646,8 @@ fn change_zero_delta_path_returns_empty_data_with_warning() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -453,14 +656,11 @@ fn change_zero_delta_path_returns_empty_data_with_warning() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
-fn change_zero_delta_warning_matches_between_json_and_human_modes() {
+fn change_zero_delta_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -481,6 +681,8 @@ fn change_zero_delta_warning_matches_between_json_and_human_modes() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -502,27 +704,26 @@ fn change_zero_delta_warning_matches_between_json_and_human_modes() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
         ])
         .output()
         .expect("human change run should execute");
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no change rows found in selected time range"
+    );
+    assert!(human_output.stderr.is_empty());
     let json = parse_json(&json_output.stdout);
     assert_eq!(json["data"], json!([]));
-    assert_eq!(
-        json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no signal changes found in selected time range"
-    );
+    assert_eq!(json["diagnostics"], json!([]));
 }
 
 #[test]
-fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_modes() {
+fn change_unlimited_empty_result_has_no_diagnostics_in_json_and_human_modes() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -541,6 +742,8 @@ fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_mode
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
             "--max",
             "unlimited",
             "--json",
@@ -562,6 +765,8 @@ fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_mode
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
             "--max",
             "unlimited",
         ])
@@ -573,19 +778,13 @@ fn change_unlimited_warning_precedes_empty_result_warning_in_json_and_human_mode
 
     let value = parse_json(&json_output.stdout);
     assert_eq!(value["data"], json!([]));
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(value["summary"]["limit"], Value::Null);
     assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}, {"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no change rows found in selected time range"
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr)
-            .lines()
-            .collect::<Vec<_>>(),
-        vec![
-            "warning[WPK-W0001]: limit disabled: --max=unlimited",
-            "warning[WPK-W0003]: no signal changes found in selected time range"
-        ]
-    );
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
@@ -623,7 +822,7 @@ fn change_omitted_from_uses_dump_start_baseline_checkpoint() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.sig", "value": "1'h0"}
+                    {"path": "top.sig", "relative_path": "sig", "value": "1'h0"}
                 ]
             }
         ])
@@ -631,7 +830,7 @@ fn change_omitted_from_uses_dump_start_baseline_checkpoint() {
 }
 
 #[test]
-fn change_from_timestamp_is_baseline_only_for_emission() {
+fn change_sparse_from_timestamp_is_baseline_only_for_emission() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -652,6 +851,8 @@ fn change_from_timestamp_is_baseline_only_for_emission() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -660,14 +861,11 @@ fn change_from_timestamp_is_baseline_only_for_emission() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
-fn change_equal_from_and_to_never_emits_baseline_row() {
+fn change_sparse_equal_from_and_to_never_emits_baseline_row() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -688,6 +886,8 @@ fn change_equal_from_and_to_never_emits_baseline_row() {
             "posedge clk",
             "--sample-mode",
             "native",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -696,10 +896,7 @@ fn change_equal_from_and_to_never_emits_baseline_row() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -971,8 +1168,8 @@ fn change_iff_executes_end_to_end() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h00"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -1129,8 +1326,8 @@ fn change_rich_type_iff_payload_executes() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.data", "value": "8'h00"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -1174,8 +1371,8 @@ fn change_triggered_iff_payload_executes() {
                 "time": "5ns",
                 "sample_time": "5ns",
                 "signals": [
-                    {"path": "top.sig", "value": "1'h0"},
-                    {"path": "top.clk", "value": "1'h1"}
+                    {"path": "top.sig", "relative_path": "sig", "value": "1'h0"},
+                    {"path": "top.clk", "relative_path": "clk", "value": "1'h1"}
                 ]
             }
         ])
@@ -1183,7 +1380,39 @@ fn change_triggered_iff_payload_executes() {
 }
 
 #[test]
-fn change_empty_result_warning_matches_between_json_and_human_modes() {
+fn change_dense_empty_result_has_no_machine_diagnostic() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+    let output = wavepeek_cmd()
+        .args([
+            "change",
+            "--waves",
+            fixture.as_str(),
+            "--from",
+            "6ns",
+            "--to",
+            "9ns",
+            "--scope",
+            "top",
+            "--signals",
+            "data",
+            "--on",
+            "posedge clk",
+            "--sample-mode",
+            "native",
+            "--json",
+        ])
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    let value = parse_json(&output.stdout);
+    assert_eq!(value["context"]["scope"], "top");
+    assert_eq!(value["diagnostics"], json!([]));
+}
+
+#[test]
+fn change_empty_result_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -1202,6 +1431,8 @@ fn change_empty_result_warning_matches_between_json_and_human_modes() {
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
             "--json",
         ])
         .output()
@@ -1221,24 +1452,23 @@ fn change_empty_result_warning_matches_between_json_and_human_modes() {
             "9ns",
             "--signals",
             "top.clk,top.data",
+            "--row-mode",
+            "sparse",
         ])
         .output()
         .expect("human change run should execute");
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no change rows found in selected time range"
+    );
+    assert!(human_output.stderr.is_empty());
 
     let value = parse_json(&json_output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signal changes found in selected time range"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no signal changes found in selected time range"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -1315,7 +1545,7 @@ fn change_truncation_warning_matches_between_json_and_human_modes() {
 
 #[test]
 fn change_abs_only_affects_human_labels_not_json_payload() {
-    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
     let json_default = wavepeek_cmd()
@@ -1332,9 +1562,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "data,clk",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--json",
         ])
         .output()
@@ -1353,9 +1583,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "data,clk",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--json",
             "--abs",
         ])
@@ -1380,9 +1610,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "data,clk",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
         ])
         .output()
         .expect("human default run should execute");
@@ -1400,9 +1630,9 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             "--to",
             "10ns",
             "--scope",
-            "top",
+            "top.cpu",
             "--signals",
-            "data,clk",
+            "valid,core.execute,top.cpu.valid,top.cpu.core.execute",
             "--abs",
         ])
         .output()
@@ -1419,11 +1649,11 @@ fn change_abs_only_affects_human_labels_not_json_payload() {
             .lines()
             .next()
             .expect("first line should exist"),
-        "@5ns data=8'h00 clk=1'h1"
+        "@5ns valid=1'h1 core.execute=1'h1 valid=1'h1 core.execute=1'h1"
     );
     assert_eq!(
         abs_lines.lines().next().expect("first line should exist"),
-        "@5ns top.data=8'h00 top.clk=1'h1"
+        "@5ns top.cpu.valid=1'h1 top.cpu.core.execute=1'h1 top.cpu.valid=1'h1 top.cpu.core.execute=1'h1"
     );
 }
 
@@ -1502,7 +1732,7 @@ fn change_default_max_is_50_with_truncation_warning() {
 }
 
 #[test]
-fn change_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() {
+fn change_unlimited_max_disables_truncation_without_diagnostics() {
     let fixture = fixture_path("change_many_events.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -1551,15 +1781,9 @@ fn change_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() {
             .len()
             > 50
     );
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
-
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
     assert!(
         String::from_utf8_lossy(&human_output.stdout)
             .lines()
@@ -1904,26 +2128,6 @@ fn change_validates_error_paths_for_args_scope_and_signal_resolution() {
             "change",
             "--waves",
             fixture.as_str(),
-            "--scope",
-            "top",
-            "--signals",
-            "top.clk",
-            "--on",
-            "posedge top.clk",
-            "--sample-mode",
-            "native",
-        ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"));
-
-    wavepeek_cmd()
-        .args([
-            "change",
-            "--waves",
-            fixture.as_str(),
             "--on",
             "posedge nope",
             "--signals",
@@ -2137,7 +2341,7 @@ fn change_invalid_when_signal_fails_even_without_in_range_timestamps() {
             "--signals",
             "clk",
             "--on",
-            "posedge nope",
+            "posedge vlaid",
             "--sample-mode",
             "native",
         ])
@@ -2146,54 +2350,45 @@ fn change_invalid_when_signal_fails_even_without_in_range_timestamps() {
         .code(1)
         .stdout(predicate::str::is_empty())
         .stderr(predicate::str::starts_with("fatal: expr:"))
-        .stderr(predicate::str::contains("unknown signal 'nope'"));
+        .stderr(predicate::str::contains("unknown signal 'vlaid'"))
+        .stderr(predicate::str::contains(
+            "signal 'vlaid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
 }
 
 #[test]
-fn change_scoped_mode_rejects_canonical_tokens_even_if_prefixed_path_exists() {
+fn change_scope_accepts_canonical_signal_and_trigger_paths() {
     let fixture = fixture_path("change_scope_ambiguous.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
-    wavepeek_cmd()
+    let output = wavepeek_cmd()
         .args([
             "change",
-            "--on",
-            "*",
-            "--sample-mode",
-            "native",
             "--waves",
             fixture.as_str(),
             "--scope",
             "top",
             "--signals",
             "top.clk",
-        ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: signal:"));
-
-    wavepeek_cmd()
-        .args([
-            "change",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--signals",
-            "clk",
             "--on",
             "posedge top.clk",
             "--sample-mode",
             "native",
+            "--json",
         ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: expr:"))
-        .stderr(predicate::str::contains("unknown signal 'top.clk'"));
+        .output()
+        .expect("change should execute");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        parse_json(&output.stdout)["data"],
+        json!([{
+            "time": "5ns",
+            "sample_time": "5ns",
+            "signals": [{"path": "top.clk", "relative_path": "clk", "value": "1'h1"}]
+        }])
+    );
 }
 
 #[test]
@@ -2212,5 +2407,113 @@ fn change_runtime_manifest_cases_pass() {
         if case.command == common::command_cases::CommandCaseCommand::Change {
             common::command_cases::assert_negative_case(case);
         }
+    }
+}
+
+const FLAT_PROJECTION_VCD: &str = concat!(
+    "$timescale 1ns $end\n",
+    "$scope module top $end\n",
+    "$var wire 8 ! data $end\n",
+    "$upscope $end\n",
+    "$enddefinitions $end\n",
+    "#0\nb00000000 !\n",
+    "#5\nb00001111 !\n",
+    "#10\nb11111111 !\n",
+);
+
+#[test]
+fn change_compares_projected_values_for_wildcard_sparse_and_delta_rows() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "change-flat-projection.vcd");
+    let run = |engine: &str| {
+        let output = wavepeek_cmd()
+            .env("DEBUG", "1")
+            .args([
+                "change",
+                "--waves",
+                fixture.path().to_str().unwrap(),
+                "--scope",
+                "top",
+                "--signals",
+                "data[7:4],data[5:2],data,data[7:4]",
+                "--on",
+                "*",
+                "--sample-mode",
+                "native",
+                "--row-mode",
+                "sparse",
+                "--row-values",
+                "delta",
+                "--tune-engine",
+                engine,
+                "--json",
+            ])
+            .output()
+            .expect("change should execute");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        parse_json(&output.stdout)["data"].clone()
+    };
+
+    let expected = json!([
+        {
+            "time": "5ns",
+            "sample_time": "5ns",
+            "signals": [
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+                {"path": "top.data[5:2]", "relative_path": "data[5:2]", "value": "4'h3"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+            ]
+        },
+        {
+            "time": "10ns",
+            "sample_time": "10ns",
+            "signals": [
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'hf"},
+                {"path": "top.data[5:2]", "relative_path": "data[5:2]", "value": "4'hf"},
+                {"path": "top.data", "relative_path": "data", "value": "8'hff"},
+                {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'hf"},
+            ]
+        }
+    ]);
+    assert_eq!(run("baseline"), expected);
+    assert_eq!(run("fused"), expected);
+}
+
+#[test]
+fn change_wildcard_ignores_changes_outside_the_only_projection() {
+    let fixture = write_fixture(FLAT_PROJECTION_VCD, "change-projection-wildcard.vcd");
+    for engine in ["baseline", "fused"] {
+        let output = wavepeek_cmd()
+            .env("DEBUG", "1")
+            .args([
+                "change",
+                "--waves",
+                fixture.path().to_str().unwrap(),
+                "--scope",
+                "top",
+                "--signals",
+                "data[7:4]",
+                "--on",
+                "*",
+                "--sample-mode",
+                "native",
+                "--tune-engine",
+                engine,
+                "--json",
+            ])
+            .output()
+            .expect("change should execute");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let data = parse_json(&output.stdout)["data"].clone();
+        assert_eq!(data.as_array().unwrap().len(), 1, "{engine}");
+        assert_eq!(data[0]["time"], "10ns", "{engine}");
     }
 }

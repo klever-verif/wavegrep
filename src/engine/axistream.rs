@@ -6,16 +6,14 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AxiStreamArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
 use crate::engine::extract::{
-    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractRunStats,
-    ExtractSource,
+    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
 use crate::engine::signal_mapping::candidate_matching_standards;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 
 const DEFAULT_PROFILE: &str = "axi4-stream";
@@ -90,7 +88,7 @@ impl AxiStreamData {
 struct AxiStreamOutcome {
     context: AxiStreamContext,
     diagnostics: Vec<Diagnostic>,
-    stats: ExtractRunStats,
+    summary: ResultSummary,
 }
 
 trait AxiStreamTransferSink {
@@ -123,7 +121,7 @@ impl<W: std::io::Write> AxiStreamTransferSink for JsonlAxiStreamSink<'_, W> {
     }
 
     fn emit(&mut self, transfer: AxiStreamTransfer) -> Result<(), WavepeekError> {
-        self.writer.item(&transfer)
+        self.writer.data(&transfer)
     }
 }
 
@@ -166,8 +164,6 @@ impl<S: AxiStreamTransferSink + ?Sized> ExtractRowSink for GenericToAxiStreamSin
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -238,21 +234,10 @@ const AXI5_STREAM_PROFILE: AxiStreamProfileSpec = AxiStreamProfileSpec {
     issue: "B",
 };
 
-pub(crate) fn profile_specs() -> &'static [AxiStreamProfileSpec] {
-    &[AXI4_STREAM_PROFILE, AXI5_STREAM_PROFILE]
-}
-
-pub(crate) const fn standard_signals() -> &'static [&'static str] {
-    STANDARD_SIGNALS
-}
-
-pub(crate) const fn payload_signals() -> &'static [&'static str] {
-    PAYLOAD_SIGNALS
-}
-
 pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingAxiStreamSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -263,6 +248,8 @@ pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
+        summary_only,
         data: CommandData::ExtractAxiStream(AxiStreamData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -271,6 +258,7 @@ pub fn run(args: AxiStreamArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             transfers: sink.transfers,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -279,6 +267,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: AxiStreamArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlAxiStreamSink { writer };
         run_with_sink(args, &mut sink)?
@@ -287,7 +276,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: AxiStreamTransferSink + ?Sized>(
@@ -316,6 +305,7 @@ fn run_with_sink<S: AxiStreamTransferSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,
@@ -328,7 +318,7 @@ fn run_with_sink<S: AxiStreamTransferSink + ?Sized>(
     Ok(AxiStreamOutcome {
         context,
         diagnostics,
-        stats: outcome.stats,
+        summary: outcome.summary,
     })
 }
 
@@ -422,14 +412,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AxiStreamConfig, Wavepee
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AXI-Stream extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AXI-Stream extract source file '{}' has kind {}; expected {}",
@@ -621,8 +603,10 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
-        let resolved = resolved.remove(0);
+        let resolved =
+            waveform
+                .borrow()
+                .resolve_local_signal_with_diagnostic(&query_path, waves, scope)?;
         result.insert(
             standard.clone(),
             AxiStreamSignalMapping {
@@ -816,10 +800,7 @@ impl TreadyMode {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        STANDARD_SIGNALS, TreadyMode, parse_cli_maps, parse_profile, parse_tready_mode,
-        profile_specs,
-    };
+    use super::{STANDARD_SIGNALS, TreadyMode, parse_cli_maps, parse_profile, parse_tready_mode};
     use crate::engine::signal_mapping::candidate_matching_standards;
 
     #[test]
@@ -832,13 +813,6 @@ mod tests {
         ] {
             assert_eq!(parse_profile(input).unwrap().name(), canonical);
         }
-        assert_eq!(
-            profile_specs()
-                .iter()
-                .map(|profile| (profile.name, profile.issue))
-                .collect::<Vec<_>>(),
-            [("axi4-stream", "B"), ("axi5-stream", "B")]
-        );
     }
 
     #[test]

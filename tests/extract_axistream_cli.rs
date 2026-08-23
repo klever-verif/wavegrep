@@ -12,35 +12,18 @@ fn waveform_fixture(filename: &str) -> String {
     fixture_path(filename).to_string_lossy().into_owned()
 }
 
-fn schema_validator(name: &str) -> jsonschema::Validator {
-    let schema_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join(name);
-    let schema: Value =
-        serde_json::from_str(&fs::read_to_string(schema_path).expect("schema should read"))
-            .expect("schema should parse");
-    jsonschema::validator_for(&schema).expect("schema should compile")
-}
-
 fn parse_json(stdout: &[u8]) -> Value {
     let value: Value = serde_json::from_slice(stdout).expect("stdout should be valid JSON");
-    schema_validator("output.json")
-        .validate(&value)
-        .unwrap_or_else(|error| panic!("output should validate: {error}\n{value}"));
     value
 }
 
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let output = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(output.ends_with('\n'));
-    let validator = schema_validator("stream.json");
     output
         .lines()
         .map(|line| {
             let record: Value = serde_json::from_str(line).expect("JSONL line should parse");
-            validator
-                .validate(&record)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{record}"));
             record
         })
         .collect()
@@ -80,7 +63,7 @@ fn extract_axistream_help_exposes_profiles_and_tready_modes() {
         .args(["extract", "axistream", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Extract AXI-Stream transfer rows"))
+        .stdout(predicate::str::contains("Extract AXI-Stream transfers."))
         .stdout(predicate::str::contains("axi4-stream"))
         .stdout(predicate::str::contains("axi5-stream"))
         .stdout(predicate::str::contains("implicit-high"))
@@ -182,14 +165,14 @@ fn extract_axistream_json_profiles_and_jsonl_context_validate() {
         .clone();
     let value = parse_json(&output);
     assert_eq!(value["command"], "extract axistream");
-    assert_eq!(value["data"]["name"], "video_out");
-    assert_eq!(value["data"]["profile"], "axi5-stream");
-    assert_eq!(value["data"]["issue"], "B");
-    assert_eq!(value["data"]["tready_mode"], "implicit-high");
-    assert!(value["data"]["mappings"].get("tready").is_none());
-    assert_eq!(value["data"]["transfers"].as_array().unwrap().len(), 4);
+    assert_eq!(value["context"]["name"], "video_out");
+    assert_eq!(value["context"]["profile"], "axi5-stream");
+    assert_eq!(value["context"]["issue"], "B");
+    assert_eq!(value["context"]["tready_mode"], "implicit-high");
+    assert!(value["context"]["mappings"].get("tready").is_none());
+    assert_eq!(value["data"].as_array().unwrap().len(), 4);
     assert_eq!(
-        value["data"]["transfers"][0],
+        value["data"][0],
         json!({
             "time": "10ns",
             "sample_time": "9ns",
@@ -232,10 +215,9 @@ fn extract_axistream_json_profiles_and_jsonl_context_validate() {
     assert_eq!(records[0]["command"], "extract axistream");
     assert_eq!(records[0]["context"]["profile"], "axi4-stream");
     assert_eq!(records[0]["context"]["tready_mode"], "mapped");
-    assert_eq!(records[1]["item"]["profile"], "axi4-stream");
-    assert!(records[1]["item"].get("channel").is_none());
-    assert_eq!(records.last().unwrap()["summary"]["items"], 2);
-    assert_eq!(records.last().unwrap()["summary"]["truncated"], true);
+    assert_eq!(records[1]["data"]["profile"], "axi4-stream");
+    assert!(records[1]["data"].get("channel").is_none());
+    assert_eq!(records.last().unwrap()["records"]["data"], 2);
 }
 
 #[test]
@@ -293,7 +275,7 @@ fn extract_axistream_handshake_only_keeps_reset_gating_and_repeated_rows() {
         .stdout
         .clone();
     let value = parse_json(&value);
-    let rows = value["data"]["transfers"].as_array().unwrap();
+    let rows = value["data"].as_array().unwrap();
     assert_eq!(rows.len(), 3);
     assert_eq!(rows[0]["time"], "10ns");
     assert_eq!(rows[0]["sample_time"], "9ns");
@@ -466,20 +448,16 @@ fn extract_axistream_auto_mapping_is_ambiguous_and_explicit_maps_win() {
         .clone();
     let value = parse_json(&value);
     assert_eq!(
-        value["data"]["mappings"]["tdata"]["path"],
+        value["context"]["mappings"]["tdata"]["path"],
         "top.m_axis_tdata_o"
     );
-    assert_eq!(
-        value["data"]["transfers"][0]["payload"]["tdata"],
-        "16'h1001"
-    );
+    assert_eq!(value["data"][0]["payload"]["tdata"], "16'h1001");
 }
 
 #[test]
 fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
     let fixture = waveform_fixture("extract_axistream.vcd");
     let default_source = write_source(&json!({
-        "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
         "kind": "extract.axistream.source",
         "maps": {
             "aclk": "clk",
@@ -506,12 +484,11 @@ fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
         .stdout
         .clone();
     let default_value = parse_json(&default_value);
-    assert_eq!(default_value["data"]["name"], "axistream");
-    assert_eq!(default_value["data"]["profile"], "axi4-stream");
-    assert_eq!(default_value["data"]["tready_mode"], "mapped");
+    assert_eq!(default_value["context"]["name"], "axistream");
+    assert_eq!(default_value["context"]["profile"], "axi4-stream");
+    assert_eq!(default_value["context"]["tready_mode"], "mapped");
 
     let source = write_source(&json!({
-        "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
         "kind": "extract.axistream.source",
         "profile": "AXI5_STREAM",
         "tready_mode": "IMPLICIT_HIGH",
@@ -537,9 +514,9 @@ fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
         .stdout
         .clone();
     let value = parse_json(&value);
-    assert_eq!(value["data"]["name"], "source_stream");
-    assert_eq!(value["data"]["profile"], "axi5-stream");
-    assert_eq!(value["data"]["tready_mode"], "implicit-high");
+    assert_eq!(value["context"]["name"], "source_stream");
+    assert_eq!(value["context"]["profile"], "axi5-stream");
+    assert_eq!(value["context"]["tready_mode"], "implicit-high");
 
     wavepeek_cmd()
         .args([
@@ -561,18 +538,12 @@ fn extract_axistream_source_mode_defaults_aliases_and_conflicts() {
 fn extract_axistream_source_mode_rejects_wrong_contract_and_null_defaults() {
     let fixture = waveform_fixture("extract_axistream.vcd");
     for (field, value, expected) in [
-        (
-            "$schema",
-            json!("https://example.invalid/input.json"),
-            "uses unsupported $schema",
-        ),
         ("kind", json!("extract.axi.source"), "has kind"),
         ("profile", Value::Null, "expected string, got null"),
         ("tready_mode", Value::Null, "expected string, got null"),
         ("name", Value::Null, "expected string, got null"),
     ] {
         let mut source_value = json!({
-            "$schema": "https://kleverhq.github.io/wavepeek/schema-input-v2.2.json",
             "kind": "extract.axistream.source",
             "tready_mode": "implicit-high",
             "maps": {"aclk": "clk", "tvalid": "m_axis_tvalid_o"}

@@ -1,6 +1,3 @@
-use std::borrow::Cow;
-
-use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::Serialize;
 
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
@@ -21,39 +18,6 @@ pub enum ContractDiagnostic<'a> {
         code: &'static str,
         message: &'a str,
     },
-}
-
-impl JsonSchema for ContractDiagnostic<'_> {
-    fn schema_name() -> Cow<'static, str> {
-        "diagnostic".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "object",
-            "additionalProperties": true,
-            "required": ["kind", "message"],
-            "properties": {
-                "kind": {"type": "string", "enum": ["info", "warning", "error"]},
-                "code": {"type": "string", "pattern": "^WPK-[WE][0-9]{4}$"},
-                "message": {"type": "string"},
-            },
-            "allOf": [
-                {
-                    "if": {"properties": {"kind": {"const": "warning"}}, "required": ["kind"]},
-                    "then": {"required": ["code"], "properties": {"code": {"pattern": "^WPK-W[0-9]{4}$"}}},
-                },
-                {
-                    "if": {"properties": {"kind": {"const": "error"}}, "required": ["kind"]},
-                    "then": {"required": ["code"], "properties": {"code": {"pattern": "^WPK-E[0-9]{4}$"}}},
-                },
-                {
-                    "if": {"properties": {"kind": {"const": "info"}}, "required": ["kind"]},
-                    "then": {"not": {"required": ["code"]}},
-                },
-            ],
-        })
-    }
 }
 
 impl<'a> ContractDiagnostic<'a> {
@@ -90,19 +54,6 @@ impl<'a> NormalizedTime<'a> {
     }
 }
 
-impl JsonSchema for NormalizedTime<'_> {
-    fn schema_name() -> Cow<'static, str> {
-        "normalizedTime".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "description": "Normalized timestamp rendered in the dump's time unit, for example 10ns."
-        })
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(transparent)]
 pub struct CanonicalPath<'a>(&'a str);
@@ -110,19 +61,6 @@ pub struct CanonicalPath<'a>(&'a str);
 impl<'a> CanonicalPath<'a> {
     pub fn new(value: &'a str) -> Self {
         Self(value)
-    }
-}
-
-impl JsonSchema for CanonicalPath<'_> {
-    fn schema_name() -> Cow<'static, str> {
-        "canonicalPath".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "description": "Canonical dot-separated hierarchy path emitted by wavepeek for a scope or signal."
-        })
     }
 }
 
@@ -136,54 +74,13 @@ impl<'a> SampledValue<'a> {
     }
 }
 
-impl JsonSchema for SampledValue<'_> {
-    fn schema_name() -> Cow<'static, str> {
-        "sampledValue".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "description": "Stable sampled signal value formatted as a Verilog-style literal string."
-        })
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(transparent)]
 pub struct ScopeKind<'a>(&'a str);
 
-impl JsonSchema for ScopeKind<'_> {
-    fn schema_name() -> Cow<'static, str> {
-        "scopeKind".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "description": "Stable scope kind alias emitted by wavepeek for the selected scope.",
-            "enum": STABLE_SCOPE_KIND_ALIASES,
-        })
-    }
-}
-
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(transparent)]
 pub struct SignalKind<'a>(&'a str);
-
-impl JsonSchema for SignalKind<'_> {
-    fn schema_name() -> Cow<'static, str> {
-        "signalKind".into()
-    }
-
-    fn json_schema(_: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "description": "Stable signal kind alias emitted by wavepeek for the selected signal.",
-            "enum": STABLE_SIGNAL_KIND_ALIASES,
-        })
-    }
-}
 
 pub fn validate_scope_kind(kind: &str) -> Result<ScopeKind<'_>, WavepeekError> {
     if STABLE_SCOPE_KIND_ALIASES.contains(&kind) {

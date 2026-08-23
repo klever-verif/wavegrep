@@ -6,16 +6,14 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AxiArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
 use crate::engine::extract::{
-    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractRunStats,
-    ExtractSource,
+    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
 use crate::engine::signal_mapping::candidate_matching_standards;
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 
 const DEFAULT_PROFILE: &str = "axi4";
@@ -82,7 +80,7 @@ impl AxiData {
 struct AxiOutcome {
     context: AxiContext,
     diagnostics: Vec<Diagnostic>,
-    stats: ExtractRunStats,
+    summary: ResultSummary,
 }
 
 trait AxiTransferSink {
@@ -115,7 +113,7 @@ impl<W: std::io::Write> AxiTransferSink for JsonlAxiSink<'_, W> {
     }
 
     fn emit(&mut self, transfer: AxiTransfer) -> Result<(), WavepeekError> {
-        self.writer.item(&transfer)
+        self.writer.data(&transfer)
     }
 }
 
@@ -169,8 +167,6 @@ impl<S: AxiTransferSink + ?Sized> ExtractRowSink for GenericToAxiSink<'_, S> {
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -1223,48 +1219,10 @@ const ACE5_LITE_ACP_PROFILE: AxiProfileSpec = AxiProfileSpec {
     channels: ACE5_LITE_ACP_CHANNELS,
 };
 
-pub(crate) fn profile_specs() -> &'static [AxiProfileSpec] {
-    &[
-        AXI3_PROFILE,
-        AXI4_PROFILE,
-        AXI4_LITE_PROFILE,
-        AXI5_PROFILE,
-        AXI5_LITE_PROFILE,
-        ACE_PROFILE,
-        ACE_LITE_PROFILE,
-        ACE5_PROFILE,
-        ACE5_LITE_PROFILE,
-        ACE5_LITE_DVM_PROFILE,
-        ACE5_LITE_ACP_PROFILE,
-    ]
-}
-
-pub(crate) fn standard_signals(profile: &AxiProfileSpec) -> Vec<&'static str> {
-    COMMON_SIGNALS
-        .iter()
-        .copied()
-        .chain(
-            profile
-                .channels
-                .iter()
-                .flat_map(|channel| channel.signals.iter().copied()),
-        )
-        .collect()
-}
-
-pub(crate) fn channel_payload_signals(
-    channel: &AxiChannelSpec,
-) -> impl Iterator<Item = &'static str> + '_ {
-    channel
-        .signals
-        .iter()
-        .copied()
-        .filter(|standard| *standard != channel.valid && *standard != channel.ready)
-}
-
 pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingAxiSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -1275,6 +1233,8 @@ pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
+        summary_only,
         data: CommandData::ExtractAxi(AxiData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -1282,6 +1242,7 @@ pub fn run(args: AxiArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             transfers: sink.transfers,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -1290,6 +1251,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: AxiArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlAxiSink { writer };
         run_with_sink(args, &mut sink)?
@@ -1298,7 +1260,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: AxiTransferSink + ?Sized>(
@@ -1327,6 +1289,7 @@ fn run_with_sink<S: AxiTransferSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,
@@ -1339,7 +1302,7 @@ fn run_with_sink<S: AxiTransferSink + ?Sized>(
     Ok(AxiOutcome {
         context,
         diagnostics,
-        stats: outcome.stats,
+        summary: outcome.summary,
     })
 }
 
@@ -1442,14 +1405,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AxiConfig, WavepeekError
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "AXI extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "AXI extract source file '{}' has kind {}; expected {}",
@@ -1637,8 +1592,10 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
-        let resolved = resolved.remove(0);
+        let resolved =
+            waveform
+                .borrow()
+                .resolve_local_signal_with_diagnostic(&query_path, waves, scope)?;
         result.insert(
             standard.clone(),
             AxiSignalMapping {
@@ -1868,7 +1825,7 @@ impl AxiProfile {
 
 #[cfg(test)]
 mod tests {
-    use super::{candidate_matches_standard, parse_cli_maps, parse_profile, profile_specs};
+    use super::{candidate_matches_standard, parse_cli_maps, parse_profile};
 
     fn assert_profile(name: &str, expected: &[(&str, &[&str])]) {
         let profile = parse_profile(name).unwrap();
@@ -1929,26 +1886,6 @@ mod tests {
 
     #[test]
     fn ace_family_profile_specs_match_contract() {
-        assert_eq!(
-            profile_specs()
-                .iter()
-                .map(|profile| profile.name)
-                .collect::<Vec<_>>(),
-            [
-                "axi3",
-                "axi4",
-                "axi4-lite",
-                "axi5",
-                "axi5-lite",
-                "ace",
-                "ace-lite",
-                "ace5",
-                "ace5-lite",
-                "ace5-lite-dvm",
-                "ace5-lite-acp"
-            ]
-        );
-
         assert_profile(
             "ace",
             &[

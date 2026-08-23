@@ -3,7 +3,7 @@ use predicates::prelude::*;
 use serde_json::{Value, json};
 
 mod common;
-use common::{expected_schema_url, fixture_path, rtl_fixture_path, wavepeek_cmd};
+use common::{fixture_path, rtl_fixture_path, wavepeek_cmd};
 
 #[test]
 fn signal_human_mode_uses_short_names_by_default() {
@@ -26,7 +26,6 @@ fn signal_human_mode_uses_short_names_by_default() {
         .stdout(predicate::str::contains("cfg kind=parameter width=8"))
         .stdout(predicate::str::contains("clk kind=wire width=1"))
         .stdout(predicate::str::contains("top.cfg").not())
-        .stdout(predicate::str::contains("schema_version").not())
         .stderr(predicate::str::is_empty());
 }
 
@@ -75,22 +74,20 @@ fn signal_json_shape_for_vcd_keeps_full_paths() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("signal output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "signal");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "data", "path": "top.data", "kind": "reg", "width": 8}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "data", "path": "top.data", "relative_path": "data", "kind": "reg", "width": 8}
         ])
     );
 }
 
 #[test]
-fn signal_json_shape_for_fst_keeps_full_paths() {
+fn signal_recursive_json_for_fst_keeps_canonical_and_relative_paths() {
     let fixture = fixture_path("m2_core.fst");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -102,6 +99,7 @@ fn signal_json_shape_for_fst_keeps_full_paths() {
             fixture.as_str(),
             "--scope",
             "top",
+            "--recursive",
             "--max",
             "50",
             "--json",
@@ -115,9 +113,42 @@ fn signal_json_shape_for_fst_keeps_full_paths() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "data", "path": "top.data", "kind": "reg", "width": 8}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "data", "path": "top.data", "relative_path": "data", "kind": "reg", "width": 8},
+            {"name": "valid", "path": "top.cpu.valid", "relative_path": "cpu.valid", "kind": "wire", "width": 1},
+            {"name": "ready", "path": "top.mem.ready", "relative_path": "mem.ready", "kind": "wire", "width": 1}
+        ])
+    );
+}
+
+#[test]
+fn signal_json_paths_are_relative_to_exact_nested_scope() {
+    let fixture = fixture_path("signal_recursive_depth.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    let output = wavepeek_cmd()
+        .args([
+            "signal",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top.cpu",
+            "--recursive",
+            "--json",
+        ])
+        .output()
+        .expect("nested-scope signal run should execute");
+
+    assert!(output.status.success());
+    let value: Value =
+        serde_json::from_slice(&output.stdout).expect("signal output should be json");
+    assert_eq!(value["context"]["scope"], "top.cpu");
+    assert_eq!(
+        value["data"],
+        json!([
+            {"name": "valid", "path": "top.cpu.valid", "relative_path": "valid", "kind": "wire", "width": 1},
+            {"name": "execute", "path": "top.cpu.core.execute", "relative_path": "core.execute", "kind": "wire", "width": 1}
         ])
     );
 }
@@ -148,8 +179,8 @@ fn signal_filter_applies_to_signal_names() {
     assert_eq!(
         value["data"],
         json!([
-            {"name": "cfg", "path": "top.cfg", "kind": "parameter", "width": 8},
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1}
+            {"name": "cfg", "path": "top.cfg", "relative_path": "cfg", "kind": "parameter", "width": 8},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1}
         ])
     );
 }
@@ -200,7 +231,7 @@ fn signal_emits_truncation_warning_when_max_is_hit() {
 }
 
 #[test]
-fn signal_unlimited_max_emits_warning_in_json_and_human_modes() {
+fn signal_unlimited_max_has_no_diagnostics_in_json_and_human_modes() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -234,10 +265,7 @@ fn signal_unlimited_max_emits_warning_in_json_and_human_modes() {
     assert!(human_output.status.success());
 
     let value: Value = serde_json::from_slice(&json_output.stdout).expect("json should parse");
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
         value["data"]
             .as_array()
@@ -245,10 +273,8 @@ fn signal_unlimited_max_emits_warning_in_json_and_human_modes() {
             .len(),
         3
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
@@ -312,7 +338,6 @@ fn signal_human_mode_routes_truncation_warning_to_stderr() {
         .assert()
         .success()
         .stdout(predicate::str::contains("cfg kind=parameter width=8"))
-        .stdout(predicate::str::contains("schema_version").not())
         .stdout(predicate::str::contains("warning[WPK-W0002]: truncated output").not())
         .stderr(predicate::str::contains(
             "warning[WPK-W0002]: truncated output to 1 entries",
@@ -520,6 +545,7 @@ fn signal_recursive_max_depth_respects_grandchild_boundary() {
             "top.mem.ready",
         ]
     );
+    assert_eq!(depth_2_json["data"][3]["relative_path"], "cpu.core.execute");
 }
 
 #[test]
@@ -575,7 +601,7 @@ fn signal_rejects_zero_max_with_args_error() {
 }
 
 #[test]
-fn signal_recursive_unlimited_max_depth_emits_warning() {
+fn signal_recursive_unlimited_max_depth_has_no_diagnostic() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -610,14 +636,11 @@ fn signal_recursive_unlimited_max_depth_emits_warning() {
         .collect::<Vec<_>>();
 
     assert!(paths.contains(&"top.cpu.core.execute".to_string()));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
-fn signal_unlimited_and_bounded_mix_preserves_warning_order() {
+fn signal_unlimited_and_bounded_mix_keeps_truncation_only() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -678,13 +701,10 @@ fn signal_unlimited_and_bounded_mix_preserves_warning_order() {
         !unlimited_max_paths.contains(&"top.cpu.core.execute".to_string()),
         "depth-1 bound should still hide grandchild scopes"
     );
-    assert_eq!(
-        unlimited_max_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(unlimited_max_json["diagnostics"], json!([]));
     assert_eq!(
         unlimited_depth_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}, {"kind": "warning", "code": "WPK-W0002", "message": "truncated output to 2 entries (use --max to increase limit)"}])
+        json!([{"kind": "warning", "code": "WPK-W0002", "message": "truncated output to 2 entries (use --max to increase limit)"}])
     );
 }
 
@@ -771,19 +791,17 @@ fn signal_recursive_filter_matches_name_not_relative_path() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no signals found in selected scope"
+    );
+    assert!(human_output.stderr.is_empty());
     let value: Value =
         serde_json::from_slice(&json_output.stdout).expect("signal output should be valid json");
 
+    assert_eq!(value["context"]["scope"], "top");
     assert_eq!(value["data"], Value::Array(vec![]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no signals found in selected scope"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no signals found in selected scope"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]

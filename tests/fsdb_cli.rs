@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use tempfile::{NamedTempFile, TempDir};
 
 mod common;
-use common::{expected_schema_url, fixture_path, wavepeek_cmd};
+use common::{fixture_path, wavepeek_cmd};
 
 const SCOPE_KIND_ALIASES: &[&str] = &[
     "module",
@@ -70,13 +70,11 @@ fn fsdb_info_json_matches_vcd_derived_fixture() {
     let fixture = path_str(&fixtures.signal_recursive_depth());
     let value = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
 
-    assert_eq!(value["$schema"], expected_schema_url());
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "info");
     assert_eq!(value["diagnostics"], json!([]));
-    assert_eq!(value["data"]["time_unit"], "1ns");
-    assert_eq!(value["data"]["time_start"], "0ns");
-    assert_eq!(value["data"]["time_end"], "10ns");
+    assert_eq!(value["data"][0]["time_unit"], "1ns");
+    assert_eq!(value["data"][0]["time_start"], "0ns");
+    assert_eq!(value["data"][0]["time_end"], "10ns");
 }
 
 #[test]
@@ -112,10 +110,7 @@ fn fsdb_scope_json_is_sorted_and_depth_bounded() {
             {"path": "top.mem", "depth": 1, "kind": "module"},
         ])
     );
-    assert_eq!(
-        all["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(all["diagnostics"], json!([]));
 
     assert_eq!(
         root_only["data"],
@@ -178,23 +173,20 @@ fn fsdb_signal_direct_and_recursive_queries_are_stable() {
     assert_eq!(
         direct["data"],
         json!([
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "reset_n", "path": "top.reset_n", "kind": "wire", "width": 1},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "reset_n", "path": "top.reset_n", "relative_path": "reset_n", "kind": "wire", "width": 1},
         ])
     );
-    assert_eq!(
-        direct["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(direct["diagnostics"], json!([]));
 
     assert_eq!(
         recursive["data"],
         json!([
-            {"name": "clk", "path": "top.clk", "kind": "wire", "width": 1},
-            {"name": "reset_n", "path": "top.reset_n", "kind": "wire", "width": 1},
-            {"name": "valid", "path": "top.cpu.valid", "kind": "wire", "width": 1},
-            {"name": "execute", "path": "top.cpu.core.execute", "kind": "wire", "width": 1},
-            {"name": "ready", "path": "top.mem.ready", "kind": "wire", "width": 1},
+            {"name": "clk", "path": "top.clk", "relative_path": "clk", "kind": "wire", "width": 1},
+            {"name": "reset_n", "path": "top.reset_n", "relative_path": "reset_n", "kind": "wire", "width": 1},
+            {"name": "valid", "path": "top.cpu.valid", "relative_path": "cpu.valid", "kind": "wire", "width": 1},
+            {"name": "execute", "path": "top.cpu.core.execute", "relative_path": "cpu.core.execute", "kind": "wire", "width": 1},
+            {"name": "ready", "path": "top.mem.ready", "relative_path": "mem.ready", "kind": "wire", "width": 1},
         ])
     );
 }
@@ -229,18 +221,17 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
     let info = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
     let info_again = run_json_success(&["info", "--waves", fixture.as_str(), "--json"]);
     assert_eq!(info, info_again);
-    assert_eq!(info["$schema"], expected_schema_url());
     assert_eq!(info["command"], "info");
     assert_eq!(info["diagnostics"], json!([]));
     for field in ["time_unit", "time_start", "time_end"] {
         assert!(
-            info["data"][field]
+            info["data"][0][field]
                 .as_str()
                 .is_some_and(|value| !value.is_empty()),
             "{field} should be a non-empty string"
         );
     }
-    assert!(info["data"].get("time_precision").is_none());
+    assert!(info["data"][0].get("time_precision").is_none());
 
     let scopes = run_json_success(&[
         "scope",
@@ -259,10 +250,7 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
         "--json",
     ]);
     assert_eq!(scopes["data"], scopes_again["data"]);
-    assert_eq!(
-        scopes["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(scopes["diagnostics"], json!([]));
     let scope_entries = scopes["data"]
         .as_array()
         .expect("scope data should be array");
@@ -339,7 +327,7 @@ fn fsdb_bundled_cpu_smoke_supports_info_scope_signal_and_value() {
     }
 
     let sample_path = discover_bundled_signal_path(&fixture);
-    let sample_time = info["data"]["time_start"]
+    let sample_time = info["data"][0]["time_start"]
         .as_str()
         .expect("bundled info should expose time_start");
     let sampled = run_json_success(&[
@@ -413,7 +401,7 @@ fn fsdb_extract_generic_json_matches_vcd_sampling_contract() {
         "--when",
         "1",
         "--payload",
-        "data",
+        "data[7:4],data[7:4],data[5:2],data",
         "--max",
         "3",
         "--json",
@@ -437,7 +425,7 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
         "--scope",
         "top",
         "--signals",
-        "data,clk,data,nibble,status,asc",
+        "data[7:4],clk,data[0:0],nibble[3:2],status[1:0],asc[3:2]",
         "--at",
         "7ns",
         "--json",
@@ -445,7 +433,6 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
     let fsdb_value = run_json_success_with_waves(fsdb_fixture.as_str(), &args);
     let vcd_value = run_json_success_with_waves(vcd_fixture.as_str(), &args);
 
-    assert_eq!(fsdb_value["$schema"], expected_schema_url());
     assert_eq!(fsdb_value["command"], "value");
     assert_eq!(fsdb_value["diagnostics"], json!([]));
     assert_eq!(fsdb_value["data"], vcd_value["data"]);
@@ -453,14 +440,40 @@ fn fsdb_value_json_matches_vcd_sampling_contract() {
     assert_eq!(
         fsdb_value["data"][0]["signals"],
         json!([
-            {"path": "top.data", "value": "8'h0f"},
-            {"path": "top.clk", "value": "1'h1"},
-            {"path": "top.data", "value": "8'h0f"},
-            {"path": "top.nibble", "value": "4'hx"},
-            {"path": "top.status", "value": "4'h3"},
-            {"path": "top.asc", "value": "4'h3"},
+            {"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h0"},
+            {"path": "top.clk", "relative_path": "clk", "value": "1'h1"},
+            {"path": "top.data[0:0]", "relative_path": "data[0:0]", "value": "1'h1"},
+            {"path": "top.nibble[3:2]", "relative_path": "nibble[3:2]", "value": "2'h2"},
+            {"path": "top.status[1:0]", "relative_path": "status[1:0]", "value": "2'h3"},
+            {"path": "top.asc[3:2]", "relative_path": "asc[3:2]", "value": "2'h0"},
         ])
     );
+}
+
+#[test]
+fn fsdb_value_preserves_exact_projection_like_path_errors() {
+    let dir = tempfile::tempdir().expect("tempdir should be created");
+    let fixture = convert_vcd_fixture(dir.path(), "projection_ambiguous_exact.vcd");
+    let fixture = path_str(&fixture);
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "0ns",
+            "--signals",
+            "top.flags[0:0]",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "signal 'top.flags[0:0]' is ambiguous in FSDB hierarchy",
+        ))
+        .stderr(predicate::str::contains("no candidate was selected"));
 }
 
 #[test]
@@ -472,28 +485,28 @@ fn fsdb_value_samples_exact_transitions_and_dump_end() {
         (
             "0ns",
             json!([
-                {"path": "top.data", "value": "8'h00"},
-                {"path": "top.nibble", "value": "4'ha"},
-                {"path": "top.status", "value": "4'hz"},
-                {"path": "top.asc", "value": "4'hc"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h00"},
+                {"path": "top.nibble", "relative_path": "nibble", "value": "4'ha"},
+                {"path": "top.status", "relative_path": "status", "value": "4'hz"},
+                {"path": "top.asc", "relative_path": "asc", "value": "4'hc"},
             ]),
         ),
         (
             "5ns",
             json!([
-                {"path": "top.data", "value": "8'h0f"},
-                {"path": "top.nibble", "value": "4'hx"},
-                {"path": "top.status", "value": "4'h3"},
-                {"path": "top.asc", "value": "4'h3"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h0f"},
+                {"path": "top.nibble", "relative_path": "nibble", "value": "4'hx"},
+                {"path": "top.status", "relative_path": "status", "value": "4'h3"},
+                {"path": "top.asc", "relative_path": "asc", "value": "4'h3"},
             ]),
         ),
         (
             "10ns",
             json!([
-                {"path": "top.data", "value": "8'hf0"},
-                {"path": "top.nibble", "value": "4'h5"},
-                {"path": "top.status", "value": "4'hx"},
-                {"path": "top.asc", "value": "4'ha"},
+                {"path": "top.data", "relative_path": "data", "value": "8'hf0"},
+                {"path": "top.nibble", "relative_path": "nibble", "value": "4'h5"},
+                {"path": "top.status", "relative_path": "status", "value": "4'hx"},
+                {"path": "top.asc", "relative_path": "asc", "value": "4'ha"},
             ]),
         ),
     ] {
@@ -537,8 +550,8 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
         assert_eq!(
             fsdb_value["data"][0]["signals"],
             json!([
-                {"path": "top.glitch", "value": "1'h1"},
-                {"path": "top.bus", "value": "2'h2"}
+                {"path": "top.glitch", "relative_path": "glitch", "value": "1'h1"},
+                {"path": "top.bus", "relative_path": "bus", "value": "2'h2"}
             ])
         );
     }
@@ -566,12 +579,12 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
         fsdb_change["data"],
         json!([
             {"time": "5ns", "sample_time": "5ns", "signals": [
-                {"path": "top.glitch", "value": "1'h1"},
-                {"path": "top.bus", "value": "2'h2"}
+                {"path": "top.glitch", "relative_path": "glitch", "value": "1'h1"},
+                {"path": "top.bus", "relative_path": "bus", "value": "2'h2"}
             ]},
             {"time": "10ns", "sample_time": "10ns", "signals": [
-                {"path": "top.glitch", "value": "1'h0"},
-                {"path": "top.bus", "value": "2'h0"}
+                {"path": "top.glitch", "relative_path": "glitch", "value": "1'h0"},
+                {"path": "top.bus", "relative_path": "bus", "value": "2'h0"}
             ]}
         ])
     );
@@ -597,6 +610,62 @@ fn fsdb_value_change_and_property_use_final_same_time_update() {
         fsdb_property["data"],
         json!([{ "time": "5ns", "sample_time": "5ns", "kind": "match" }])
     );
+}
+
+#[test]
+fn fsdb_missing_path_uses_backend_neutral_signal_suggestions() {
+    let fixtures = GeneratedFsdbFixtures::new();
+    let fixture = path_str(&fixtures.signal_recursive_depth());
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "10ns",
+            "--scope",
+            "top",
+            "--signals",
+            "valid",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "signal 'valid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
+}
+
+#[test]
+fn fsdb_missing_path_does_not_suggest_unsupported_events() {
+    let dir = TempDir::new().expect("temporary directory should create");
+    let fixture = path_str(&convert_vcd_fixture(
+        dir.path(),
+        "change_property_events.vcd",
+    ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--at",
+            "5ns",
+            "--scope",
+            "top",
+            "--signals",
+            "tik",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tik'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
 }
 
 #[test]
@@ -651,7 +720,7 @@ fn fsdb_value_uses_previous_sample_and_reports_missing_initial_value() {
     ]);
     assert_eq!(
         previous["data"][0]["signals"],
-        json!([{ "path": "top.late", "value": "1'h1" }])
+        json!([{ "path": "top.late", "relative_path": "late", "value": "1'h1" }])
     );
 
     wavepeek_cmd()
@@ -699,6 +768,27 @@ fn fsdb_value_rejects_non_bit_vector_signal() {
         .stderr(predicate::str::contains(
             "signal 'top.temp' has unsupported non-bit-vector encoding",
         ));
+
+    wavepeek_cmd()
+        .args([
+            "value",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--signals",
+            "tem",
+            "--at",
+            "0ns",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'tem'",
+        ))
+        .stderr(predicate::str::contains("closest query names:").not());
 }
 
 #[test]
@@ -725,7 +815,6 @@ fn fsdb_change_json_matches_vcd_contracts() {
     ];
     let fsdb_edge = run_json_success_with_waves(fsdb_fixture.as_str(), &edge_args);
     let vcd_edge = run_json_success_with_waves(vcd_fixture.as_str(), &edge_args);
-    assert_eq!(fsdb_edge["$schema"], expected_schema_url());
     assert_eq!(fsdb_edge["command"], "change");
     assert_eq!(fsdb_edge["diagnostics"], json!([]));
     assert_eq!(fsdb_edge["data"], vcd_edge["data"]);
@@ -733,24 +822,53 @@ fn fsdb_change_json_matches_vcd_contracts() {
         fsdb_edge["data"],
         json!([
             {"time": "5ns", "sample_time": "5ns", "signals": [
-                {"path": "top.valid", "value": "1'h1"},
-                {"path": "top.ready", "value": "1'h0"},
-                {"path": "top.data", "value": "8'h0f"}
+                {"path": "top.valid", "relative_path": "valid", "value": "1'h1"},
+                {"path": "top.ready", "relative_path": "ready", "value": "1'h0"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h0f"}
             ]},
             {"time": "15ns", "sample_time": "15ns", "signals": [
-                {"path": "top.valid", "value": "1'h1"},
-                {"path": "top.ready", "value": "1'h1"},
-                {"path": "top.data", "value": "8'h2a"}
+                {"path": "top.valid", "relative_path": "valid", "value": "1'h1"},
+                {"path": "top.ready", "relative_path": "ready", "value": "1'h1"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h2a"}
+            ]},
+            {"time": "35ns", "sample_time": "35ns", "signals": [
+                {"path": "top.valid", "relative_path": "valid", "value": "1'h1"},
+                {"path": "top.ready", "relative_path": "ready", "value": "1'h1"},
+                {"path": "top.data", "relative_path": "data", "value": "8'h3c"}
             ]}
         ])
     );
+
+    for (row_mode, row_values) in [("dense", "delta"), ("sparse", "full"), ("sparse", "delta")] {
+        let mode_args = [
+            "change",
+            "--scope",
+            "top",
+            "--signals",
+            "valid,ready,data",
+            "--from",
+            "0ns",
+            "--to",
+            "35ns",
+            "--on",
+            "posedge clk",
+            "--row-mode",
+            row_mode,
+            "--row-values",
+            row_values,
+            "--json",
+        ];
+        let fsdb_mode = run_json_success_with_waves(fsdb_fixture.as_str(), &mode_args);
+        let vcd_mode = run_json_success_with_waves(vcd_fixture.as_str(), &mode_args);
+        assert_eq!(fsdb_mode["data"], vcd_mode["data"]);
+    }
 
     let wildcard_args = [
         "change",
         "--scope",
         "top",
         "--signals",
-        "data",
+        "data[7:4]",
         "--from",
         "0ns",
         "--to",
@@ -763,16 +881,14 @@ fn fsdb_change_json_matches_vcd_contracts() {
     ];
     let fsdb_wildcard = run_json_success_with_waves(fsdb_fixture.as_str(), &wildcard_args);
     let vcd_wildcard = run_json_success_with_waves(vcd_fixture.as_str(), &wildcard_args);
-    assert_eq!(fsdb_wildcard["$schema"], expected_schema_url());
     assert_eq!(fsdb_wildcard["command"], "change");
     assert_eq!(fsdb_wildcard["diagnostics"], vcd_wildcard["diagnostics"]);
     assert_eq!(fsdb_wildcard["data"], vcd_wildcard["data"]);
     assert_eq!(
         fsdb_wildcard["data"],
         json!([
-            {"time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "value": "8'h0f"}]},
-            {"time": "7ns", "sample_time": "7ns", "signals": [{"path": "top.data", "value": "8'h1f"}]},
-            {"time": "15ns", "sample_time": "15ns", "signals": [{"path": "top.data", "value": "8'h2a"}]}
+            {"time": "7ns", "sample_time": "7ns", "signals": [{"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h1"}]},
+            {"time": "15ns", "sample_time": "15ns", "signals": [{"path": "top.data[7:4]", "relative_path": "data[7:4]", "value": "4'h2"}]}
         ])
     );
 
@@ -801,7 +917,7 @@ fn fsdb_change_json_matches_vcd_contracts() {
     );
     assert_eq!(
         fsdb_truncated["data"],
-        json!([{ "time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "value": "8'h0f"}] }])
+        json!([{ "time": "5ns", "sample_time": "5ns", "signals": [{"path": "top.data", "relative_path": "data", "value": "8'h0f"}] }])
     );
 
     let relative = run_stdout_success(&[
@@ -871,7 +987,6 @@ fn fsdb_property_json_matches_vcd_contracts() {
     ];
     let fsdb_switch = run_json_success_with_waves(fsdb_core.as_str(), &switch_args);
     let vcd_switch = run_json_success_with_waves(vcd_core.as_str(), &switch_args);
-    assert_eq!(fsdb_switch["$schema"], expected_schema_url());
     assert_eq!(fsdb_switch["command"], "property");
     assert_eq!(fsdb_switch["diagnostics"], json!([]));
     assert_eq!(fsdb_switch["data"], vcd_switch["data"]);
@@ -896,7 +1011,6 @@ fn fsdb_property_json_matches_vcd_contracts() {
     ];
     let fsdb_match = run_json_success_with_waves(fsdb_core.as_str(), &match_args);
     let vcd_match = run_json_success_with_waves(vcd_core.as_str(), &match_args);
-    assert_eq!(fsdb_match["$schema"], expected_schema_url());
     assert_eq!(fsdb_match["command"], "property");
     assert_eq!(fsdb_match["diagnostics"], vcd_match["diagnostics"]);
     assert_eq!(fsdb_match["data"], vcd_match["data"]);
@@ -992,8 +1106,8 @@ fn fsdb_raw_event_property_matches_vcd_when_converter_preserves_events() {
     assert_eq!(
         signal_listing["data"],
         json!([
-            {"name": "armed", "path": "top.armed", "kind": "wire", "width": 1},
-            {"name": "tick", "path": "top.tick", "kind": "event", "width": 1}
+            {"name": "armed", "path": "top.armed", "relative_path": "armed", "kind": "wire", "width": 1},
+            {"name": "tick", "path": "top.tick", "relative_path": "tick", "kind": "event", "width": 1}
         ])
     );
 
@@ -1313,7 +1427,7 @@ fn assert_scope_entry(entry: &Value) {
     let kind = entry["kind"].as_str().expect("scope kind should be string");
     assert!(
         SCOPE_KIND_ALIASES.contains(&kind),
-        "scope kind {kind:?} should be public-schema compatible"
+        "scope kind {kind:?} should use a stable public alias"
     );
 }
 
@@ -1324,15 +1438,26 @@ fn assert_signal_entry(entry: &Value) {
     let path = entry["path"]
         .as_str()
         .expect("signal path should be string");
+    let relative_path = entry["relative_path"]
+        .as_str()
+        .expect("relative signal path should be string");
     assert!(!name.is_empty(), "signal name should not be empty");
     assert!(!path.is_empty(), "signal path should not be empty");
+    assert!(
+        !relative_path.is_empty(),
+        "relative signal path should not be empty"
+    );
     assert!(!path.contains('/'), "signal path should be dot-separated");
+    assert!(
+        !relative_path.contains('/'),
+        "relative signal path should be dot-separated"
+    );
     let kind = entry["kind"]
         .as_str()
         .expect("signal kind should be string");
     assert!(
         SIGNAL_KIND_ALIASES.contains(&kind),
-        "signal kind {kind:?} should be public-schema compatible"
+        "signal kind {kind:?} should use a stable public alias"
     );
     if let Some(width) = entry.get("width") {
         assert!(

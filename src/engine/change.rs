@@ -2,7 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use serde::Serialize;
 
-use crate::cli::change::{ChangeArgs, TuneChangeCandidateMode, TuneChangeEngineMode};
+use crate::cli::change::{
+    ChangeArgs, RowMode, RowValues, TuneChangeCandidateMode, TuneChangeEngineMode,
+};
 use crate::cli::limits::LimitArg;
 use crate::cli::sampling::SampleMode;
 use crate::debug_trace::DebugTrace;
@@ -10,27 +12,25 @@ use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{
     SharedWaveform, bind_waveform_event_expr, candidate_sources_for_handles,
     event_candidate_handles, event_expr_contains_wildcard, event_expr_is_any_tracked_only,
-    event_expr_is_edge_only, event_expr_matches, open_shared_waveform,
+    event_expr_is_edge_only, event_expr_matches, event_expr_matches_with_any_tracked,
+    expr_diagnostic, open_shared_waveform,
 };
+use crate::engine::signal_projection::{ProjectedSignal, resolve_projected_signal};
 use crate::engine::time::{
     DumpTimeContext, ParsedTime, TimeValidationError, format_raw_timestamp,
     parse_dump_time_context, validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, scoped_signal_path,
-};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::{
     BoundEventExpr, EventEvalFrame, ExprTypeKind, ExpressionHost, SampledValue, SignalHandle,
 };
 use crate::waveform::{
     ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    SignalId, SignalOffsetData, Waveform, expr_host::WaveformExprHost,
-    should_emit_delta_and_update_baseline,
+    SignalId, SignalOffsetData, Waveform, display_signal_path, expr_host::WaveformExprHost,
 };
 
-const EMPTY_RESULT_MESSAGE: &str = "no signal changes found in selected time range";
 const EDGE_FAST_MIN_WORK: usize = 1_000_000;
 const AUTO_FUSED_MIN_ESTIMATED_WORK: usize = 100_000;
 const AUTO_EDGE_ONLY_MIN_ESTIMATED_WORK: usize = 500_000;
@@ -50,6 +50,8 @@ pub struct ChangeSignalValue {
     #[serde(skip_serializing)]
     pub display: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relative_path: Option<String>,
     pub value: String,
 }
 
@@ -63,7 +65,8 @@ pub struct ChangeSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RequestedSignal {
     display: String,
-    path: String,
+    relative_path: Option<String>,
+    selected: ProjectedSignal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,11 +103,11 @@ struct ChangeRunStats {
 struct ChangeCommandOutcome {
     human_options: HumanRenderOptions,
     diagnostics: Vec<Diagnostic>,
-    stats: ChangeRunStats,
+    summary: ResultSummary,
 }
 
 trait ChangeSnapshotSink {
-    fn start(&mut self) -> Result<(), WavepeekError> {
+    fn start(&mut self, _scope: Option<&str>) -> Result<(), WavepeekError> {
         Ok(())
     }
 
@@ -128,12 +131,15 @@ struct JsonlChangeSink<'a, W: std::io::Write> {
 }
 
 impl<W: std::io::Write> ChangeSnapshotSink for JsonlChangeSink<'_, W> {
-    fn start(&mut self) -> Result<(), WavepeekError> {
-        self.writer.begin()
+    fn start(&mut self, scope: Option<&str>) -> Result<(), WavepeekError> {
+        match scope {
+            Some(scope) => self.writer.begin_scope(scope),
+            None => self.writer.begin(),
+        }
     }
 
     fn emit(&mut self, snapshot: ChangeSnapshot) -> Result<(), WavepeekError> {
-        self.writer.item(&snapshot)
+        self.writer.data(&snapshot)
     }
 }
 
@@ -257,6 +263,8 @@ fn indexed_timestamps(waveform: &Waveform) -> Result<&[u64], WavepeekError> {
 
 pub fn run(args: ChangeArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
+    let scope = args.scope.clone();
+    let summary_only = args.summary;
     let mut sink = CollectingChangeSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -264,7 +272,10 @@ pub fn run(args: ChangeArgs) -> Result<CommandResult, WavepeekError> {
         command: CommandName::Change,
         output_mode,
         human_options: outcome.human_options,
+        scope,
+        summary_only,
         data: CommandData::Change(sink.snapshots),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -273,6 +284,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: ChangeArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlChangeSink { writer };
         run_with_sink(args, &mut sink)?
@@ -281,7 +293,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
@@ -299,12 +311,6 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     };
 
     let mut diagnostics = Vec::new();
-    if args.max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
 
     let debug = DebugTrace::for_command(CommandName::Change);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -321,7 +327,7 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     let metadata = waveform.borrow().metadata()?;
     debug.event("metadata.load.done", || serde_json::json!({}));
 
-    let requested_signals = {
+    let mut requested_signals = {
         let waveform_ref = waveform.borrow();
         resolve_requested_signals(&waveform_ref, args.scope.as_deref(), &args)?
     };
@@ -364,12 +370,31 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
     let baseline_raw = from_raw;
     let requested_paths_owned = requested_signals
         .iter()
-        .map(|signal| signal.path.clone())
+        .map(|signal| signal.selected.source.path.clone())
         .collect::<Vec<_>>();
-    let requested_resolved = waveform.borrow().resolve_signals(&requested_paths_owned)?;
-    let requested_expr_sources = waveform
-        .borrow()
-        .resolve_expr_signals(&requested_paths_owned)?;
+    let requested_query_names = requested_signals
+        .iter()
+        .map(|signal| signal.display.clone())
+        .collect::<Vec<_>>();
+    let requested_resolved = requested_signals
+        .iter()
+        .map(|signal| signal.selected.source.clone())
+        .collect::<Vec<_>>();
+    for requested in &mut requested_signals {
+        let display = display_signal_path(requested.selected.path.as_str(), args.scope.as_deref())
+            .to_string();
+        requested.relative_path = if (args.json || args.jsonl) && args.scope.is_some() {
+            Some(display.clone())
+        } else {
+            None
+        };
+        requested.display = display;
+    }
+    let requested_expr_sources = waveform.borrow().resolve_expr_signals_with_diagnostics(
+        &requested_paths_owned,
+        &requested_query_names,
+        args.scope.as_deref(),
+    )?;
     let tracked_signal_handles = requested_paths_owned
         .iter()
         .map(|path| {
@@ -434,7 +459,7 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
         "change.run.start",
         || serde_json::json!({"selected_engine": selected_engine_name}),
     );
-    sink.start()?;
+    sink.start(args.scope.as_deref())?;
     let stats = if args.sample_mode == SampleMode::PreEdge {
         run_pre_edge_emit(
             &waveform,
@@ -452,6 +477,8 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             dump_start_raw,
+            args.row_mode,
+            args.row_values,
             sink,
         )?
     } else {
@@ -472,6 +499,8 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
                 max_entries,
                 candidate_mode,
                 None,
+                args.row_mode,
+                args.row_values,
                 sink,
             )?,
             ChangeEngineMode::Fused => run_fused_emit(
@@ -489,6 +518,8 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
                 dump_tick,
                 max_entries,
                 candidate_mode,
+                args.row_mode,
+                args.row_values,
                 sink,
             )?,
             ChangeEngineMode::EdgeFast => run_edge_fast_emit(
@@ -507,6 +538,8 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
                 max_entries,
                 candidate_mode,
                 args.tune_edge_fast_force,
+                args.row_mode,
+                args.row_values,
                 sink,
             )?,
         }
@@ -519,13 +552,6 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
             "truncated": stats.truncated,
         })
     });
-
-    if stats.emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            EMPTY_RESULT_MESSAGE,
-        ));
-    }
 
     if let Some(max_entries) = max_entries
         && stats.truncated
@@ -542,7 +568,7 @@ fn run_with_sink<S: ChangeSnapshotSink + ?Sized>(
             signals_abs: args.abs,
         },
         diagnostics,
-        stats,
+        summary: ResultSummary::from_run(stats.emitted, max_entries, stats.truncated),
     })
 }
 
@@ -646,6 +672,8 @@ fn run_baseline(
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
     precomputed_candidate_times: Option<Vec<u64>>,
+    row_mode: RowMode,
+    row_values: RowValues,
 ) -> Result<ChangeRunOutput, WavepeekError> {
     let mut sink = CollectingChangeSink::default();
     let stats = run_baseline_emit(
@@ -664,6 +692,8 @@ fn run_baseline(
         max_entries,
         candidate_mode,
         precomputed_candidate_times,
+        row_mode,
+        row_values,
         &mut sink,
     )?;
     Ok(ChangeRunOutput {
@@ -689,6 +719,8 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
     precomputed_candidate_times: Option<Vec<u64>>,
+    row_mode: RowMode,
+    row_values: RowValues,
     sink: &mut S,
 ) -> Result<ChangeRunStats, WavepeekError> {
     let candidate_times = if let Some(precomputed_candidate_times) = precomputed_candidate_times {
@@ -704,74 +736,107 @@ fn run_baseline_emit<S: ChangeSnapshotSink + ?Sized>(
             )?
     };
     let mut sample_cache = SampleCache::default();
-    sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples =
+            sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
+        sample_values(&project_samples(requested_signals, baseline_samples)?)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
 
+    let has_projected_wildcard = event_expr_contains_wildcard(bound_event)
+        && requested_signals
+            .iter()
+            .any(|requested| requested.selected.is_projected());
+    let unprojected_event_handles = if has_projected_wildcard {
+        collect_unprojected_event_handles(host, requested_signals, tracked_signal_handles)?
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
     for timestamp in candidate_times {
+        if row_mode == RowMode::Sparse && timestamp <= baseline_raw {
+            continue;
+        }
+
         let previous_timestamp = waveform.borrow().previous_sample_time(timestamp);
-        let current_samples =
-            sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
-        let previous_samples = if let Some(previous) = previous_timestamp {
-            sample_cache.sample_requested_batch(waveform, requested_resolved, previous)?
+        let (wildcard_changed, current_samples) = if has_projected_wildcard {
+            let current =
+                sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
+            let current = project_samples(requested_signals, current)?;
+            let value_changed = if let Some(previous_timestamp) = previous_timestamp {
+                let previous = sample_cache.sample_requested_batch(
+                    waveform,
+                    requested_resolved,
+                    previous_timestamp,
+                )?;
+                selected_value_changed(&project_samples(requested_signals, previous)?, &current)
+            } else {
+                false
+            };
+            let changed = value_changed
+                || any_event_occurred(
+                    host,
+                    &unprojected_event_handles,
+                    timestamp,
+                    event_expr_source,
+                )?;
+            (Some(changed), Some(current))
         } else {
-            requested_resolved
-                .iter()
-                .map(|signal| SampledSignalState {
-                    path: signal.path.clone(),
-                    width: signal.width,
-                    bits: None,
-                })
-                .collect::<Vec<_>>()
+            (None, None)
         };
-
-        if timestamp <= baseline_raw {
-            sample_cache.retain_only(timestamp);
-            continue;
-        }
-
-        let mut previous_values = previous_samples
-            .iter()
-            .map(|sample| sample.bits.clone())
-            .collect::<Vec<_>>();
-        let current_values = current_samples
-            .iter()
-            .map(|sample| sample.bits.clone())
-            .collect::<Vec<_>>();
-
-        let should_emit =
-            should_emit_delta_and_update_baseline(&mut previous_values, &current_values);
-        if !should_emit {
-            sample_cache.retain_only(timestamp);
-            continue;
-        }
-
         let frame = EventEvalFrame {
             timestamp,
             previous_timestamp,
             tracked_signals: tracked_signal_handles,
         };
-        if !event_expr_matches(event_expr_source, bound_event, host, &frame)? {
-            sample_cache.retain_only(timestamp);
+        let event_matches = match wildcard_changed {
+            Some(changed) => event_expr_matches_with_any_tracked(
+                event_expr_source,
+                bound_event,
+                host,
+                &frame,
+                changed,
+            )?,
+            None => event_expr_matches(event_expr_source, bound_event, host, &frame)?,
+        };
+        if !event_matches {
+            if current_samples.is_some() {
+                sample_cache.retain_only(timestamp);
+                debug_assert!(sample_cache.requested_batches.len() <= 1);
+            }
             continue;
         }
 
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        sink.emit(build_snapshot(
+        let current_samples = match current_samples {
+            Some(samples) => samples,
+            None => {
+                let samples =
+                    sample_cache.sample_requested_batch(waveform, requested_resolved, timestamp)?;
+                project_samples(requested_signals, samples)?
+            }
+        };
+        let stop = emit_row(
             requested_signals,
-            current_samples.as_slice(),
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             timestamp,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )?;
         sample_cache.retain_only(timestamp);
+        if stop {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -794,6 +859,8 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
     dump_start_raw: u64,
+    row_mode: RowMode,
+    row_values: RowValues,
     sink: &mut S,
 ) -> Result<ChangeRunStats, WavepeekError> {
     let candidate_times = waveform
@@ -805,21 +872,24 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
             candidate_mode,
         )?;
     let mut sample_cache = SampleCache::default();
-    let baseline_samples =
-        sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
-    let mut previous_values = baseline_samples
-        .iter()
-        .map(|sample| sample.bits.clone())
-        .collect::<Vec<_>>();
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples =
+            sample_cache.sample_requested_batch(waveform, requested_resolved, baseline_raw)?;
+        sample_values(&project_samples(requested_signals, baseline_samples)?)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
 
     let mut emitted = 0usize;
     let mut truncated = false;
     for timestamp in candidate_times {
-        let previous_timestamp = waveform.borrow().previous_sample_time(timestamp);
-        if timestamp <= baseline_raw {
+        if row_mode == RowMode::Sparse && timestamp <= baseline_raw {
             continue;
         }
 
+        let previous_timestamp = waveform.borrow().previous_sample_time(timestamp);
         let frame = EventEvalFrame {
             timestamp,
             previous_timestamp,
@@ -835,31 +905,23 @@ fn run_pre_edge_emit<S: ChangeSnapshotSink + ?Sized>(
 
         let current_samples =
             sample_cache.sample_requested_batch(waveform, requested_resolved, sample_time)?;
-        let current_values = current_samples
-            .iter()
-            .map(|sample| sample.bits.clone())
-            .collect::<Vec<_>>();
-        let should_emit =
-            should_emit_delta_and_update_baseline(&mut previous_values, &current_values);
-        if !should_emit {
-            continue;
-        }
-
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        sink.emit(build_snapshot(
+        let current_samples = project_samples(requested_signals, current_samples)?;
+        if emit_row(
             requested_signals,
-            current_samples.as_slice(),
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             sample_time,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )? {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -882,6 +944,8 @@ fn run_baseline_fallback_emit<S: ChangeSnapshotSink + ?Sized>(
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
     precomputed_candidate_times: Option<Vec<u64>>,
+    row_mode: RowMode,
+    row_values: RowValues,
     sink: &mut S,
 ) -> Result<ChangeRunStats, WavepeekError> {
     run_baseline_emit(
@@ -900,6 +964,8 @@ fn run_baseline_fallback_emit<S: ChangeSnapshotSink + ?Sized>(
         max_entries,
         candidate_mode,
         precomputed_candidate_times,
+        row_mode,
+        row_values,
         sink,
     )
 }
@@ -922,6 +988,8 @@ fn run_edge_fast(
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
     force_edge_fast: bool,
+    row_mode: RowMode,
+    row_values: RowValues,
 ) -> Result<ChangeRunOutput, WavepeekError> {
     let mut sink = CollectingChangeSink::default();
     let stats = run_edge_fast_emit(
@@ -940,6 +1008,8 @@ fn run_edge_fast(
         max_entries,
         candidate_mode,
         force_edge_fast,
+        row_mode,
+        row_values,
         &mut sink,
     )?;
     Ok(ChangeRunOutput {
@@ -965,6 +1035,8 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
     force_edge_fast: bool,
+    row_mode: RowMode,
+    row_values: RowValues,
     sink: &mut S,
 ) -> Result<ChangeRunStats, WavepeekError> {
     if !event_expr_is_edge_only(bound_event) {
@@ -984,6 +1056,8 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             None,
+            row_mode,
+            row_values,
             sink,
         );
     }
@@ -1018,6 +1092,8 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             Some(candidate_times),
+            row_mode,
+            row_values,
             sink,
         );
     }
@@ -1039,6 +1115,8 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             Some(candidate_times),
+            row_mode,
+            row_values,
             sink,
         );
     }
@@ -1077,6 +1155,8 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             Some(candidate_times),
+            row_mode,
+            row_values,
             sink,
         );
     }
@@ -1086,10 +1166,21 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
     )?;
 
     let mut decode_cache = IndexDecodeCache::default();
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples = waveform
+            .borrow_mut()
+            .sample_resolved_optional(requested_resolved, baseline_raw)?;
+        sample_values(&project_samples(requested_signals, baseline_samples)?)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
 
     for (candidate_index, timestamp) in candidate_indices.into_iter().zip(candidate_times) {
+        decode_cache.entries.clear();
         let candidate_index_u32 = u32::try_from(candidate_index).map_err(|_| {
             WavepeekError::Internal("time table index exceeds u32 range".to_string())
         })?;
@@ -1097,50 +1188,7 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
             .checked_sub(1)
             .and_then(|idx| u32::try_from(idx).ok());
 
-        if timestamp <= baseline_raw {
-            continue;
-        }
-
-        let mut any_requested_offset_changed = false;
-        let mut delta_confirmed = false;
-
-        {
-            let waveform_ref = waveform.borrow();
-            for resolved in requested_resolved {
-                let current_offset = waveform_ref
-                    .indexed_signal_offset_at(resolved.id, candidate_index_u32)
-                    .ok_or_else(indexed_backend_unavailable)?;
-                let previous_offset = previous_index
-                    .map(|idx| {
-                        waveform_ref
-                            .indexed_signal_offset_at(resolved.id, idx)
-                            .ok_or_else(indexed_backend_unavailable)
-                    })
-                    .transpose()?
-                    .flatten();
-                if current_offset == previous_offset {
-                    continue;
-                }
-
-                any_requested_offset_changed = true;
-                let current_bits =
-                    decode_cache.bits(&waveform_ref, resolved, candidate_index_u32)?;
-                let previous_bits = previous_index
-                    .map(|idx| decode_cache.bits(&waveform_ref, resolved, idx))
-                    .transpose()?
-                    .flatten();
-
-                if let (Some(previous_bits), Some(current_bits)) =
-                    (previous_bits.as_ref(), current_bits.as_ref())
-                    && previous_bits != current_bits
-                {
-                    delta_confirmed = true;
-                    break;
-                }
-            }
-        }
-
-        if !any_requested_offset_changed || !delta_confirmed {
+        if row_mode == RowMode::Sparse && timestamp <= baseline_raw {
             continue;
         }
 
@@ -1171,13 +1219,6 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
             continue;
         }
 
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
         let current_samples = requested_resolved
             .iter()
             .map(|resolved| {
@@ -1189,14 +1230,23 @@ fn run_edge_fast_emit<S: ChangeSnapshotSink + ?Sized>(
                 })
             })
             .collect::<Result<Vec<_>, WavepeekError>>()?;
-        sink.emit(build_snapshot(
+        let current_samples = project_samples(requested_signals, current_samples)?;
+        if emit_row(
             requested_signals,
-            current_samples.as_slice(),
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             timestamp,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )? {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -1219,6 +1269,8 @@ fn run_fused(
     dump_tick: ParsedTime,
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
+    row_mode: RowMode,
+    row_values: RowValues,
 ) -> Result<ChangeRunOutput, WavepeekError> {
     let mut sink = CollectingChangeSink::default();
     let stats = run_fused_emit(
@@ -1236,6 +1288,8 @@ fn run_fused(
         dump_tick,
         max_entries,
         candidate_mode,
+        row_mode,
+        row_values,
         &mut sink,
     )?;
     Ok(ChangeRunOutput {
@@ -1260,6 +1314,8 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
     dump_tick: ParsedTime,
     max_entries: Option<usize>,
     candidate_mode: ChangeCandidateCollectionMode,
+    row_mode: RowMode,
+    row_values: RowValues,
     sink: &mut S,
 ) -> Result<ChangeRunStats, WavepeekError> {
     if waveform.borrow().indexed_timestamps().is_none() {
@@ -1279,15 +1335,19 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             None,
+            row_mode,
+            row_values,
             sink,
         );
     }
 
-    let mut tracked_resolved = requested_resolved.to_vec();
-    let mut tracked_seen = tracked_resolved
-        .iter()
-        .map(|signal| signal.id)
-        .collect::<HashSet<_>>();
+    let mut tracked_resolved = Vec::new();
+    let mut tracked_seen = HashSet::new();
+    for signal in requested_resolved {
+        if tracked_seen.insert(signal.id) {
+            tracked_resolved.push(signal.clone());
+        }
+    }
     for signal in candidate_sources {
         if tracked_seen.insert(signal.id) {
             tracked_resolved.push(ResolvedSignal {
@@ -1314,15 +1374,6 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let requested_slot_by_tracked = {
-        let mut slots = vec![None; tracked_resolved.len()];
-        for (requested_index, tracked_index) in
-            requested_tracked_indices.iter().copied().enumerate()
-        {
-            slots[tracked_index] = Some(requested_index);
-        }
-        slots
-    };
     let candidate_tracked_indices = candidate_sources
         .iter()
         .map(|signal| {
@@ -1359,6 +1410,8 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             max_entries,
             candidate_mode,
             None,
+            row_mode,
+            row_values,
             sink,
         );
     }
@@ -1433,6 +1486,25 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
 
     let mut changed_offsets = vec![false; tracked_resolved.len()];
     let mut previous_bits = vec![None; tracked_resolved.len()];
+    let mut previous_values = if row_mode == RowMode::Sparse {
+        let baseline_samples = waveform
+            .borrow_mut()
+            .sample_resolved_optional(requested_resolved, baseline_raw)?;
+        sample_values(&project_samples(requested_signals, baseline_samples)?)
+    } else if row_values == RowValues::Delta {
+        vec![None; requested_resolved.len()]
+    } else {
+        Vec::new()
+    };
+    let has_projected_wildcard = event_expr_contains_wildcard(bound_event)
+        && requested_signals
+            .iter()
+            .any(|requested| requested.selected.is_projected());
+    let unprojected_event_handles = if has_projected_wildcard {
+        collect_unprojected_event_handles(host, requested_signals, tracked_signal_handles)?
+    } else {
+        Vec::new()
+    };
     let mut emitted = 0usize;
     let mut truncated = false;
     let mut stream_cursor = 0usize;
@@ -1448,9 +1520,6 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
         let idx_u32 = u32::try_from(idx).map_err(|_| {
             WavepeekError::Internal("time table index exceeds u32 range".to_string())
         })?;
-
-        let mut any_requested_offset_changed = false;
-        let mut delta_confirmed = false;
 
         {
             let waveform_ref = waveform.borrow();
@@ -1471,16 +1540,6 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
                     .decode_indexed_signal_at(signal, idx_u32)?
                     .ok_or_else(indexed_backend_unavailable)?
                     .bits;
-
-                if requested_slot_by_tracked[tracked_index].is_some() {
-                    any_requested_offset_changed = true;
-                    if let (Some(previous), Some(current)) =
-                        (previous.as_ref(), rolling[tracked_index].bits.as_ref())
-                        && previous != current
-                    {
-                        delta_confirmed = true;
-                    }
-                }
             }
         }
 
@@ -1500,11 +1559,7 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
                 .iter()
                 .any(|candidate_index| changed_offsets[*candidate_index])
         };
-        if !is_candidate
-            || timestamp <= baseline_raw
-            || !any_requested_offset_changed
-            || !delta_confirmed
-        {
+        if !is_candidate || (row_mode == RowMode::Sparse && timestamp <= baseline_raw) {
             continue;
         }
 
@@ -1522,39 +1577,76 @@ fn run_fused_emit<S: ChangeSnapshotSink + ?Sized>(
             rolling.as_slice(),
             previous_bits.as_slice(),
         );
+        let (wildcard_changed, current_samples) = if has_projected_wildcard {
+            let current = project_rolling_samples(
+                requested_signals,
+                &requested_tracked_indices,
+                &rolling,
+                None,
+            )?;
+            let previous = project_rolling_samples(
+                requested_signals,
+                &requested_tracked_indices,
+                &rolling,
+                Some(&previous_bits),
+            )?;
+            let value_changed =
+                previous_timestamp.is_some() && selected_value_changed(&previous, &current);
+            let changed = value_changed
+                || any_event_occurred(
+                    host,
+                    &unprojected_event_handles,
+                    timestamp,
+                    event_expr_source,
+                )?;
+            (Some(changed), Some(current))
+        } else {
+            (None, None)
+        };
         let frame = EventEvalFrame {
             timestamp,
             previous_timestamp,
             tracked_signals: tracked_signal_handles,
         };
-        if !event_expr_matches(event_expr_source, bound_event, &fast_host, &frame)? {
+        let event_matches = match wildcard_changed {
+            Some(changed) => event_expr_matches_with_any_tracked(
+                event_expr_source,
+                bound_event,
+                &fast_host,
+                &frame,
+                changed,
+            )?,
+            None => event_expr_matches(event_expr_source, bound_event, &fast_host, &frame)?,
+        };
+        if !event_matches {
             continue;
         }
 
-        if let Some(limit) = max_entries
-            && emitted == limit
-        {
-            truncated = true;
-            break;
-        }
-
-        let current_samples = requested_tracked_indices
-            .iter()
-            .zip(requested_resolved.iter())
-            .map(|(tracked_index, resolved)| SampledSignalState {
-                path: resolved.path.clone(),
-                width: resolved.width,
-                bits: rolling[*tracked_index].bits.clone(),
-            })
-            .collect::<Vec<_>>();
-        sink.emit(build_snapshot(
+        let current_samples = match current_samples {
+            Some(samples) => samples,
+            None => project_rolling_samples(
+                requested_signals,
+                &requested_tracked_indices,
+                &rolling,
+                None,
+            )?,
+        };
+        if emit_row(
             requested_signals,
-            current_samples.as_slice(),
+            &current_samples,
+            &mut previous_values,
+            row_mode,
+            row_values,
+            max_entries,
+            &mut emitted,
             timestamp,
             timestamp,
             dump_tick,
-        )?)?;
-        emitted += 1;
+            sink,
+        )? {
+            truncated = true;
+            break;
+        }
     }
 
     Ok(ChangeRunStats { emitted, truncated })
@@ -1568,9 +1660,165 @@ fn should_use_stream_candidates_in_fused(mode: ChangeCandidateCollectionMode) ->
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn emit_row<S: ChangeSnapshotSink + ?Sized>(
+    requested_signals: &[RequestedSignal],
+    current_samples: &[SampledSignalState],
+    previous_values: &mut [Option<String>],
+    row_mode: RowMode,
+    row_values: RowValues,
+    max_entries: Option<usize>,
+    emitted: &mut usize,
+    timestamp: u64,
+    sample_time: u64,
+    dump_tick: ParsedTime,
+    sink: &mut S,
+) -> Result<bool, WavepeekError> {
+    let track_changes = row_mode == RowMode::Sparse || row_values == RowValues::Delta;
+    let (any_changed, changed) = if track_changes {
+        changed_values_and_update(
+            previous_values,
+            current_samples,
+            row_values == RowValues::Delta,
+        )
+    } else {
+        (false, Vec::new())
+    };
+    if row_mode == RowMode::Sparse && !any_changed {
+        return Ok(false);
+    }
+    if max_entries == Some(*emitted) {
+        return Ok(true);
+    }
+
+    let changed = if row_values == RowValues::Delta && *emitted > 0 {
+        Some(changed.as_slice())
+    } else {
+        None
+    };
+    sink.emit(build_snapshot(
+        requested_signals,
+        current_samples,
+        changed,
+        timestamp,
+        sample_time,
+        dump_tick,
+    )?)?;
+    *emitted += 1;
+    Ok(false)
+}
+
+fn project_rolling_samples(
+    requested_signals: &[RequestedSignal],
+    tracked_indices: &[usize],
+    rolling: &[RollingSignalState],
+    previous_bits: Option<&[Option<Option<String>>]>,
+) -> Result<Vec<SampledSignalState>, WavepeekError> {
+    requested_signals
+        .iter()
+        .zip(tracked_indices)
+        .map(|(requested, tracked_index)| {
+            let bits = previous_bits
+                .and_then(|previous| previous[*tracked_index].as_ref())
+                .map_or(rolling[*tracked_index].bits.as_deref(), |bits| {
+                    bits.as_deref()
+                });
+            Ok(SampledSignalState {
+                path: requested.selected.path.clone(),
+                width: requested.selected.width(),
+                bits: requested.selected.project_bits(bits)?,
+            })
+        })
+        .collect()
+}
+
+fn project_samples(
+    requested_signals: &[RequestedSignal],
+    samples: Vec<SampledSignalState>,
+) -> Result<Vec<SampledSignalState>, WavepeekError> {
+    if requested_signals.len() != samples.len() {
+        return Err(WavepeekError::Internal(
+            "requested signal and sample counts do not match".to_string(),
+        ));
+    }
+    requested_signals
+        .iter()
+        .zip(samples)
+        .map(|(requested, sample)| requested.selected.project_sample(sample))
+        .collect()
+}
+
+fn selected_value_changed(previous: &[SampledSignalState], current: &[SampledSignalState]) -> bool {
+    previous
+        .iter()
+        .zip(current)
+        .any(|(previous, current)| previous.bits != current.bits)
+}
+
+fn collect_unprojected_event_handles(
+    host: &dyn ExpressionHost,
+    requested_signals: &[RequestedSignal],
+    tracked_signal_handles: &[SignalHandle],
+) -> Result<Vec<SignalHandle>, WavepeekError> {
+    requested_signals
+        .iter()
+        .zip(tracked_signal_handles)
+        .filter(|(requested, _)| !requested.selected.is_projected())
+        .filter_map(|(_, handle)| match host.signal_type(*handle) {
+            Ok(ty) if ty.kind == ExprTypeKind::Event => Some(Ok(*handle)),
+            Ok(_) => None,
+            Err(error) => Some(Err(WavepeekError::Internal(error.message))),
+        })
+        .collect()
+}
+
+fn any_event_occurred(
+    host: &dyn ExpressionHost,
+    handles: &[SignalHandle],
+    timestamp: u64,
+    event_expr_source: &str,
+) -> Result<bool, WavepeekError> {
+    for handle in handles {
+        if host
+            .event_occurred(*handle, timestamp)
+            .map_err(|error| expr_diagnostic(event_expr_source, error))?
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn sample_values(samples: &[SampledSignalState]) -> Vec<Option<String>> {
+    samples.iter().map(|sample| sample.bits.clone()).collect()
+}
+
+fn changed_values_and_update(
+    previous_values: &mut [Option<String>],
+    current_samples: &[SampledSignalState],
+    collect_changes: bool,
+) -> (bool, Vec<bool>) {
+    let mut any_changed = false;
+    let mut changed_values = Vec::with_capacity(if collect_changes {
+        current_samples.len()
+    } else {
+        0
+    });
+    for (previous, current) in previous_values.iter_mut().zip(current_samples) {
+        let changed = *previous != current.bits;
+        any_changed |= changed;
+        previous.clone_from(&current.bits);
+        if collect_changes {
+            changed_values.push(changed);
+        }
+    }
+    (any_changed, changed_values)
+}
+
 fn build_snapshot(
     requested_signals: &[RequestedSignal],
     current_samples: &[SampledSignalState],
+    changed: Option<&[bool]>,
     timestamp: u64,
     sample_timestamp: u64,
     dump_tick: ParsedTime,
@@ -1578,16 +1826,19 @@ fn build_snapshot(
     let signals = requested_signals
         .iter()
         .zip(current_samples.iter())
-        .map(|(requested, sampled)| {
+        .enumerate()
+        .filter(|(index, _)| changed.is_none_or(|changed| changed[*index]))
+        .map(|(_, (requested, sampled))| {
             let bits = sampled.bits.as_ref().ok_or_else(|| {
                 WavepeekError::Signal(format!(
                     "signal '{}' has no value at or before requested time",
-                    requested.path
+                    requested.selected.path
                 ))
             })?;
             Ok(ChangeSignalValue {
                 display: requested.display.clone(),
-                path: requested.path.clone(),
+                path: requested.selected.path.clone(),
+                relative_path: requested.relative_path.clone(),
                 value: format_verilog_literal(sampled.width, bits.as_str()),
             })
         })
@@ -1654,12 +1905,11 @@ fn resolve_requested_signals(
             ));
         }
 
-        let path = scoped_signal_path(display, scope).ok_or_else(|| {
-            WavepeekError::Signal(format!("signal '{display}' not found in dump"))
-        })?;
+        let selected = resolve_projected_signal(waveform, display, scope)?;
         resolved.push(RequestedSignal {
             display: display.to_string(),
-            path,
+            relative_path: None,
+            selected,
         });
     }
 
@@ -1828,6 +2078,7 @@ mod change_inline_derive_tests {
         let signal = ChangeSignalValue {
             display: "sig".to_string(),
             path: "top.sig".to_string(),
+            relative_path: Some("sig".to_string()),
             value: "1'b1".to_string(),
         };
         assert_eq!(signal.clone(), signal);
@@ -1860,11 +2111,14 @@ mod tests {
         resolve_requested_signals, run, run_baseline, run_edge_fast, run_fused, run_with_sink,
         select_engine_mode, should_use_stream_candidates_in_fused, time_window_indices,
     };
-    use crate::cli::change::{ChangeArgs, TuneChangeCandidateMode, TuneChangeEngineMode};
+    use crate::cli::change::{
+        ChangeArgs, RowMode, RowValues, TuneChangeCandidateMode, TuneChangeEngineMode,
+    };
     use crate::cli::limits::LimitArg;
     use crate::cli::sampling::SampleMode;
     use crate::engine::CommandData;
     use crate::engine::expr_runtime::bind_waveform_event_expr;
+    use crate::engine::signal_projection::ProjectedSignal;
     use crate::error::WavepeekError;
     use crate::expr::SignalHandle;
     use crate::expr::host::{ExprStorage, ExprType, ExprTypeKind, ExpressionHost, SampledValue};
@@ -2008,12 +2262,15 @@ mod tests {
             from: None,
             to: None,
             scope: Some("top".to_string()),
-            signals: vec!["sig".to_string(), "msg".to_string()],
+            signals: vec!["sig".to_string()],
             on: "*".to_string(),
             sample_mode: SampleMode::Native,
+            row_mode: RowMode::Dense,
+            row_values: RowValues::Full,
             max: LimitArg::Numeric(5),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2022,18 +2279,20 @@ mod tests {
         let resolved = resolve_requested_signals(&waveform, args.scope.as_deref(), &args)
             .expect("signals should resolve");
         assert_eq!(resolved[0].display, "sig");
-        assert_eq!(resolved[0].path, "top.sig");
+        assert_eq!(resolved[0].selected.path, "top.sig");
 
         let snapshot = build_snapshot(
             &[RequestedSignal {
                 display: "sig".to_string(),
-                path: "top.sig".to_string(),
+                relative_path: Some("sig".to_string()),
+                selected: resolved[0].selected.clone(),
             }],
             &[SampledSignalState {
                 path: "top.sig".to_string(),
                 width: 1,
                 bits: Some("1".to_string()),
             }],
+            None,
             5,
             5,
             crate::engine::time::ParsedTime {
@@ -2049,13 +2308,15 @@ mod tests {
         let error = build_snapshot(
             &[RequestedSignal {
                 display: "sig".to_string(),
-                path: "top.sig".to_string(),
+                relative_path: Some("sig".to_string()),
+                selected: resolved[0].selected.clone(),
             }],
             &[SampledSignalState {
                 path: "top.sig".to_string(),
                 width: 1,
                 bits: None,
             }],
+            None,
             5,
             5,
             crate::engine::time::ParsedTime {
@@ -2362,21 +2623,19 @@ mod tests {
             signals: vec!["sig".to_string()],
             on: "posedge sig".to_string(),
             sample_mode: SampleMode::Native,
+            row_mode: RowMode::Dense,
+            row_values: RowValues::Full,
             max: LimitArg::Unlimited,
             abs: false,
             json: true,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
             tune_edge_fast_force: false,
         })
         .expect("change run should succeed");
-        assert_eq!(result.diagnostics.len(), 1);
-        assert_eq!(result.diagnostics[0].code(), Some("WPK-W0001"));
-        assert_eq!(
-            result.diagnostics[0].message(),
-            "limit disabled: --max=unlimited"
-        );
+        assert!(result.diagnostics.is_empty());
         let CommandData::Change(rows) = result.data else {
             panic!("change command should return change rows");
         };
@@ -2393,9 +2652,12 @@ mod tests {
             signals: vec!["sig".to_string()],
             on: "*".to_string(),
             sample_mode: SampleMode::Native,
+            row_mode: RowMode::Dense,
+            row_values: RowValues::Full,
             max: LimitArg::Numeric(0),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2416,9 +2678,12 @@ mod tests {
             signals: vec!["sig".to_string()],
             on: "posedge sig".to_string(),
             sample_mode: SampleMode::Native,
+            row_mode: RowMode::Dense,
+            row_values: RowValues::Full,
             max: LimitArg::Numeric(5),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Auto,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2442,8 +2707,11 @@ mod tests {
                 signals: vec!["sig".to_string()],
                 on: "posedge sig".to_string(),
                 sample_mode: SampleMode::Native,
+                row_mode: RowMode::Dense,
+                row_values: RowValues::Full,
                 max: LimitArg::Unlimited,
                 abs: false,
+                summary: false,
                 json: false,
                 jsonl: true,
                 tune_engine: TuneChangeEngineMode::Baseline,
@@ -2469,18 +2737,19 @@ mod tests {
             signals: vec!["sig".to_string()],
             on: "negedge sig".to_string(),
             sample_mode: SampleMode::Native,
+            row_mode: RowMode::Dense,
+            row_values: RowValues::Full,
             max: LimitArg::Numeric(5),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Baseline,
             tune_candidates: TuneChangeCandidateMode::Auto,
             tune_edge_fast_force: false,
         })
         .expect("empty result should still succeed");
-        assert_eq!(empty.diagnostics.len(), 1);
-        assert_eq!(empty.diagnostics[0].code(), Some("WPK-W0003"));
-        assert_eq!(empty.diagnostics[0].message(), super::EMPTY_RESULT_MESSAGE);
+        assert!(empty.diagnostics.is_empty());
 
         const MULTI_CHANGE_VCD: &str = concat!(
             "$date\n  today\n$end\n",
@@ -2501,9 +2770,12 @@ mod tests {
             signals: vec!["sig".to_string()],
             on: "*".to_string(),
             sample_mode: SampleMode::Native,
+            row_mode: RowMode::Dense,
+            row_values: RowValues::Full,
             max: LimitArg::Numeric(1),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
             tune_engine: TuneChangeEngineMode::Baseline,
             tune_candidates: TuneChangeCandidateMode::Auto,
@@ -2550,14 +2822,15 @@ mod tests {
         let (host, bound_event) =
             bind_waveform_event_expr(waveform.clone(), Some("top"), "posedge sig")
                 .expect("event expression should bind");
-        let requested_signals = vec![RequestedSignal {
-            display: "sig".to_string(),
-            path: "top.sig".to_string(),
-        }];
         let requested_resolved = waveform
             .borrow()
             .resolve_signals(&["top.sig".to_string()])
             .expect("signal should resolve");
+        let requested_signals = vec![RequestedSignal {
+            display: "sig".to_string(),
+            relative_path: Some("sig".to_string()),
+            selected: ProjectedSignal::unprojected(requested_resolved[0].clone()),
+        }];
         let requested_expr_sources = waveform
             .borrow()
             .resolve_expr_signals(&["top.sig".to_string()])
@@ -2584,6 +2857,8 @@ mod tests {
             None,
             ChangeCandidateCollectionMode::Random,
             None,
+            RowMode::Sparse,
+            RowValues::Full,
         )
         .expect("baseline should succeed");
         let edge_fast = run_edge_fast(
@@ -2602,6 +2877,8 @@ mod tests {
             None,
             ChangeCandidateCollectionMode::Random,
             false,
+            RowMode::Sparse,
+            RowValues::Full,
         )
         .expect("edge-fast fallback should succeed");
         assert_eq!(edge_fast.snapshots, baseline.snapshots);
@@ -2623,6 +2900,8 @@ mod tests {
             Some(0),
             ChangeCandidateCollectionMode::Random,
             true,
+            RowMode::Sparse,
+            RowValues::Full,
         )
         .expect("forced edge-fast path should run directly");
         assert!(forced_edge_fast.truncated);
@@ -2643,6 +2922,8 @@ mod tests {
             dump_tick,
             None,
             ChangeCandidateCollectionMode::Random,
+            RowMode::Sparse,
+            RowValues::Full,
         )
         .expect("fused should succeed");
         assert_eq!(fused.snapshots, baseline.snapshots);
@@ -2663,6 +2944,8 @@ mod tests {
             dump_tick,
             Some(0),
             ChangeCandidateCollectionMode::Random,
+            RowMode::Sparse,
+            RowValues::Full,
         )
         .expect("fused truncation branch should run");
         assert!(truncated_fused.truncated);

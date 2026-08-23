@@ -6,9 +6,8 @@ use predicates::prelude::*;
 mod common;
 use common::wavepeek_cmd;
 
-const VISIBLE_TOP_LEVEL_COMMANDS: [&str; 11] = [
-    "info", "scope", "signal", "value", "change", "property", "extract", "schema", "docs", "skill",
-    "help",
+const VISIBLE_TOP_LEVEL_COMMANDS: [&str; 9] = [
+    "info", "scope", "signal", "value", "change", "property", "extract", "skill", "help",
 ];
 
 #[cfg(feature = "fsdb")]
@@ -121,11 +120,10 @@ fn assert_human_flag_rejected(args: &[&str], command_name: &str) {
 #[test]
 fn closed_stdout_is_silent_success() {
     for args in [
-        &["schema"][..],
-        &["docs", "topics", "--json"],
-        &["--help"],
-        &["-V"],
-        &["--version"],
+        &["skill", "--help"][..],
+        &["--help"][..],
+        &["-V"][..],
+        &["--version"][..],
     ] {
         let (reader, writer) = io::pipe().expect("pipe should open");
         drop(reader);
@@ -158,7 +156,7 @@ fn no_args_prints_top_level_help_and_exits_zero() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "wavepeek is a machine-friendly command-line tool for RTL waveform inspection.",
+            "wavepeek queries saved RTL waveform dumps.",
         ))
         .stdout(predicate::str::contains("Usage: wavepeek"))
         .stderr(predicate::str::is_empty());
@@ -173,9 +171,8 @@ fn help_lists_expected_subcommands() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "wavepeek is a machine-friendly command-line tool for RTL waveform inspection.",
+            "wavepeek queries saved RTL waveform dumps.",
         ))
-        .stdout(predicate::str::contains("schema"))
         .stdout(predicate::str::contains("info"))
         .stdout(predicate::str::contains("scope"))
         .stdout(predicate::str::contains("\n  modules\n").not())
@@ -187,8 +184,6 @@ fn help_lists_expected_subcommands() {
         .stdout(predicate::str::contains("\n  changes\n").not())
         .stdout(predicate::str::contains("property"))
         .stdout(predicate::str::contains("extract"))
-        .stdout(predicate::str::contains("schema"))
-        .stdout(predicate::str::contains("docs"))
         .stdout(predicate::str::contains("skill"))
         .stdout(predicate::str::contains("\n  help"));
 }
@@ -201,39 +196,28 @@ fn top_level_help_documents_general_conventions() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("General conventions:"))
+        .stdout(predicate::str::contains("Behavior:"))
         .stdout(predicate::str::contains(
-            "Waveform-inspection commands require `--waves <FILE>`.",
+            "Each waveform command opens one waveform dump, runs one query, writes its output, and exits.",
         ))
         .stdout(predicate::str::contains(
-            "VCD/FST input is available in every build.",
-        ))
-        .stdout(predicate::str::contains(
-            "FSDB support is currently Linux x86_64 only and requires a build compiled with Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK.",
+            "Every build supports VCD and FST. FSDB requires Linux x86_64",
         ))
         .stdout(predicate::str::contains("Optional features:"))
         .stdout(predicate::str::contains(EXPECTED_FSDB_FEATURE_STATUS))
-        .stdout(
-            predicate::str::contains(
-                "Waveform-inspection commands keep their primary inputs as named flags",
-            )
-            .not(),
-        )
-        .stdout(
-            predicate::str::contains("`schema`, `docs`, and `help` are the non-waveform surfaces")
-                .not(),
-        )
-        .stdout(predicate::str::contains("Output is bounded by default"))
-        .stdout(predicate::str::contains("Default output is human-readable"))
         .stdout(predicate::str::contains(
-            "Time values require explicit units",
+            "Use `--json` for one JSON value or `--jsonl` for a stream of JSON records.",
         ))
         .stdout(predicate::str::contains(
-            "time-window flags (`--from`, `--to`) use inclusive boundaries",
+            "for example `250ps`, `10ns`, or `2us`",
         ))
         .stdout(predicate::str::contains(
-            "Process-level failures follow `fatal: <category>: <message>`",
-        ));
+            "The `--from` and `--to` boundaries are inclusive.",
+        ))
+        .stdout(predicate::str::contains(
+            "Names ending in `.md` refer to files in the packaged skill.",
+        ))
+        .stdout(predicate::str::contains("./wavepeek-skill/references/"));
 }
 
 #[test]
@@ -244,48 +228,16 @@ fn top_level_help_describes_shipped_subcommands_without_unimplemented_markers() 
         .arg("--help")
         .assert()
         .success()
-        .stdout(
-            predicate::str::contains("Get signal values at explicit time point(s)").and(
-                predicate::str::contains(
-                    "Get signal values at explicit time point(s) (not implemented yet)",
-                )
-                .not(),
-            ),
-        )
         .stdout(predicate::str::contains(
-            "List signal changes over a time range",
+            "Read selected signal values at one or more times.",
         ))
-        .stdout(
-            predicate::str::contains("List signal changes over a time range (not implemented yet)")
-                .not(),
-        )
         .stdout(predicate::str::contains(
-            "Evaluate properties over a time range",
+            "Read signal values at selected events over a time range.",
         ))
-        .stdout(
-            predicate::str::contains("Evaluate properties over a time range (not implemented yet)")
-                .not(),
-        );
-}
-
-#[test]
-fn help_lists_schema_after_waveform_commands() {
-    let mut command = wavepeek_cmd();
-
-    let assert = command.arg("--help").assert().success();
-    let output = String::from_utf8_lossy(&assert.get_output().stdout);
-
-    let schema_index = output
-        .find("\n  schema")
-        .expect("help output should list schema subcommand");
-    let extract_index = output
-        .find("\n  extract")
-        .expect("help output should list extract subcommand");
-
-    assert!(
-        schema_index > extract_index,
-        "schema should appear after waveform commands in top-level help"
-    );
+        .stdout(predicate::str::contains(
+            "Evaluate a Boolean expression at selected events.",
+        ))
+        .stdout(predicate::str::contains("not implemented yet").not());
 }
 
 #[test]
@@ -294,18 +246,14 @@ fn top_level_short_help_is_compact_and_points_to_next_layers() {
     let long_help = successful_stdout_text(&["--help"]);
 
     assert!(short_help.contains("Usage: wavepeek"));
-    assert!(short_help.contains("wavepeek --help"));
-    assert!(short_help.contains("wavepeek help <command-path...>"));
-    assert!(short_help.contains("wavepeek docs"));
-    assert!(short_help.contains("wavepeek skill"));
-    assert!(
-        !short_help.contains("General conventions:"),
-        "top-level short help should stay compact and omit long-form conventions"
-    );
-    assert!(
-        !short_help.contains("Optional features:"),
-        "top-level short help should stay compact and omit build feature status"
-    );
+    assert!(short_help.contains("wavepeek queries saved RTL waveform dumps."));
+    assert!(short_help.contains("skill"));
+    assert!(short_help.contains("help"));
+    assert!(!short_help.contains("Behavior:"));
+    assert!(!short_help.contains("Examples:"));
+    assert!(!short_help.contains("Notes:"));
+    assert!(!short_help.contains("Optional features:"));
+    assert!(!short_help.contains("Next steps:"));
     assert!(
         short_help.len() < long_help.len(),
         "top-level short help should be materially shorter than long help"
@@ -324,17 +272,14 @@ fn no_args_help_matches_short_help_output() {
 }
 
 #[test]
-fn top_level_long_help_describes_help_and_docs_entrypoints() {
+fn top_level_long_help_describes_help_and_skill_entrypoints() {
     let long_help = successful_stdout_text(&["--help"]);
 
-    assert!(long_help.contains("General conventions:"));
-    assert!(long_help.contains("wavepeek help <command-path...>"));
-    assert!(long_help.contains("wavepeek docs"));
-    assert!(long_help.contains("wavepeek skill"));
-    assert!(long_help.contains("Next steps:"));
-    assert!(!long_help.contains("wavepeek docs topics"));
-    assert!(!long_help.contains("wavepeek docs show <topic>"));
-    assert!(!long_help.contains("wavepeek docs skill"));
+    assert!(long_help.contains("Behavior:"));
+    assert!(long_help.contains("wavepeek help extract axi"));
+    assert!(long_help.contains("wavepeek skill ./wavepeek-skill"));
+    assert!(long_help.contains("./wavepeek-skill/references/"));
+    assert!(!long_help.contains("Next steps:"));
 }
 
 #[test]
@@ -354,15 +299,52 @@ fn help_subcommand_aliases_nested_long_help() {
         "wavepeek help change must match wavepeek change --help byte-for-byte",
     );
     assert_same_stdout(
-        &["help", "docs", "show"],
-        &["docs", "show", "--help"],
-        "wavepeek help docs show must match wavepeek docs show --help byte-for-byte",
-    );
-    assert_same_stdout(
         &["help", "skill"],
         &["skill", "--help"],
         "wavepeek help skill must match wavepeek skill --help byte-for-byte",
     );
+    assert_same_stdout(
+        &["help", "extract", "axi"],
+        &["extract", "axi", "--help"],
+        "wavepeek help extract axi must match wavepeek extract axi --help byte-for-byte",
+    );
+    assert_same_stdout(
+        &["extract", "help", "axi"],
+        &["extract", "axi", "--help"],
+        "wavepeek extract help axi must match wavepeek extract axi --help byte-for-byte",
+    );
+}
+
+#[test]
+fn help_command_documents_command_paths() {
+    let help = successful_stdout_text(&["help", "--help"]);
+
+    assert_eq!(
+        help.lines().next(),
+        Some("Show detailed help for a command path.")
+    );
+    assert!(help.contains("wavepeek help extract axi"));
+    assert!(help.contains("Command path to describe (for example, extract axi)"));
+    assert!(help.contains("Notes:"));
+    assert!(help.contains("commands.md"));
+}
+
+#[test]
+fn help_commands_reject_path_delimiters_without_panicking() {
+    for args in [
+        vec!["help", "--", "help", "anything", "--"],
+        vec!["extract", "help", "--", "axi", "anything", "--"],
+    ] {
+        wavepeek_cmd()
+            .args(args)
+            .assert()
+            .failure()
+            .stdout(predicate::str::is_empty())
+            .stderr(predicate::str::starts_with("fatal: args:"))
+            .stderr(predicate::str::contains(
+                "help command paths cannot contain '--'",
+            ));
+    }
 }
 
 #[test]
@@ -390,18 +372,10 @@ fn command_name_parser_ignores_wrapped_description_lines() {
 }
 
 #[test]
-fn waveform_help_uses_schema_reference_without_inline_envelope_or_parse_hints() {
+fn waveform_help_avoids_inline_envelope_or_parse_hints() {
     for command_name in ["info", "scope", "signal", "value", "change", "property"] {
         let long_help = successful_stdout_text(&[command_name, "--help"]);
 
-        assert!(
-            long_help.contains("wavepeek schema"),
-            "help for {command_name} should refer readers to wavepeek schema for JSON contract details"
-        );
-        assert!(
-            !long_help.contains("$schema"),
-            "help for {command_name} should not inline JSON envelope fields"
-        );
         assert!(
             !long_help.contains("`data`"),
             "help for {command_name} should not inline JSON envelope field names"
@@ -442,15 +416,20 @@ fn waveform_help_avoids_literal_error_or_warning_message_bodies() {
 }
 
 #[test]
-fn change_help_is_layered_without_examples_or_see_also() {
+fn change_help_is_layered_with_examples_and_notes() {
     let short_help = successful_stdout_text(&["change", "-h"]);
     let long_help = successful_stdout_text(&["change", "--help"]);
 
     assert!(short_help.contains("Usage: wavepeek change"));
+    assert!(!short_help.contains("Behavior:"));
     assert!(!short_help.contains("Examples:"));
-    assert!(!short_help.contains("See also:"));
-    assert!(!long_help.contains("Examples:"));
-    assert!(!long_help.contains("See also:"));
+    assert!(!short_help.contains("Notes:"));
+    assert!(long_help.contains("Behavior:"));
+    assert!(long_help.contains("Examples:"));
+    assert!(long_help.contains("Notes:"));
+    assert!(long_help.contains("inspect-values.md"));
+    assert!(long_help.contains("sampling.md"));
+    assert!(long_help.contains("event-expressions.md"));
     assert!(
         short_help.len() < long_help.len(),
         "change -h should be materially shorter than change --help"
@@ -466,47 +445,52 @@ fn change_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Provides range-based delta snapshots for selected signals.")
+            Some("Read signal values at selected events over a time range.")
         );
     }
 
     for fragment in [
-        "Prints requested signal values for each `--on` trigger firing",
-        "Similar to a modified SystemVerilog `$monitor`",
-        "Range boundaries are inclusive",
-        "Rows are emitted only when sampled signal values changed",
+        "`--on` selects events, and `--signals` selects the values printed for each event.",
+        "`--signals` accepts comma-separated values, repeated options, or both.",
+        "`--row-mode dense` prints every sampled event.",
+        "`--row-values full` prints every requested value.",
+        "Range boundaries are inclusive.",
+        "Signal names may end in `[msb:lsb]`.",
+        "Exact waveform paths take precedence",
+        "wildcard comparisons use the projected values",
     ] {
         assert!(
             long_help.contains(fragment),
             "change long help should contain `{fragment}`"
         );
     }
-    assert!(!long_help.contains("omitted `--on` behaves as wildcard"));
-    assert!(!long_help.contains("Event triggers may use typed `iff` logical expressions."));
 
     for help in [&short_help, &long_help] {
         assert!(help.contains("Input options:"));
         assert!(help.contains("Selection options:"));
         assert!(help.contains("Output options:"));
         assert!(help.contains("Other options:"));
-        assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
+        assert!(help.contains("Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)"));
+        assert!(help.contains(
+            "Start of the inclusive time range (for example, 1234ns; default: dump start)"
+        ));
+        assert!(help.contains("Signal paths or flat projections, comma-separated or repeated"));
         assert!(
-            help.contains("Start of inclusive time range (e.g. 1234ns; omitted means dump start)")
+            help.contains(
+                "End of the inclusive time range (for example, 2000ns; default: dump end)"
+            )
         );
-        assert!(help.contains("End of inclusive time range (e.g. 1234ns; omitted means dump end)"));
-        assert!(help.contains("Canonical scope path for scope-relative signal and trigger names"));
+        assert!(
+            help.contains("Scope for relative signal and trigger names (for example, top.cpu)")
+        );
         assert!(help.contains(
-            "Comma-separated top-related signal paths, or scope-relative names when --scope is set"
+            "flat projections, comma-separated or repeated (for example, state,req or status[7:4])"
         ));
-        assert!(help.contains(
-            "Maximum number of snapshot rows (`unlimited` disables truncation, value must be > 0)"
-        ));
-        assert!(help.contains("Print canonical paths"));
+        assert!(help.contains("[default: dense]"));
+        assert!(help.contains("[possible values: dense, sparse]"));
+        assert!(help.contains("[default: full]"));
+        assert!(help.contains("[possible values: full, delta]"));
         assert!(help.contains("Machine-readable JSON output"));
-        assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("(default: 50,"));
-        assert!(!help.contains("human output"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -519,49 +503,45 @@ fn property_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Provides timestamps where the specified property holds over event triggers.")
+            Some("Evaluate a Boolean expression at selected events.")
         );
     }
 
     for fragment in [
-        "Evaluates `--eval` at timestamps selected by `--on`",
-        "Level capture (`--capture match`) reports a match at every selected timestamp",
-        "Edge capture (`--capture switch`, `assert`, or `deassert`) reports transitions: no match to match, or match to no match.",
-        "Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics.",
-        "Remotely similar to a SystemVerilog assert, but without temporal expressions.",
+        "`--on` selects events, and `--eval` defines the expression checked at each event.",
+        "`--capture match` prints every selected event where the expression is true.",
+        "`--capture switch` prints both result transitions.",
+        "`assert` prints false-to-true transitions",
+        "This is a sampled Boolean check, not a SystemVerilog temporal assertion.",
     ] {
         assert!(
             long_help.contains(fragment),
             "property long help should contain `{fragment}`"
         );
     }
-    assert!(!long_help.contains("Omitted `--on` behaves as wildcard"));
-    assert!(!long_help.contains("See also:"));
 
     for help in [&short_help, &long_help] {
         assert!(help.contains("Input options:"));
         assert!(help.contains("Selection options:"));
         assert!(help.contains("Output options:"));
         assert!(help.contains("Other options:"));
-        assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
+        assert!(help.contains("Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)"));
+        assert!(help.contains(
+            "Start of the inclusive time range (for example, 1234ns; default: dump start)"
+        ));
         assert!(
-            help.contains("Start of inclusive time range (e.g. 1234ns; omitted means dump start)")
+            help.contains(
+                "End of the inclusive time range (for example, 2000ns; default: dump end)"
+            )
         );
-        assert!(help.contains("End of inclusive time range (e.g. 1234ns; omitted means dump end)"));
-        assert!(help.contains("Canonical scope path for scope-relative signal and event names"));
-        assert!(help.contains("Logical expression evaluated at selected event timestamps"));
         assert!(
-            help.contains("Capture mode: level (`match`) or edge (`switch`, `assert`, `deassert`)")
+            help.contains("Scope for relative event and expression names (for example, top.cpu)")
         );
         assert!(help.contains(
-            "Maximum number of property rows (`unlimited` disables truncation, value must be > 0)"
+            "Logical expression evaluated at selected events (for example, 'ready && !stall')"
         ));
+        assert!(help.contains("[possible values: match, switch, assert, deassert]"));
         assert!(help.contains("Machine-readable JSON output"));
-        assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("(`--eval` is required)"));
-        assert!(!help.contains("Capture mode (`match`, `switch`, `assert`, `deassert`)"));
-        assert!(!help.contains("Capture mode: match, switch, assert, or deassert"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
 }
 
@@ -575,7 +555,7 @@ fn extract_command_without_subcommand_prints_help() {
     for help in [&no_args, &short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Extract row-oriented waveform data.")
+            Some("Extract event rows from waveform signals.")
         );
         assert!(help.contains("Usage: wavepeek extract"));
         assert!(help.contains("Commands:"));
@@ -596,57 +576,6 @@ fn extract_command_without_subcommand_prints_help() {
 }
 
 #[test]
-fn docs_command_help_is_direct_and_omits_examples() {
-    let no_args = successful_stdout_text(&["docs"]);
-    let short_help = successful_stdout_text(&["docs", "-h"]);
-    let long_help = successful_stdout_text(&["docs", "--help"]);
-    let alias_help = successful_stdout_text(&["help", "docs"]);
-
-    for help in [&no_args, &short_help, &long_help, &alias_help] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Browse the embedded documentation packaged with this build.")
-        );
-        assert!(help.contains("Usage: wavepeek docs"));
-        assert!(!help.contains("Behavior:"));
-        assert!(!help.contains("Examples:"));
-        assert!(!help.contains("wavepeek docs export <OUT_DIR>"));
-        assert!(!help.contains("concepts"));
-    }
-
-    assert_eq!(no_args, short_help, "wavepeek docs should show short help");
-    assert!(
-        short_help.len() < long_help.len(),
-        "docs -h should be materially shorter than docs --help"
-    );
-}
-
-#[test]
-fn schema_help_uses_aligned_summary_and_trimmed_behavior() {
-    let short_help = successful_stdout_text(&["schema", "-h"]);
-    let long_help = successful_stdout_text(&["schema", "--help"]);
-    let alias_help = successful_stdout_text(&["help", "schema"]);
-
-    for help in [&short_help, &long_help, &alias_help] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Print canonical JSON schema contract.")
-        );
-    }
-
-    assert!(long_help.contains("Behavior:"));
-    assert!(long_help.contains("Prints exactly one deterministic schema document to stdout."));
-    assert!(
-        long_help
-            .contains("Default output is the JSON envelope schema for `--json` command outputs.")
-    );
-    assert!(long_help.contains("`--stream` prints the JSONL record schema for `--jsonl` output."));
-    assert!(long_help.contains("`--input` prints the JSON input document schema"));
-    assert!(!long_help.contains("Accepts no command-specific"));
-    assert!(!long_help.contains("Output bytes match"));
-}
-
-#[test]
 fn info_help_uses_aligned_summary_and_simple_option_docs() {
     let short_help = successful_stdout_text(&["info", "-h"]);
     let long_help = successful_stdout_text(&["info", "--help"]);
@@ -655,28 +584,18 @@ fn info_help_uses_aligned_summary_and_simple_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Reports metadata for the selected waveform dump.")
+            Some("Show metadata for one waveform dump.")
         );
+        assert!(help.contains("Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)"));
     }
 
-    assert!(long_help.contains("Behavior:\n- Prints available metadata (e.g. time unit, start/end times, etc.) in free form\n- `--json` uses the machine contract defined by `wavepeek schema`."));
-    assert!(!short_help.contains("See also:"));
-    for help in [&long_help, &alias_help] {
-        assert!(help.contains("See also:\n  wavepeek docs show commands/info"));
-        assert!(
-            help.find("Other options:").unwrap() < help.find("See also:").unwrap(),
-            "See also block should follow the options block"
-        );
-    }
-    for help in [&short_help, &long_help, &alias_help] {
-        assert!(help.contains("Input options:"));
-        assert!(help.contains("Output options:"));
-        assert!(help.contains("Other options:"));
-        assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
-        assert!(help.contains("Machine-readable JSON output"));
-        assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
-    }
+    assert!(!short_help.contains("Behavior:"));
+    assert!(
+        long_help.contains("Behavior:\n- Reports the dump time unit, start time, and end time.")
+    );
+    assert!(long_help.contains("Example:\n  wavepeek info --waves dump.fst"));
+    assert!(long_help.contains("explore-dump.md"));
+    assert_eq!(long_help, alias_help);
 }
 
 #[test]
@@ -688,45 +607,20 @@ fn scope_help_uses_aligned_summary_behavior_and_simple_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Provides deterministic hierarchy traversal over scope paths.")
+            Some("List scopes in a waveform hierarchy.")
         );
+        assert!(help.contains("Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)"));
+        assert!(help.contains("[default: 5]"));
+        assert!(help.contains("[default: .*]"));
+        assert!(help.contains("[default: 50]"));
     }
 
-    assert!(long_help.contains(
-        "Behavior:\n- Finds all scopes matching `--filter` and displays scope name, depth, and kind."
-    ));
-    assert!(long_help.contains(
-        "Includes stable scope kind aliases from hierarchy data (not only modules); excluded backend-specific spellings are normalized to the stable contract surface."
-    ));
-    assert!(!long_help.contains("Includes parser-native scope kinds"));
-    assert!(!short_help.contains("See also:"));
-    for help in [&long_help, &alias_help] {
-        assert!(help.contains("See also:\n  wavepeek docs show commands/scope"));
-        assert!(
-            help.find("Other options:").unwrap() < help.find("See also:").unwrap(),
-            "See also block should follow the options block"
-        );
-    }
-    assert!(!long_help.contains("human output"));
-
-    for help in [&short_help, &long_help, &alias_help] {
-        assert!(help.contains("Input options:"));
-        assert!(help.contains("Selection options:"));
-        assert!(help.contains("Output options:"));
-        assert!(help.contains("Other options:"));
-        assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
-        assert!(help.contains(
-            "Maximum number of entries (`unlimited` disables truncation, value must be > 0)"
-        ));
-        assert!(help.contains("Maximum traversal depth (`unlimited` disables depth truncation)"));
-        assert!(help.contains("Regex filter for full scope path"));
-        assert!(help.contains("Render hierarchy as an indented tree"));
-        assert!(help.contains("Machine-readable JSON output"));
-        assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("(default:"));
-        assert!(!help.contains("invalid regex is rejected as an argument error"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
-    }
+    assert!(!short_help.contains("Behavior:"));
+    assert!(long_help.contains("Matches `--filter` against full scope paths"));
+    assert!(long_help.contains("stable pre-order depth-first traversal"));
+    assert!(long_help.contains("Examples:"));
+    assert!(long_help.contains("explore-dump.md"));
+    assert_eq!(long_help, alias_help);
 }
 
 #[test]
@@ -738,44 +632,22 @@ fn signal_help_uses_aligned_summary_behavior_and_simple_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Provides scope-local signal listings.")
+            Some("List signals in one waveform scope.")
         );
-    }
-
-    assert!(long_help.contains(
-        "Behavior:\n- Finds all signals matching `--filter` within the selected scope and displays name, kind, and available metadata (for example width)."
-    ));
-    assert!(long_help.contains("Recursive mode walks child scopes depth-first in stable lexicographic order; `--max-depth` limits recursion when set."));
-    assert!(long_help.contains(
-        "Includes stable signal kind aliases (not only wires); excluded backend-specific VHDL spellings are normalized to the stable contract surface."
-    ));
-    assert!(!long_help.contains("human output"));
-
-    for help in [&short_help, &long_help] {
-        assert!(help.contains("Input options:"));
-        assert!(help.contains("Selection options:"));
-        assert!(help.contains("Output options:"));
-        assert!(help.contains("Other options:"));
-        assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
-        assert!(help.contains("Exact scope path (e.g. top.cpu)"));
-        assert!(help.contains(
-            "Maximum number of entries (`unlimited` disables truncation, value must be > 0)"
-        ));
-        assert!(help.contains("Regex filter for signal name"));
-        assert!(
-            help.contains(
-                "Maximum recursion depth below --scope (`unlimited` disables this limit)"
-            )
-        );
+        assert!(help.contains("Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)"));
+        assert!(help.contains("Exact scope path (for example, top.cpu)"));
         assert!(help.contains("[default: 5]"));
-        assert!(help.contains("Show canonical signal paths"));
-        assert!(help.contains("Machine-readable JSON output"));
-        assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("`--scope` is required"));
-        assert!(!help.contains("(default:"));
-        assert!(!help.contains("invalid regex is rejected as an argument error"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
+        assert!(help.contains("[default: .*]"));
+        assert!(help.contains("[default: 50]"));
     }
+
+    assert!(!short_help.contains("Behavior:"));
+    assert!(long_help.contains("Matches `--filter` against signal names"));
+    assert!(long_help.contains("`--recursive` also visits child scopes"));
+    assert!(long_help.contains("requires --recursive"));
+    assert!(long_help.contains("Examples:"));
+    assert!(long_help.contains("paths.md"));
+    assert_eq!(long_help, alias_help);
 }
 
 #[test]
@@ -787,18 +659,23 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Provides point sampling for selected signals.")
+            Some("Read selected signal values at one or more times.")
         );
+        assert!(help.contains("Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)"));
+        assert!(help.contains("for example, 1337ns or 10ns,20ns"));
+        assert!(help.contains("Scope for relative signal names (for example, top.cpu)"));
+        assert!(help.contains(
+            "flat projections, comma-separated or repeated (for example, state,pc or status[7:4])"
+        ));
     }
 
     for fragment in [
-        "Prints values for the requested signals at each selected time point.",
-        "`--at` accepts one explicit time token or a comma-separated list in one argument.",
-        "Output preserves the input order from `--at` and `--signals`, including duplicates.",
-        "By default, signal names are top-related canonical paths",
-        "set `--scope` once with a canonical scope path",
-        "Do not mix top-related canonical names and scope-relative names",
-        "more precise than dump resolution",
+        "`--at` and `--signals` accept comma-separated values, repeated options, or both.",
+        "preserves request order and duplicates",
+        "Uses canonical signal paths by default",
+        "A trailing `[msb:lsb]` selects bits from a flat integral signal",
+        "`[n]` remains part of an ordinary waveform path",
+        "finer than the dump resolution",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -811,76 +688,13 @@ fn value_help_uses_aligned_summary_behavior_and_grouped_option_docs() {
         assert!(help.contains("Selection options:"));
         assert!(help.contains("Output options:"));
         assert!(help.contains("Other options:"));
-        assert!(help.contains("Path to VCD/FST/FSDB waveform file"));
-        assert!(help.contains("Time point(s) with explicit units (e.g. 1337ns or 10ns,20ns)"));
-        assert!(help.contains("Canonical scope path for scope-relative signal names"));
-        assert!(help.contains(
-            "Comma-separated top-related signal paths, or scope-relative names when --scope is set"
-        ));
-        assert!(help.contains("Show canonical signal paths"));
+        assert!(help.contains("Time points with explicit units, comma-separated or repeated"));
+        assert!(help.contains("Signal paths or flat projections, comma-separated or repeated"));
         assert!(help.contains("Machine-readable JSON output"));
-        assert!(!help.contains("(`--waves <FILE>` is required)"));
-        assert!(!help.contains("for example"));
-        assert!(!help.contains("bare numbers are rejected as argument errors"));
-        assert!(!help.contains("human output"));
-        assert!(!help.contains("(contract: see `wavepeek schema`)"));
     }
-}
-
-#[test]
-fn docs_show_help_is_layered() {
-    let short_help = successful_stdout_text(&["docs", "show", "-h"]);
-    let long_help = successful_stdout_text(&["docs", "show", "--help"]);
-
-    assert!(short_help.contains("Usage: wavepeek docs show [OPTIONS] <TOPIC>"));
-    assert!(short_help.contains("Slash-separated topic ID (see 'wavepeek docs topics')"));
-    assert!(short_help.contains("Print only the description text"));
-    assert!(
-        !short_help.contains("excluding YAML front matter"),
-        "docs show -h should stay compact"
-    );
-    assert!(long_help.contains("--description"));
-    assert!(!long_help.contains("Behavior:"));
-    assert!(!long_help.contains("raw Markdown"));
-    assert!(!long_help.contains("excluding YAML front matter"));
-    assert!(!long_help.contains("`--description` prints only the description text."));
-    assert!(!long_help.contains("Unknown topic IDs fail"));
-    assert!(!long_help.contains("Examples:"));
-    assert!(
-        short_help.len() < long_help.len(),
-        "docs show -h should be materially shorter than docs show --help"
-    );
-}
-
-#[test]
-fn nested_docs_help_surfaces_are_aligned_and_trimmed() {
-    let search_short = successful_stdout_text(&["docs", "search", "-h"]);
-    let search_long = successful_stdout_text(&["docs", "search", "--help"]);
-    let search_alias = successful_stdout_text(&["help", "docs", "search"]);
-    for help in [&search_short, &search_long, &search_alias] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Search embedded documentation topics.")
-        );
-        assert!(help.contains("Plain-text query split into whitespace tokens"));
-        assert!(!help.contains("--full-text"));
-    }
-    assert_eq!(search_long, search_alias);
-    assert!(search_long.contains("not a regular expression"));
-    assert!(search_long.contains("Markdown bodies"));
-    assert!(search_long.contains("contract: see `wavepeek schema`"));
-
-    let export_short = successful_stdout_text(&["docs", "export", "-h"]);
-    let export_long = successful_stdout_text(&["docs", "export", "--help"]);
-    let export_alias = successful_stdout_text(&["help", "docs", "export"]);
-    for help in [&export_short, &export_long, &export_alias] {
-        assert_eq!(
-            help.lines().next(),
-            Some("Export all embedded Markdown documentation to disk.")
-        );
-        assert!(!help.contains("skill Markdown"));
-    }
-    assert_eq!(export_long, export_alias);
+    assert!(long_help.contains("Examples:"));
+    assert!(long_help.contains("inspect-values.md"));
+    assert_eq!(long_help, alias_help);
 }
 
 #[test]
@@ -892,112 +706,69 @@ fn skill_help_surfaces_are_aligned_and_trimmed() {
     for help in [&short_help, &long_help, &alias_help] {
         assert_eq!(
             help.lines().next(),
-            Some("Print the packaged agent skill Markdown for wavepeek.")
+            Some("Extract the packaged agent skill into a directory.")
         );
-        assert!(!help.contains("Behavior:"));
+        assert!(help.contains("for example, ./wavepeek-skill"));
         assert!(!help.contains("--json"));
     }
+    assert!(!short_help.contains("Behavior:"));
+    assert!(long_help.contains("Behavior:"));
+    assert!(long_help.contains("wavepeek skill ./wavepeek-skill"));
+    assert!(long_help.contains("Notes:"));
+    assert!(long_help.contains("quickstart.md"));
     assert_eq!(long_help, alias_help);
 }
 
 #[test]
-fn docs_skill_subcommand_is_rejected_and_points_to_docs_help() {
-    wavepeek_cmd()
-        .args(["docs", "skill"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unrecognized subcommand 'skill'"))
-        .stderr(predicate::str::contains("See 'wavepeek docs --help'."));
-}
-
-#[test]
-fn nested_parse_errors_point_to_full_help_path() {
-    wavepeek_cmd()
-        .args(["docs", "show", "intro", "--wat"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument '--wat'"))
-        .stderr(predicate::str::contains("See 'wavepeek docs show --help'."));
-}
-
-#[test]
 fn shipped_commands_help_is_self_descriptive() {
-    let command_contracts: [(&str, &[&str]); 8] = [
+    let command_contracts: [(&str, &[&str]); 7] = [
         (
             "info",
-            &[
-                "Reports metadata for the selected waveform dump.",
-                "Prints available metadata",
-                "time unit, start/end times",
-                "wavepeek schema",
-            ],
+            &["Show metadata for one waveform dump.", "dump time unit"],
         ),
         (
             "scope",
             &[
-                "deterministic hierarchy traversal",
-                "pre-order depth-first",
-                "lexicographic child ordering",
-                "Truncation and disabled-limit conditions emit coded diagnostics",
-                "wavepeek schema",
+                "List scopes in a waveform hierarchy.",
+                "pre-order depth-first traversal",
+                "Truncation produces a coded diagnostic",
             ],
         ),
         (
             "signal",
             &[
-                "Provides scope-local signal listings.",
-                "Finds all signals matching `--filter`",
-                "depth-first in stable lexicographic order",
-                "Includes stable signal kind aliases",
-                "wavepeek schema",
+                "List signals in one waveform scope.",
+                "Matches `--filter` against signal names",
+                "normalized signal kinds",
             ],
         ),
         (
             "value",
             &[
-                "point sampling",
-                "input order from `--at` and `--signals`",
-                "display=value",
-                "align to dump precision",
+                "Read selected signal values at one or more times.",
+                "preserves request order and duplicates",
                 "Verilog literals",
-                "wavepeek schema",
             ],
         ),
         (
             "change",
             &[
-                "range-based delta snapshots",
-                "Prints requested signal values for each `--on` trigger firing",
-                "Similar to a modified SystemVerilog `$monitor`",
-                "Empty-result, truncation, and explicitly disabled-limit conditions emit coded diagnostics",
-                "wavepeek schema",
+                "Read signal values at selected events over a time range.",
+                "`--row-mode dense`",
+                "`--row-values full`",
             ],
         ),
         (
             "property",
             &[
-                "specified property holds over event triggers",
-                "Evaluates `--eval` at timestamps selected by `--on`",
-                "Level capture (`--capture match`) reports a match",
-                "Edge capture (`--capture switch`, `assert`, or `deassert`) reports transitions",
-                "wavepeek schema",
-            ],
-        ),
-        (
-            "schema",
-            &[
-                "Print canonical JSON schema contract.",
-                "Prints exactly one deterministic schema document",
-                "Default output is the JSON envelope schema for `--json` command outputs",
+                "Evaluate a Boolean expression at selected events.",
+                "`--capture match`",
+                "false-to-true transitions",
             ],
         ),
         (
             "skill",
-            &["Print the packaged agent skill Markdown for wavepeek."],
+            &["Extract the packaged agent skill into a directory."],
         ),
     ];
 
@@ -1016,18 +787,19 @@ fn shipped_commands_help_is_self_descriptive() {
 fn extract_ahb_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "ahb", "--help"]);
     for fragment in [
-        "Extract manager-facing AHB pipeline events.",
-        "Supports AHB-Lite and AHB5 profiles from Arm IHI 0033C, Issue C.",
-        "Tracks one accepted address phase so real data completions remain distinct from idle clocks.",
-        "--include-stall, --include-idle, and --include-busy independently expose cycle-level events.",
-        "Uses manager-facing HREADY; HREADYOUT, HSELx, and parity/check signals are outside this interface.",
-        "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
+        "Extract manager-facing AHB address and data-phase events.",
+        "Supports AHB-Lite and AHB5 from Arm IHI 0033C, Issue C.",
+        "data completions remain separate from idle clocks",
+        "The include flags add stall, idle, or busy cycle events.",
+        "Uses manager-facing HREADY.",
+        "Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.",
         "[default: ahb-lite]",
         "[possible values: ahb-lite, ahb5]",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
-        "JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.",
-        "Does not reconstruct bursts, aggregate transactions, or join address and data phases.",
-        "wavepeek docs show commands/extract",
+        "`--source` conflicts with `--profile`",
+        "Pipeline warm-up starts before `--from`",
+        "`initial_data_phase`",
+        "does not reconstruct bursts",
+        "extract-ahb.md",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1040,22 +812,19 @@ fn extract_ahb_help_is_self_descriptive() {
 fn extract_apb_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "apb", "--help"]);
     for fragment in [
-        "Extract APB Setup and Access event rows.",
-        "Supports APB3, APB4, and APB5 profiles from Arm IHI 0024E; APB4 is the default.",
-        "Emits setup and access-complete rows by default; --include-wait adds one access-wait row per waited Access cycle.",
-        "Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.",
-        "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
-        "Maps one concrete Completer PSELx as canonical psel.",
-        "Generated schemas accept canonical lowercase profile and PREADY-mode values only.",
+        "Extract APB Setup and Access events.",
+        "Supports APB3, APB4, and APB5 from Arm IHI 0024E.",
+        "`--include-wait` adds one row for each waited Access cycle.",
+        "Mapped PREADY mode requires `pready`.",
+        "Maps one concrete Completer PSELx signal as `psel`.",
+        "canonical lowercase profile and mode values",
         "[default: apb4]",
         "[possible values: apb3, apb4, apb5]",
         "[default: mapped]",
         "[possible values: mapped, implicit-high]",
-        "In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
-        "JSON output includes APB metadata, mappings, and event rows.",
-        "Reports independent sampled events only; it does not correlate or validate transactions.",
-        "wavepeek docs show commands/extract",
+        "`--source` conflicts with `--profile`",
+        "does not correlate or validate transactions",
+        "extract-apb.md",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1069,17 +838,16 @@ fn extract_atb_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "atb", "--help"]);
     for fragment in [
         "Extract ATB transfer, flush, and synchronization-request events.",
-        "Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.",
-        "Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; generated schemas accept canonical hyphenated profile names only.",
-        "Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.",
-        "Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.",
-        "Emits same-edge events in transfer, flush, then sync-request order.",
-        "Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.",
+        "Supports ATB-A, ATB-B, and ATB-C from Arm IHI 0032C, Issue C.",
+        "complete ATVALID/ATREADY and AFVALID/AFREADY handshakes",
+        "A mapped SYNCREQ signal",
+        "Orders same-edge events as transfer, flush, then synchronization request.",
+        "without trace decoding",
         "[default: atb-c]",
         "[possible values: atb-a, atb-b, atb-c]",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
-        "Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.",
-        "wavepeek docs show commands/extract",
+        "CLI profile aliases are `atb_a`",
+        "does not reconstruct packets",
+        "extract-atb.md",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1092,22 +860,19 @@ fn extract_atb_help_is_self_descriptive() {
 fn extract_axi_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "axi", "--help"]);
     for fragment in [
-        "Extract AXI ready/valid transfer rows.",
-        "AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 profiles use Arm IHI 0022H.c.",
-        "AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles use Arm IHI 0022L ready/valid transport.",
-        "Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles.",
-        "ACE5-Lite aliases are ace5_lite; ACE5-LiteDVM aliases are ace5-litedvm, ace5_litedvm, and ace5_lite_dvm; ACE5-LiteACP aliases are ace5-liteacp, ace5_liteacp, and ace5_lite_acp.",
-        "Generated schemas accept canonical hyphenated profile names only.",
-        "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
+        "Extract AXI-family ready/valid channel transfers.",
+        "Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP.",
+        "use Arm IHI 0022H.c",
+        "Arm IHI 0022L ready/valid transport",
+        "one event source for each complete ready/valid channel",
+        "DVM `ac` and `cr` channels, but not `cd`",
+        "canonical hyphenated profile names",
         "[default: axi4]",
         "[possible values: axi3, axi4, axi4-lite, axi5, axi5-lite, ace, ace-lite, ace5, ace5-lite, ace5-lite-dvm, ace5-lite-acp]",
-        "Builds one extraction source per complete ready/valid channel.",
-        "AXI5 and ACE5-LiteDVM can add DVM ac and cr channels but do not add cd.",
-        "In source-file mode, --source provides profile, name, includes, and maps",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
-        "JSON output includes AXI metadata, mappings, and transfer rows.",
-        "Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.",
-        "wavepeek docs show commands/extract",
+        "CLI aliases include `ace5_lite`",
+        "does not decode DVM messages or coherency state",
+        "does not reconstruct bursts",
+        "extract-axi.md",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1120,20 +885,18 @@ fn extract_axi_help_is_self_descriptive() {
 fn extract_axistream_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "axistream", "--help"]);
     for fragment in [
-        "Extract AXI-Stream transfer rows.",
-        "Supports AXI4-Stream and AXI5-Stream profiles from Arm IHI 0051B Issue B.",
-        "The default profile is AXI4-Stream.",
-        "Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.",
-        "Mapped TREADY mode requires tvalid and tready; implicit-high mode explicitly declares that physical TREADY is omitted.",
-        "Samples reset, handshake predicates, and payload values at the pre-edge sample point for posedge aclk.",
-        "One invocation maps one stream interface and emits one row per completed transfer without a synthetic channel.",
-        "AXI5-Stream wake-up and parity/check signals are outside this transfer extractor.",
+        "Extract AXI-Stream transfers.",
+        "Supports AXI4-Stream and AXI5-Stream from Arm IHI 0051B, Issue B.",
+        "Mapped TREADY mode requires `tvalid` and `tready`.",
+        "physical TREADY is absent",
+        "pre-edge sample point for each rising ACLK edge",
+        "without adding a channel name",
         "[default: axi4-stream]",
         "[possible values: axi4-stream, axi5-stream]",
         "[default: mapped]",
         "[possible values: mapped, implicit-high]",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
-        "wavepeek docs show commands/extract",
+        "wake-up, parity, and check signals are outside this extractor",
+        "extract-axis.md",
     ] {
         assert!(
             long_help.contains(fragment),
@@ -1146,20 +909,23 @@ fn extract_axistream_help_is_self_descriptive() {
 fn extract_generic_help_is_self_descriptive() {
     let long_help = successful_stdout_text(&["extract", "generic", "--help"]);
     for fragment in [
-        "Extract protocol-neutral event rows from waveform signals.",
-        "Selects edge-only event timestamps with --on.",
-        "Always samples --when and --payload at the pre-edge sample point.",
-        "In source-file mode, --source provides one or more sources",
-        "Contract for source-file mode is defined by `wavepeek schema --input`.",
-        "JSON and JSONL rows include time, sample_time, source, and ordered payload values.",
-        "wavepeek docs show commands/extract",
+        "Extract custom synchronous events and their payload values.",
+        "`--on` selects edge-only events.",
+        "always sampled at the pre-edge sample point",
+        "`--payload` accepts comma-separated values, repeated options, or both.",
+        "Entries may end in `[msb:lsb]`",
+        "Exact waveform paths take precedence",
+        "Payload paths or flat projections, comma-separated or repeated",
+        "Scope for relative event, predicate, and payload names (for example, top.fifo)",
+        "`--source` conflicts with `--name`, `--on`, `--when`, and `--payload`",
+        "JSON and JSONL rows include `time`, `sample_time`, `source`, and ordered payload values.",
+        "extract-transfers.md",
     ] {
         assert!(
             long_help.contains(fragment),
             "extract generic long help should contain `{fragment}`"
         );
     }
-    assert!(!long_help.contains("commands/extract-generic"));
 }
 
 #[test]
@@ -1184,20 +950,19 @@ fn version_flags_print_version_to_stdout() {
 }
 
 #[test]
-fn subcommand_help_uses_extended_prd_descriptions() {
+fn subcommand_help_uses_extended_descriptions() {
     let mut scope_command = wavepeek_cmd();
 
     scope_command
         .args(["scope", "--help"])
         .assert()
         .success()
+        .stdout(predicate::str::contains("pre-order depth-first traversal"))
         .stdout(predicate::str::contains(
-            "deterministic hierarchy traversal",
+            "Truncation produces a coded diagnostic.",
         ))
-        .stdout(predicate::str::contains("pre-order depth-first"))
-        .stdout(predicate::str::contains(
-            "Truncation and disabled-limit conditions emit coded diagnostics",
-        ));
+        .stdout(predicate::str::contains("Examples:"))
+        .stdout(predicate::str::contains("Notes:"));
 
     let mut property_command = wavepeek_cmd();
 
@@ -1206,7 +971,7 @@ fn subcommand_help_uses_extended_prd_descriptions() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "Edge capture (`--capture switch`, `assert`, or `deassert`) reports transitions",
+            "`--capture switch` prints both result transitions.",
         ))
         .stdout(predicate::str::contains("--capture"));
 }
@@ -1221,7 +986,7 @@ fn signal_help_documents_recursive_and_max_depth_flags() {
         .success()
         .stdout(predicate::str::contains("--recursive"))
         .stdout(predicate::str::contains("--max-depth"))
-        .stdout(predicate::str::contains("limits recursion when set"));
+        .stdout(predicate::str::contains("requires --recursive"));
 }
 
 #[test]
@@ -1375,50 +1140,10 @@ fn waveform_commands_require_waves_flag() {
 }
 
 #[test]
-fn schema_does_not_accept_waves_flag() {
-    let mut command = wavepeek_cmd();
-
-    command
-        .args(["schema", "--waves", "dump.vcd"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument '--waves'"))
-        .stderr(predicate::str::contains("See 'wavepeek schema --help'."));
-}
-
-#[test]
-fn schema_does_not_accept_json_flag() {
-    let mut command = wavepeek_cmd();
-
-    command
-        .args(["schema", "--json"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument '--json'"))
-        .stderr(predicate::str::contains("See 'wavepeek schema --help'."));
-}
-
-#[test]
-fn schema_rejects_positional_arguments() {
-    let mut command = wavepeek_cmd();
-
-    command
-        .args(["schema", "extra"])
-        .assert()
-        .failure()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: args:"))
-        .stderr(predicate::str::contains("unexpected argument 'extra'"))
-        .stderr(predicate::str::contains("See 'wavepeek schema --help'."));
-}
-
-#[test]
 fn legacy_subcommands_are_rejected_without_alias() {
-    for legacy_name in ["tree", "modules", "signals", "changes", "when", "at"] {
+    for legacy_name in [
+        "tree", "modules", "signals", "changes", "when", "at", "docs",
+    ] {
         assert_legacy_subcommand_rejected(legacy_name);
     }
 }
@@ -1476,7 +1201,6 @@ fn unknown_flags_are_normalized_to_args_category() {
 #[test]
 fn all_commands_reject_human_flag() {
     let cases: &[(&[&str], &str)] = &[
-        (&["schema", "--human"], "schema"),
         (&["info", "--waves", "dump.vcd", "--human"], "info"),
         (&["scope", "--waves", "dump.vcd", "--human"], "scope"),
         (

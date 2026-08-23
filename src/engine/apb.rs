@@ -6,15 +6,13 @@ use serde::de::{Error as _, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::ApbArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
 use crate::engine::extract::{
-    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractRunStats,
-    ExtractSource,
+    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 
 const DEFAULT_PROFILE: &str = "apb4";
@@ -96,7 +94,7 @@ impl ApbData {
 struct ApbOutcome {
     context: ApbContext,
     diagnostics: Vec<Diagnostic>,
-    stats: ExtractRunStats,
+    summary: ResultSummary,
 }
 
 trait ApbEventSink {
@@ -129,7 +127,7 @@ impl<W: std::io::Write> ApbEventSink for JsonlApbSink<'_, W> {
     }
 
     fn emit(&mut self, event: ApbEvent) -> Result<(), WavepeekError> {
-        self.writer.item(&event)
+        self.writer.data(&event)
     }
 }
 
@@ -240,8 +238,6 @@ fn payload_allowed(event: &str, direction: ApbDirection, standard: &str) -> bool
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -378,34 +374,6 @@ const APB5_PROFILE: ApbProfileSpec = ApbProfileSpec {
     signals: APB5_SIGNALS,
 };
 
-pub(crate) fn profile_specs() -> &'static [ApbProfileSpec] {
-    &[APB3_PROFILE, APB4_PROFILE, APB5_PROFILE]
-}
-
-pub(crate) fn standard_signals(
-    profile: &ApbProfileSpec,
-) -> impl Iterator<Item = &'static str> + '_ {
-    ORDERED_SIGNALS
-        .iter()
-        .copied()
-        .filter(|standard| profile.signals.contains(standard))
-}
-
-pub(crate) fn event_payload_signals<'a>(
-    profile: &'a ApbProfileSpec,
-    event: &'a str,
-    direction: &'a str,
-) -> impl Iterator<Item = &'static str> + 'a {
-    standard_signals(profile).filter(move |standard| {
-        !matches!(
-            *standard,
-            "pclk" | "presetn" | "psel" | "penable" | "pready"
-        ) && (event == "access-complete" || !COMPLETION_ONLY_SIGNALS.contains(standard))
-            && (direction != "read" || !WRITE_ONLY_SIGNALS.contains(standard))
-            && (direction != "write" || !READ_ONLY_SIGNALS.contains(standard))
-    })
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PreadyMode {
     Mapped,
@@ -424,6 +392,7 @@ impl PreadyMode {
 pub fn run(args: ApbArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingApbSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -434,6 +403,8 @@ pub fn run(args: ApbArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
+        summary_only,
         data: CommandData::ExtractApb(ApbData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -443,6 +414,7 @@ pub fn run(args: ApbArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             events: sink.events,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -451,6 +423,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: ApbArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlApbSink { writer };
         run_with_sink(args, &mut sink)?
@@ -459,7 +432,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: ApbEventSink + ?Sized>(
@@ -488,6 +461,7 @@ fn run_with_sink<S: ApbEventSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,
@@ -500,7 +474,7 @@ fn run_with_sink<S: ApbEventSink + ?Sized>(
     Ok(ApbOutcome {
         context,
         diagnostics,
-        stats: outcome.stats,
+        summary: outcome.summary,
     })
 }
 
@@ -625,14 +599,6 @@ fn config_from_source(path: &std::path::Path) -> Result<ApbConfig, WavepeekError
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "APB extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "APB extract source file '{}' has kind {}; expected {}",
@@ -833,8 +799,10 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
-        let resolved = resolved.remove(0);
+        let resolved =
+            waveform
+                .borrow()
+                .resolve_local_signal_with_diagnostic(&query_path, waves, scope)?;
         result.insert(
             standard.clone(),
             ApbSignalMapping {
@@ -1180,20 +1148,20 @@ impl ApbProfile {
 #[cfg(test)]
 mod tests {
     use super::{
-        ApbDirection, candidate_matching_standards, direction_from_pwrite, event_payload_signals,
-        parse_pready_mode, parse_profile, payload_allowed, profile_specs,
+        APB3_PROFILE, APB4_PROFILE, APB5_PROFILE, ApbDirection, candidate_matching_standards,
+        direction_from_pwrite, parse_pready_mode, parse_profile, payload_allowed,
     };
 
     #[test]
     fn profiles_expose_issue_e_and_expected_signal_boundaries() {
-        assert_eq!(profile_specs().len(), 3);
-        for profile in profile_specs() {
+        let profiles = [APB3_PROFILE, APB4_PROFILE, APB5_PROFILE];
+        for profile in &profiles {
             assert_eq!(profile.issue, "E");
             assert!(profile.signals.contains(&"pwrite"));
         }
-        assert!(!profile_specs()[0].signals.contains(&"pprot"));
-        assert!(profile_specs()[1].signals.contains(&"pprot"));
-        assert!(profile_specs()[2].signals.contains(&"pnse"));
+        assert!(!APB3_PROFILE.signals.contains(&"pprot"));
+        assert!(APB4_PROFILE.signals.contains(&"pprot"));
+        assert!(APB5_PROFILE.signals.contains(&"pnse"));
     }
 
     #[test]
@@ -1241,19 +1209,5 @@ mod tests {
             ApbDirection::Unknown,
             "prdata"
         ));
-    }
-
-    #[test]
-    fn schema_payload_helper_applies_profile_event_and_direction() {
-        let apb5 = &profile_specs()[2];
-        let setup_read = event_payload_signals(apb5, "setup", "read").collect::<Vec<_>>();
-        assert!(setup_read.contains(&"pwrite"));
-        assert!(!setup_read.contains(&"pwdata"));
-        assert!(!setup_read.contains(&"pslverr"));
-        let complete_unknown =
-            event_payload_signals(apb5, "access-complete", "unknown").collect::<Vec<_>>();
-        assert!(complete_unknown.contains(&"pwdata"));
-        assert!(complete_unknown.contains(&"prdata"));
-        assert!(complete_unknown.contains(&"pslverr"));
     }
 }

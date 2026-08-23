@@ -6,8 +6,8 @@ This directory owns GitHub Actions workflow YAML.
 
 ## Source of Truth
 
-- Workflow automation: `../../docs/dev/automation.md`
-- Quality gates: `../../docs/dev/quality.md`
+- Workflow automation: `../../docs/automation.md`
+- Quality gates: `../../docs/quality.md`
 - Stable local task interface: `../../justfile`
 - Workflow helper scripts: `../../tools/`
 

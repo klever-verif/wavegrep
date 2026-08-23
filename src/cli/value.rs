@@ -4,16 +4,21 @@ use clap::Args;
 
 #[derive(Debug, Args)]
 pub struct ValueArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
-    /// Time point(s) with explicit units (e.g. 1337ns or 10ns,20ns)
-    #[arg(long, help_heading = "Selection options")]
-    pub at: String,
-    /// Canonical scope path for scope-relative signal names
+    /// Time points with explicit units, comma-separated or repeated (for example, 1337ns or 10ns,20ns)
+    #[arg(
+        long,
+        value_delimiter = ',',
+        required = true,
+        help_heading = "Selection options"
+    )]
+    pub at: Vec<String>,
+    /// Scope for relative signal names (for example, top.cpu)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Comma-separated top-related signal paths, or scope-relative names when --scope is set
+    /// Signal paths or flat projections, comma-separated or repeated (for example, state,pc or status[7:4])
     #[arg(
         long,
         value_delimiter = ',',

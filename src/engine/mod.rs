@@ -4,15 +4,14 @@ pub mod atb;
 pub mod axi;
 pub mod axistream;
 pub mod change;
-pub mod docs;
 mod expr_runtime;
 pub mod extract;
 pub mod info;
 pub mod property;
-pub mod schema;
 pub mod scope;
 pub mod signal;
 mod signal_mapping;
+mod signal_projection;
 pub mod skill;
 pub mod time;
 pub mod value;
@@ -26,23 +25,22 @@ use crate::error::WavepeekError;
 use crate::output::{self, JsonlWriter};
 use crate::output_mode::OutputMode;
 
-pub(crate) fn scoped_signal_path(name: &str, scope: Option<&str>) -> Option<String> {
+pub(crate) fn scoped_signal_path(name: &str, scope: Option<&str>) -> String {
     match scope {
         Some(scope)
             if name
                 .strip_prefix(scope)
                 .is_some_and(|suffix| suffix.starts_with('.')) =>
         {
-            None
+            name.to_string()
         }
-        Some(scope) => Some(format!("{scope}.{name}")),
-        None => Some(name.to_string()),
+        Some(scope) => format!("{scope}.{name}"),
+        None => name.to_string(),
     }
 }
 
 #[derive(Debug)]
 pub enum Command {
-    Schema(cli::schema::SchemaArgs),
     Info(cli::info::InfoArgs),
     Scope(cli::scope::ScopeArgs),
     Signal(cli::signal::SignalArgs),
@@ -55,14 +53,12 @@ pub enum Command {
     ExtractAxi(cli::extract::AxiArgs),
     ExtractAxiStream(cli::extract::AxiStreamArgs),
     ExtractGeneric(cli::extract::GenericArgs),
-    Docs(cli::docs::DocsArgs),
     Skill(cli::skill::SkillArgs),
 }
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandName {
-    Schema,
     Info,
     Scope,
     Signal,
@@ -75,18 +71,12 @@ pub enum CommandName {
     ExtractAxi,
     ExtractAxiStream,
     ExtractGeneric,
-    Docs,
-    DocsTopics,
-    DocsShow,
-    DocsSearch,
-    DocsExport,
     Skill,
 }
 
 impl Command {
     pub const fn name(&self) -> CommandName {
         match self {
-            Self::Schema(_) => CommandName::Schema,
             Self::Info(_) => CommandName::Info,
             Self::Scope(_) => CommandName::Scope,
             Self::Signal(_) => CommandName::Signal,
@@ -99,35 +89,44 @@ impl Command {
             Self::ExtractAxi(_) => CommandName::ExtractAxi,
             Self::ExtractAxiStream(_) => CommandName::ExtractAxiStream,
             Self::ExtractGeneric(_) => CommandName::ExtractGeneric,
-            Self::Docs(_) => CommandName::Docs,
             Self::Skill(_) => CommandName::Skill,
         }
     }
 
-    pub const fn output_mode(&self) -> OutputMode {
+    pub fn set_output_mode(&mut self, mode: OutputMode) {
+        let (json, jsonl) = match mode {
+            OutputMode::Human => (false, false),
+            OutputMode::Json => (true, false),
+            OutputMode::Jsonl => (false, true),
+        };
         match self {
-            Self::Schema(_) => OutputMode::Human,
-            Self::Info(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Scope(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Signal(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Value(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Change(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Property(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAhb(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractApb(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAtb(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAxi(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractAxiStream(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::ExtractGeneric(args) => OutputMode::from_json_flags(args.json, args.jsonl),
-            Self::Docs(_) | Self::Skill(_) => OutputMode::Human,
+            Self::Info(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Scope(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Signal(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Value(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Change(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Property(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAhb(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractApb(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAtb(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAxi(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractAxiStream(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::ExtractGeneric(args) => (args.json, args.jsonl) = (json, jsonl),
+            Self::Skill(_) => {}
         }
     }
 }
 
 impl CommandName {
+    pub const fn supports_scope_context(self) -> bool {
+        matches!(
+            self,
+            Self::Signal | Self::Value | Self::Change | Self::ExtractGeneric
+        )
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Schema => "schema",
             Self::Info => "info",
             Self::Scope => "scope",
             Self::Signal => "signal",
@@ -140,32 +139,9 @@ impl CommandName {
             Self::ExtractAxi => "extract axi",
             Self::ExtractAxiStream => "extract axistream",
             Self::ExtractGeneric => "extract generic",
-            Self::Docs => "docs",
-            Self::DocsTopics => "docs topics",
-            Self::DocsShow => "docs show",
-            Self::DocsSearch => "docs search",
-            Self::DocsExport => "docs export",
             Self::Skill => "skill",
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DocsTopicsData {
-    pub topics: Vec<crate::docs::TopicSummary>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DocsSearchMatchData {
-    pub topic: crate::docs::TopicSummary,
-    pub match_kind: crate::docs::MatchKind,
-    pub matched_tokens: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DocsSearchData {
-    pub query: String,
-    pub matches: Vec<DocsSearchMatchData>,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -178,7 +154,6 @@ pub struct HumanRenderOptions {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub enum CommandData {
-    Schema(String),
     Text(String),
     Info(info::InfoData),
     Scope(Vec<scope::ScopeEntry>),
@@ -192,8 +167,25 @@ pub enum CommandData {
     ExtractAxi(axi::AxiData),
     ExtractAxiStream(axistream::AxiStreamData),
     ExtractGeneric(extract::ExtractGenericData),
-    DocsTopics(DocsTopicsData),
-    DocsSearch(DocsSearchData),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ResultSummary {
+    pub complete: bool,
+    pub returned: usize,
+    pub limit: Option<usize>,
+    pub total: Option<usize>,
+}
+
+impl ResultSummary {
+    pub const fn from_run(returned: usize, limit: Option<usize>, truncated: bool) -> Self {
+        Self {
+            complete: !truncated,
+            returned,
+            limit,
+            total: if truncated { None } else { Some(returned) },
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -204,13 +196,18 @@ pub struct CommandResult {
     pub output_mode: OutputMode,
     #[serde(skip)]
     pub human_options: HumanRenderOptions,
+    #[serde(skip)]
+    pub scope: Option<String>,
+    #[serde(skip)]
+    pub summary_only: bool,
     pub data: CommandData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<ResultSummary>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 pub fn run(command: Command) -> Result<CommandResult, WavepeekError> {
     match command {
-        Command::Schema(args) => schema::run(args),
         Command::Info(args) => info::run(args),
         Command::Scope(args) => scope::run(args),
         Command::Signal(args) => signal::run(args),
@@ -223,7 +220,6 @@ pub fn run(command: Command) -> Result<CommandResult, WavepeekError> {
         Command::ExtractAxi(args) => axi::run(args),
         Command::ExtractAxiStream(args) => axistream::run(args),
         Command::ExtractGeneric(args) => extract::run(args),
-        Command::Docs(args) => docs::run(args),
         Command::Skill(args) => skill::run(args),
     }
 }
@@ -245,7 +241,7 @@ pub fn run_jsonl<W: std::io::Write>(
             let result = run(command)?;
             output::write_jsonl_result(result, writer)
         }
-        Command::Schema(_) | Command::Docs(_) | Command::Skill(_) => Err(WavepeekError::Args(
+        Command::Skill(_) => Err(WavepeekError::Args(
             "--jsonl is available only for waveform commands".to_string(),
         )),
     }
@@ -258,19 +254,18 @@ mod tests {
     #[test]
     fn scoped_signal_path_resolves_relative_names() {
         for (name, scope, expected) in [
-            ("top.cpu.valid", None, Some("top.cpu.valid")),
-            ("valid", Some("top.cpu"), Some("top.cpu.valid")),
-            ("cpu.valid", Some("top"), Some("top.cpu.valid")),
-            ("top.cpu.valid", Some("top"), None),
-            ("topology.valid", Some("top"), Some("top.topology.valid")),
+            ("top.cpu.valid", None, "top.cpu.valid"),
+            ("valid", Some("top.cpu"), "top.cpu.valid"),
+            ("cpu.valid", Some("top"), "top.cpu.valid"),
+            ("top.cpu.valid", Some("top"), "top.cpu.valid"),
+            ("topology.valid", Some("top"), "top.topology.valid"),
         ] {
-            assert_eq!(scoped_signal_path(name, scope).as_deref(), expected);
+            assert_eq!(scoped_signal_path(name, scope), expected);
         }
     }
 
     #[test]
     fn command_name_strings_exercise_all_variants() {
-        assert_eq!(CommandName::Schema.as_str(), "schema");
         assert_eq!(CommandName::Info.as_str(), "info");
         assert_eq!(CommandName::Scope.as_str(), "scope");
         assert_eq!(CommandName::Signal.as_str(), "signal");
@@ -283,11 +278,6 @@ mod tests {
         assert_eq!(CommandName::ExtractAxi.as_str(), "extract axi");
         assert_eq!(CommandName::ExtractAxiStream.as_str(), "extract axistream");
         assert_eq!(CommandName::ExtractGeneric.as_str(), "extract generic");
-        assert_eq!(CommandName::Docs.as_str(), "docs");
-        assert_eq!(CommandName::DocsTopics.as_str(), "docs topics");
-        assert_eq!(CommandName::DocsShow.as_str(), "docs show");
-        assert_eq!(CommandName::DocsSearch.as_str(), "docs search");
-        assert_eq!(CommandName::DocsExport.as_str(), "docs export");
         assert_eq!(CommandName::Skill.as_str(), "skill");
     }
 }

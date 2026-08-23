@@ -4,9 +4,12 @@ This directory contains helper scripts and tests for the GitHub Pages documentat
 
 ## Helpers
 
-- `prepare_mkdocs.py` validates output from `wavepeek docs export`, stages Markdown for MkDocs under `tmp/docs-site/`, maps `intro.md` to `index.md`, and writes generated MkDocs navigation/config.
-- `publish_docs.py` owns the publication workflow split: local `check`, no-token `stage-deploy`, and credentialed `push-staged` verification/push. It publishes exact schema artifacts from `schema/catalog.json` for every current release, leaves already deployed historical schema artifacts intact on GitHub Pages, and publishes root installer aliases only when the staged version owns `latest`. Legacy source refs without a catalog remain supported for repair flows. Packaged skills remain available through `wavepeek skill` for the installed CLI. The push path also exports the verified staged `gh-pages` tree to `tmp/docs-site/pages-artifact/` for `actions/deploy-pages`.
-- `check_deploy.py` verifies deployed Pages endpoints, schema artifact availability, and optional GitHub Pages API state after publication. The API check runs only when `--repository` is provided and requires an authenticated `gh` CLI.
+- `generate_cli_reference.py` captures detailed CLI help in the packaged Markdown reference; use `just update-cli-reference` and `just check-cli-reference`.
+- `prepare_mkdocs.py` validates an extracted skill and stages cumulative versioned documentation with Mike navigation and the shared install strip.
+- `prepare_playground.py` stages the framework-free current Playground, generated WASM, verified bundled demo, and shared install strip for a root Material build.
+- `check_playground.py` smoke-checks the composed preview with one native/browser FST comparison, documentation navigation, and one private local-VCD run.
+- `publish_docs.py` owns local `check`, no-token `stage-deploy`, and credentialed `push-staged`. It accumulates documentation versions, replaces root Playground/installers only when promoting latest, and exports the verified `gh-pages` tree to the Pages artifact.
+- `check_deploy.py` verifies the current Playground/demo, a deployed browser/WASM smoke command, versioned documentation, CORS, and optional GitHub Pages API state after publication.
 - `workflow_docs.py` keeps GitHub Actions glue testable: dispatch validation, release preflight, and workflow environment translation for stage/push jobs.
 
 ## Tests

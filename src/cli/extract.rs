@@ -4,48 +4,59 @@ use clap::{Args, Subcommand, ValueEnum};
 
 use crate::cli::limits::LimitArg;
 
+use super::HelpArgs;
+
 #[derive(Debug, Subcommand)]
 pub enum ExtractCommand {
     #[command(
-        about = "Extract manager-facing AHB pipeline events.",
-        long_about = r#"Extract manager-facing AHB pipeline events.
+        about = "Extract manager-facing AHB address and data-phase events.",
+        long_about = r#"Extract manager-facing AHB address and data-phase events.
 
 Behavior:
-- Supports AHB-Lite and AHB5 profiles from Arm IHI 0033C, Issue C.
-- Tracks one accepted address phase so real data completions remain distinct from idle clocks.
-- Emits address, data-complete, reset, and desynchronized events by default.
-- --include-stall, --include-idle, and --include-busy independently expose cycle-level events.
-- Samples control and payload values one dump tick before each rising HCLK edge.
-- Uses manager-facing HREADY; HREADYOUT, HSELx, and parity/check signals are outside this interface.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- In source-file mode, --source provides profile, name, inclusion flags, includes, and maps.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
-- JSON output includes Issue C context, initial pipeline state, mappings, and ordered event rows.
-- Does not reconstruct bursts, aggregate transactions, or join address and data phases.
+- Supports AHB-Lite and AHB5 from Arm IHI 0033C, Issue C.
+- Tracks one accepted address phase so data completions remain separate from idle clocks.
+- Emits address, data-complete, reset, and desynchronized events by default. The include flags add stall, idle, or busy cycle events.
+- Samples control and payload one dump tick before each rising HCLK edge.
+- Uses manager-facing HREADY. HREADYOUT, HSELx, and parity or check signals are outside this interface.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, output name, include flags, regexes, and mappings.
 
-Use this command to inspect accepted AHB transfers and their pipeline completion timing."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Example:
+  wavepeek extract ahb --waves dump.fst \
+    --scope tb.dut.ahb_m --profile ahb-lite \
+    --map hclk=clk --include '^m_ahb_'
+
+Notes:
+- `--source` conflicts with `--profile`, `--name`, `--map`, `--include`, `--include-stall`, `--include-idle`, and `--include-busy`.
+- Pipeline warm-up starts before `--from`, so an in-range completion may belong to an earlier address phase. JSON field `initial_data_phase` records that state.
+- JSON context includes the Issue C profile, resolved mappings, and ordered event rows.
+- The extractor does not reconstruct bursts, combine transactions, or join address and data phases.
+- See extract-ahb.md for mapping and stall examples. See machine-output.md for JSON and JSONL records."#
     )]
     Ahb(Box<AhbArgs>),
     #[command(
-        about = "Extract APB Setup and Access event rows.",
-        long_about = r#"Extract APB Setup and Access event rows.
+        about = "Extract APB Setup and Access events.",
+        long_about = r#"Extract APB Setup and Access events.
 
 Behavior:
-- Supports APB3, APB4, and APB5 profiles from Arm IHI 0024E; APB4 is the default.
-- Generated schemas accept canonical lowercase profile and PREADY-mode values only.
-- Emits setup and access-complete rows by default; --include-wait adds one access-wait row per waited Access cycle.
-- Mapped PREADY mode requires pready; implicit-high mode forbids pready and wait capture.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Maps one concrete Completer PSELx as canonical psel.
-- Samples reset, event predicates, direction, and payload values at the pre-edge sample point.
-- In source-file mode, --source provides profile, PREADY mode, wait capture, name, includes, and maps and conflicts with their CLI flags.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
-- JSON output includes APB metadata, mappings, and event rows.
-- Reports independent sampled events only; it does not correlate or validate transactions.
+- Supports APB3, APB4, and APB5 from Arm IHI 0024E.
+- Emits setup and access-complete rows by default. `--include-wait` adds one row for each waited Access cycle.
+- Mapped PREADY mode requires `pready`. Implicit-high mode forbids `pready` and wait rows.
+- Maps one concrete Completer PSELx signal as `psel`.
+- Samples reset, predicates, direction, and payload at the pre-edge sample point.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, PREADY mode, wait flag, output name, regexes, and mappings. Source files use canonical lowercase profile and mode values.
 
-Use this command to inspect APB activity without writing generic Setup and Access predicates."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Example:
+  wavepeek extract apb --waves dump.fst \
+    --scope tb.dut.uart_apb --profile apb4 \
+    --map pclk=clk --include '^uart_'
+
+Notes:
+- `--source` conflicts with `--profile`, `--pready-mode`, `--include-wait`, `--name`, `--map`, and `--include`.
+- JSON context includes APB metadata, resolved mappings, and event rows.
+- Rows are independent sampled events. The extractor does not correlate or validate transactions.
+- See extract-apb.md for mapping and wait-state examples. See machine-output.md for JSON and JSONL records."#
     )]
     Apb(Box<ApbArgs>),
     #[command(
@@ -53,82 +64,105 @@ Use this command to inspect APB activity without writing generic Setup and Acces
         long_about = r#"Extract ATB transfer, flush, and synchronization-request events.
 
 Behavior:
-- Supports ATB-A, ATB-B, and ATB-C profiles from Arm IHI 0032C Issue C; ATB-C is the default.
-- Profile aliases are atb_a, atb_b, atb_c, atbv1.0, and atbv1.1; generated schemas accept canonical hyphenated profile names only.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Builds independent sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.
-- Mapping SYNCREQ on ATB-B or ATB-C automatically adds a synchronization-request source.
-- Samples reset, predicates, and mapped transfer payload at the pre-edge sample point.
-- Emits same-edge events in transfer, flush, then sync-request order.
-- Preserves raw mapped ATBYTES, ATDATA, and ATID values without trace decoding.
-- In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
-- JSON output includes ATB metadata, mappings, and event rows.
-- Reports stateless sampled events only; it does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
+- Supports ATB-A, ATB-B, and ATB-C from Arm IHI 0032C, Issue C.
+- Builds separate event sources for complete ATVALID/ATREADY and AFVALID/AFREADY handshakes.
+- A mapped SYNCREQ signal on ATB-B or ATB-C adds synchronization-request events.
+- Samples reset, predicates, and transfer payload at the pre-edge sample point.
+- Orders same-edge events as transfer, flush, then synchronization request.
+- Preserves mapped ATBYTES, ATDATA, and ATID values without trace decoding.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, output name, regexes, and mappings. Source files use canonical hyphenated profile names.
 
-Use this command to inspect one ATB interface without writing separate generic extraction sources."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Example:
+  wavepeek extract atb --waves dump.fst \
+    --scope tb.dut.etm --profile atb-c \
+    --map atclk=trace_clk --include '^trace_(at|af|sync)'
+
+Notes:
+- `--source` conflicts with `--profile`, `--name`, `--map`, and `--include`.
+- CLI profile aliases are `atb_a`, `atb_b`, `atb_c`, `atbv1.0`, and `atbv1.1`.
+- JSON context includes ATB metadata, resolved mappings, and event rows.
+- Rows are stateless sampled events. The extractor does not reconstruct packets, stalls, flush episodes, or synchronization episodes.
+- See extract-atb.md for mapping examples. See machine-output.md for JSON and JSONL records."#
     )]
     Atb(Box<AtbArgs>),
     #[command(
-        about = "Extract AXI ready/valid transfer rows.",
-        long_about = r#"Extract AXI ready/valid transfer rows.
+        about = "Extract AXI-family ready/valid channel transfers.",
+        long_about = r#"Extract AXI-family ready/valid channel transfers.
 
 Behavior:
-- AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 profiles use Arm IHI 0022H.c.
-- AXI5, AXI5-Lite, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles use Arm IHI 0022L ready/valid transport.
-- Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP profiles.
-- ACE5-Lite aliases are ace5_lite; ACE5-LiteDVM aliases are ace5-litedvm, ace5_litedvm, and ace5_lite_dvm; ACE5-LiteACP aliases are ace5-liteacp, ace5_liteacp, and ace5_lite_acp.
-- Generated schemas accept canonical hyphenated profile names only.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Builds one extraction source per complete ready/valid channel.
-- AXI5 and ACE5-LiteDVM can add DVM ac and cr channels but do not add cd.
-- Samples reset, ready/valid predicates, and payload values at the pre-edge sample point.
-- In source-file mode, --source provides profile, name, includes, and maps and conflicts with --profile, --name, --map, and --include.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
-- JSON output includes AXI metadata, mappings, and transfer rows.
-- Reports channel transfers only; it does not reconstruct bursts, ordering, or outstanding request state.
+- Supports AXI3, AXI4, AXI4-Lite, AXI5, AXI5-Lite, ACE, ACE-Lite, ACE5, ACE5-Lite, ACE5-LiteDVM, and ACE5-LiteACP.
+- AXI3, AXI4, AXI4-Lite, ACE, ACE-Lite, and ACE5 use Arm IHI 0022H.c. The remaining profiles use the Arm IHI 0022L ready/valid transport.
+- Builds one event source for each complete ready/valid channel. AXI5 and ACE5-LiteDVM can add DVM `ac` and `cr` channels, but not `cd`.
+- Samples reset, ready and valid predicates, and payload at the pre-edge sample point.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, output name, regexes, and mappings. Source files use canonical hyphenated profile names.
 
-Use this command to inspect AXI-family handshakes without writing one generic source per channel."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Example:
+  wavepeek extract axi --waves dump.fst \
+    --scope tb.dut.axi_m --profile axi4 \
+    --map aclk=clk --include '^m_axi_(aw|w|b|ar|r)'
+
+Notes:
+- `--source` conflicts with `--profile`, `--name`, `--map`, and `--include`.
+- CLI aliases include `ace5_lite`, `ace5-litedvm`, `ace5_litedvm`, `ace5_lite_dvm`, `ace5-liteacp`, `ace5_liteacp`, and `ace5_lite_acp`.
+- JSON context includes AXI metadata, resolved mappings, and transfer rows.
+- Rows are raw channel transfers, including eligible `ac` and `cr` transfers. The extractor does not decode DVM messages or coherency state. It does not reconstruct bursts, ordering, or outstanding request state.
+- See extract-axi.md for mapping examples. See machine-output.md for JSON and JSONL records."#
     )]
     Axi(Box<AxiArgs>),
     #[command(
         name = "axistream",
-        about = "Extract AXI-Stream transfer rows.",
-        long_about = r#"Extract AXI-Stream transfer rows.
+        about = "Extract AXI-Stream transfers.",
+        long_about = r#"Extract AXI-Stream transfers.
 
 Behavior:
-- Supports AXI4-Stream and AXI5-Stream profiles from Arm IHI 0051B Issue B.
-- The default profile is AXI4-Stream.
-- Signal mapping combines explicit STD_NAME=WAVES_NAME maps with include-regex auto-mapping; explicit maps win.
-- Mapped TREADY mode requires tvalid and tready; implicit-high mode explicitly declares that physical TREADY is omitted.
-- Samples reset, handshake predicates, and payload values at the pre-edge sample point for posedge aclk.
-- One invocation maps one stream interface and emits one row per completed transfer without a synthetic channel.
-- AXI5-Stream wake-up and parity/check signals are outside this transfer extractor.
-- In source-file mode, --source provides profile, TREADY mode, name, includes, and maps and conflicts with --profile, --tready-mode, --name, --map, and --include.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
+- Supports AXI4-Stream and AXI5-Stream from Arm IHI 0051B, Issue B.
+- Mapped TREADY mode requires `tvalid` and `tready`. Implicit-high mode declares that physical TREADY is absent.
+- Samples reset, handshake predicates, and payload at the pre-edge sample point for each rising ACLK edge.
+- One invocation maps one stream interface and emits one row per completed transfer without adding a channel name.
+- Explicit `STD_NAME=WAVES_NAME` mappings override signals found by include regexes.
+- A source file can provide the profile, TREADY mode, output name, regexes, and mappings.
 
-Use this command to inspect AXI-Stream transfers without writing a generic extraction source."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Example:
+  wavepeek extract axistream --waves dump.fst \
+    --scope tb.dut.video_out --profile axi4-stream \
+    --map aclk=clk --include '^video_'
+
+Notes:
+- `--source` conflicts with `--profile`, `--tready-mode`, `--name`, `--map`, and `--include`.
+- AXI5-Stream wake-up, parity, and check signals are outside this extractor.
+- See extract-axis.md for mapping and implicit-high examples. See machine-output.md for JSON and JSONL records."#
     )]
     AxiStream(Box<AxiStreamArgs>),
     #[command(
-        about = "Extract protocol-neutral event rows from waveform signals.",
-        long_about = r#"Extract protocol-neutral event rows from waveform signals.
+        about = "Extract custom synchronous events and their payload values.",
+        long_about = r#"Extract custom synchronous events and their payload values.
 
 Behavior:
-- Selects edge-only event timestamps with --on.
-- Always samples --when and --payload at the pre-edge sample point.
-- In single-source mode, --on, --when, and --payload define one source named by --name or "transfer".
-- In source-file mode, --source provides one or more sources and conflicts with --name, --on, --when, and --payload.
-- Contract for source-file mode is defined by `wavepeek schema --input`.
-- JSON and JSONL rows include time, sample_time, source, and ordered payload values.
+- `--on` selects edge-only events. `--when` and `--payload` are always sampled at the pre-edge sample point.
+- `--payload` accepts comma-separated values, repeated options, or both. Entries may end in `[msb:lsb]`, and request order and duplicates are preserved.
+- Use `[n:n]` for one bit. Exact waveform paths take precedence, and `[n]` remains path syntax.
+- In CLI mode, `--on`, `--when`, and `--payload` define one source named by `--name`.
+- A source file can define one or more sources. `--source` conflicts with `--name`, `--on`, `--when`, and `--payload`.
+- JSON and JSONL rows include `time`, `sample_time`, `source`, and ordered payload values.
 
-Use this command to extract synchronous handshakes or transfer-like rows without joining property and value output outside wavepeek."#,
-        after_long_help = "See also:\n  wavepeek docs show commands/extract"
+Examples:
+  wavepeek extract generic --waves dump.fst \
+    --scope tb.dut.queue --on 'posedge clk' \
+    --when 'valid && ready' --payload data,last
+
+  wavepeek extract generic --waves dump.fst \
+    --scope tb.dut --source fifo-sources.json
+
+Notes:
+- Use a protocol extractor when it already supports the interface.
+- See extract-transfers.md for generic extraction examples, boolean-expressions.md for `--when`, and event-expressions.md for `--on`.
+- See machine-output.md for JSON and JSONL records."#
     )]
     Generic(Box<GenericArgs>),
+    #[command(about = "Show detailed help for a command path.")]
+    Help(HelpArgs),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -155,7 +189,7 @@ impl std::fmt::Display for AhbProfileArg {
 
 #[derive(Debug, Args)]
 pub struct AhbArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
     /// AHB profile from Arm IHI 0033C
@@ -169,7 +203,7 @@ pub struct AhbArgs {
         help_heading = "Input options"
     )]
     pub profile: AhbProfileArg,
-    /// JSON AHB source file with profile, inclusion flags, name, includes, and maps
+    /// JSON AHB source file with profile, include flags, name, regexes, and mappings (for example, ahb-source.json)
     #[arg(
         long,
         value_name = "FILE",
@@ -185,26 +219,26 @@ pub struct AhbArgs {
         help_heading = "Input options"
     )]
     pub source: Option<PathBuf>,
-    /// AHB interface name metadata for output (defaults to ahb)
+    /// Interface name stored in output metadata (default: ahb)
     #[arg(long, help_heading = "Input options")]
     pub name: Option<String>,
-    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive event range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive event range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for scope-relative AHB signal names and include regexes
+    /// Scope for relative AHB signal names and include regexes (for example, top.ahb_m)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Explicit AHB mapping STD_NAME=WAVES_NAME, e.g. haddr=dmem_haddr; may be repeated
+    /// Explicit AHB signal mapping; may be repeated (for example, haddr=dmem_haddr)
     #[arg(
         long = "map",
         value_name = "STD=WAVES",
         help_heading = "Signal mapping options"
     )]
     pub maps: Vec<String>,
-    /// Regex selecting waveform signal candidates for AHB auto-mapping; may be repeated
+    /// Regex for AHB auto-mapping candidates; may be repeated (for example, '^m_ahb_')
     #[arg(
         long = "include",
         value_name = "REGEX",
@@ -223,6 +257,9 @@ pub struct AhbArgs {
     /// Maximum number of public AHB event rows (`unlimited` disables truncation, value must be > 0)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
     /// Print canonical mapping paths in human output
     #[arg(long, help_heading = "Output options")]
     pub abs: bool,
@@ -281,7 +318,7 @@ impl std::fmt::Display for PreadyModeArg {
 
 #[derive(Debug, Args)]
 pub struct ApbArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
     /// APB profile from Arm IHI 0024E
@@ -309,7 +346,7 @@ pub struct ApbArgs {
     /// Emit one access-wait row per waited Access cycle
     #[arg(long, conflicts_with = "source", help_heading = "Input options")]
     pub include_wait: bool,
-    /// JSON APB source file with profile, mode, wait capture, name, includes, and maps
+    /// JSON APB source file with profile, PREADY mode, wait flag, name, regexes, and mappings (for example, apb-source.json)
     #[arg(
         long,
         value_name = "FILE",
@@ -324,26 +361,26 @@ pub struct ApbArgs {
         help_heading = "Input options"
     )]
     pub source: Option<PathBuf>,
-    /// APB port name metadata for output (defaults to apb)
+    /// Interface name stored in output metadata (default: apb)
     #[arg(long, help_heading = "Input options")]
     pub name: Option<String>,
-    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive event range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive event range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for scope-relative APB signal names and include regexes
+    /// Scope for relative APB signal names and include regexes (for example, top.uart_apb)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Explicit APB mapping STD_NAME=WAVES_NAME, e.g. psel=uart_psel; may be repeated
+    /// Explicit APB signal mapping; may be repeated (for example, psel=uart_psel)
     #[arg(
         long = "map",
         value_name = "STD=WAVES",
         help_heading = "Signal mapping options"
     )]
     pub maps: Vec<String>,
-    /// Regex selecting waveform signal candidates for APB auto-mapping, e.g. '^uart_apb_'; may be repeated
+    /// Regex for APB auto-mapping candidates; may be repeated (for example, '^uart_apb_')
     #[arg(
         long = "include",
         value_name = "REGEX",
@@ -362,6 +399,9 @@ pub struct ApbArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -392,7 +432,7 @@ impl std::fmt::Display for AtbProfileArg {
 
 #[derive(Debug, Args)]
 pub struct AtbArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
     /// ATB profile from Arm IHI 0032C Issue C
@@ -406,7 +446,7 @@ pub struct AtbArgs {
         help_heading = "Input options"
     )]
     pub profile: AtbProfileArg,
-    /// JSON ATB source file with profile, name, includes, and maps
+    /// JSON ATB source file with profile, name, regexes, and mappings (for example, atb-source.json)
     #[arg(
         long,
         value_name = "FILE",
@@ -414,26 +454,26 @@ pub struct AtbArgs {
         help_heading = "Input options"
     )]
     pub source: Option<PathBuf>,
-    /// ATB interface name metadata for output (defaults to atb)
+    /// Interface name stored in output metadata (default: atb)
     #[arg(long, help_heading = "Input options")]
     pub name: Option<String>,
-    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive event range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive event range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for scope-relative ATB signal names and include regexes
+    /// Scope for relative ATB signal names and include regexes (for example, top.etm)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Explicit ATB mapping STD_NAME=WAVES_NAME, e.g. atvalid=etm_atvalid; may be repeated
+    /// Explicit ATB signal mapping; may be repeated (for example, atvalid=etm_atvalid)
     #[arg(
         long = "map",
         value_name = "STD=WAVES",
         help_heading = "Signal mapping options"
     )]
     pub maps: Vec<String>,
-    /// Regex selecting waveform signal candidates for ATB auto-mapping, e.g. '^etm_(at|af)'; may be repeated
+    /// Regex for ATB auto-mapping candidates; may be repeated (for example, '^etm_(at|af)')
     #[arg(
         long = "include",
         value_name = "REGEX",
@@ -452,6 +492,9 @@ pub struct AtbArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -552,7 +595,7 @@ impl std::fmt::Display for TreadyModeArg {
 
 #[derive(Debug, Args)]
 pub struct AxiArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
     /// AXI profile from Arm IHI 0022H.c or IHI 0022L
@@ -566,7 +609,7 @@ pub struct AxiArgs {
         help_heading = "Input options"
     )]
     pub profile: AxiProfileArg,
-    /// JSON AXI source file with profile, name, includes, and maps
+    /// JSON AXI source file with profile, name, regexes, and mappings (for example, axi-source.json)
     #[arg(
         long,
         value_name = "FILE",
@@ -574,26 +617,26 @@ pub struct AxiArgs {
         help_heading = "Input options"
     )]
     pub source: Option<PathBuf>,
-    /// AXI port name metadata for output (defaults to axi)
+    /// Interface name stored in output metadata (default: axi)
     #[arg(long, help_heading = "Input options")]
     pub name: Option<String>,
-    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive event range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive event range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for scope-relative AXI signal names and include regexes
+    /// Scope for relative AXI signal names and include regexes (for example, top.axi_m)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Explicit AXI mapping STD_NAME=WAVES_NAME, e.g. awvalid=cpu_dmem_awvalid; may be repeated
+    /// Explicit AXI signal mapping; may be repeated (for example, awvalid=cpu_dmem_awvalid)
     #[arg(
         long = "map",
         value_name = "STD=WAVES",
         help_heading = "Signal mapping options"
     )]
     pub maps: Vec<String>,
-    /// Regex selecting waveform signal candidates for AXI auto-mapping, e.g. '^axi_(aw|w|b|ar|r)_'; may be repeated
+    /// Regex for AXI auto-mapping candidates; may be repeated (for example, '^axi_(aw|w|b|ar|r)_')
     #[arg(
         long = "include",
         value_name = "REGEX",
@@ -612,11 +655,14 @@ pub struct AxiArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct AxiStreamArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
     /// AXI-Stream profile from Arm IHI 0051B Issue B
@@ -641,7 +687,7 @@ pub struct AxiStreamArgs {
         help_heading = "Input options"
     )]
     pub tready_mode: TreadyModeArg,
-    /// JSON AXI-Stream source file with profile, TREADY mode, name, includes, and maps
+    /// JSON AXI-Stream source file with profile, TREADY mode, name, regexes, and mappings (for example, axistream-source.json)
     #[arg(
         long,
         value_name = "FILE",
@@ -649,26 +695,26 @@ pub struct AxiStreamArgs {
         help_heading = "Input options"
     )]
     pub source: Option<PathBuf>,
-    /// Stream-port name metadata for output (defaults to axistream)
+    /// Interface name stored in output metadata (default: axistream)
     #[arg(long, help_heading = "Input options")]
     pub name: Option<String>,
-    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive event range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive event range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for scope-relative AXI-Stream signal names and include regexes
+    /// Scope for relative AXI-Stream signal names and include regexes (for example, top.video_out)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Explicit AXI-Stream mapping STD_NAME=WAVES_NAME, e.g. tvalid=video_tvalid; may be repeated
+    /// Explicit AXI-Stream signal mapping; may be repeated (for example, tvalid=video_tvalid)
     #[arg(
         long = "map",
         value_name = "STD=WAVES",
         help_heading = "Signal mapping options"
     )]
     pub maps: Vec<String>,
-    /// Regex selecting waveform signal candidates for AXI-Stream auto-mapping; may be repeated
+    /// Regex for AXI-Stream auto-mapping candidates; may be repeated (for example, '^video_')
     #[arg(
         long = "include",
         value_name = "REGEX",
@@ -687,14 +733,17 @@ pub struct AxiStreamArgs {
     /// Stream newline-delimited JSON output
     #[arg(long, conflicts_with = "json", help_heading = "Output options")]
     pub jsonl: bool,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
 }
 
 #[derive(Debug, Args)]
 pub struct GenericArgs {
-    /// Path to VCD/FST/FSDB waveform file
+    /// Path to a VCD, FST, or FSDB waveform file (for example, dump.fst)
     #[arg(long, value_name = "FILE", help_heading = "Input options")]
     pub waves: PathBuf,
-    /// JSON source file for multi-source extraction
+    /// JSON file for multi-source extraction (for example, fifo-sources.json)
     #[arg(
         long,
         value_name = "FILE",
@@ -702,25 +751,25 @@ pub struct GenericArgs {
         help_heading = "Input options"
     )]
     pub source: Option<PathBuf>,
-    /// Start of inclusive event time range (e.g. 1234ns; omitted means dump start)
+    /// Start of the inclusive event range (for example, 1234ns; default: dump start)
     #[arg(long, help_heading = "Selection options")]
     pub from: Option<String>,
-    /// End of inclusive event time range (e.g. 1234ns; omitted means dump end)
+    /// End of the inclusive event range (for example, 2000ns; default: dump end)
     #[arg(long, help_heading = "Selection options")]
     pub to: Option<String>,
-    /// Canonical scope path for scope-relative event, predicate, and payload names
+    /// Scope for relative event, predicate, and payload names (for example, top.fifo)
     #[arg(long, help_heading = "Selection options")]
     pub scope: Option<String>,
-    /// Source name for single-source CLI mode (defaults to transfer)
+    /// Source name for single-source CLI mode (default: transfer)
     #[arg(long, help_heading = "Selection options")]
     pub name: Option<String>,
-    /// Edge-only event trigger expression for single-source CLI mode
+    /// Edge-only event expression for single-source CLI mode (for example, 'posedge clk')
     #[arg(long, help_heading = "Selection options")]
     pub on: Option<String>,
-    /// Logical predicate evaluated at the pre-edge sample point in single-source CLI mode
+    /// Pre-edge predicate for single-source CLI mode (for example, 'valid && ready')
     #[arg(long, help_heading = "Selection options")]
     pub when: Option<String>,
-    /// Comma-separated payload signal names for single-source CLI mode
+    /// Payload paths or flat projections, comma-separated or repeated (for example, data,last or status[7:4])
     #[arg(
         long,
         value_delimiter = ',',
@@ -732,6 +781,9 @@ pub struct GenericArgs {
     /// Maximum number of extracted rows across all sources (`unlimited` disables truncation, value must be > 0)
     #[arg(long, default_value = "50", help_heading = "Output options")]
     pub max: LimitArg,
+    /// Suppress result rows while retaining context and completeness metadata
+    #[arg(long, help_heading = "Output options")]
+    pub summary: bool,
     /// Print canonical payload paths in human output
     #[arg(long, help_heading = "Output options")]
     pub abs: bool,

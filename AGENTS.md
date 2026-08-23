@@ -1,7 +1,9 @@
 ## Core Workflow
 
 - `wavepeek` is a Rust CLI for deterministic `.vcd` and `.fst` waveform inspection.
-- Development is container-first; run repository gates in the devcontainer/CI image.
+- Agents, Git, signing, credentials, pushes, issues, and pull requests run on the host. Cargo, Pre-commit, Commitizen, waveform tools, and quality gates run in the devcontainer through root `./dev`.
+- Each worktree has its own container. Start it explicitly before host `git commit`; hooks never start or rebuild containers.
+- After creating or entering a new worktree, run `./dev --install-hooks` before the first commit. The command is idempotent and configures hooks only for that worktree.
 - Development tasks are run through root `justfile` recipes.
 - Standard quality gate: `just ci`.
 - Local pre-handoff gate: `just check`.
@@ -18,27 +20,24 @@
 
 ## Development
 
-Maintainer workflow lives under `docs/dev/`:
+Maintainer workflow lives under `docs/`:
 
-- `docs/dev/environment.md` for devcontainer, CI image, Codex, fixtures, and `tmp/`.
-- `docs/dev/github-auth.md` for optional repo-scoped GitHub auth in the devcontainer.
-- `docs/dev/quality.md` for `just check`, `just ci`, coverage, and hooks.
-- `docs/dev/testing.md` for test strategy and fixtures.
-- `docs/dev/style.md` for Rust, CLI, output, and docs conventions.
-- `docs/dev/benchmarking.md` for manual performance gate and E2E benchmark workflows.
-- `docs/dev/automation.md` for CI, `justfile`, pre-commit, and helper tools.
-- `docs/dev/git.md`, `docs/dev/changelog.md`, and `docs/dev/release.md` for contribution hygiene and releases.
-- `docs/dev/architecture.md` for internal module boundaries.
+- `docs/environment.md` for the shared devcontainer, host entrypoint, fixtures, and `tmp/`.
+- `docs/quality.md` for `just check`, `just ci`, coverage, and hooks.
+- `docs/testing.md` for test strategy and fixtures.
+- `docs/style.md` for Rust, CLI, output, and docs conventions.
+- `docs/benchmarking.md` for manual performance gate and E2E benchmark workflows.
+- `docs/automation.md` for CI, `justfile`, pre-commit, and helper tools.
+- `docs/git.md`, `docs/changelog.md`, and `docs/release.md` for contribution hygiene and releases.
+- `docs/architecture.md` for internal module boundaries.
 
 ## Map
 
-- `src/` — Rust source code and embedded docs runtime.
+- `src/` — Rust source code and embedded skill runtime.
 - `tests/` — integration tests, fixtures, and test helpers.
 - `tools/` — helper automation used by `just` recipes and workflows.
 - `bench/` — end-to-end benchmark harnesses.
 - `.github/workflows/` — CI and release workflows.
-- `.devcontainer/` — local and CI container setup.
-- `docs/dev/` — maintainer workflow, quality, style, release, and architecture docs.
-- `docs/tracker/` — backlog, roadmap, and branch-local WIP artifacts.
-- `docs/public/` — embedded user documentation for `wavepeek docs`.
-- `schema/` — canonical machine-output schema artifacts.
+- `.devcontainer/` — shared development and automation container setup.
+- `docs/` — maintainer workflow, quality, style, release, backlog, and roadmap docs, with branch-local artifacts under `docs/wip/`.
+- `skills/wavepeek/` — canonical source for the packaged Wavepeek skill.

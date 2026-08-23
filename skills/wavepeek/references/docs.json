@@ -1,0 +1,41 @@
+{
+  "navigation": [
+    {
+      "Start here": [
+        { "Overview": "index.md" },
+        { "Quickstart": "quickstart.md" }
+      ]
+    },
+    {
+      "Concepts": [
+        { "Commands": "commands.md" },
+        { "Waveform formats": "waveforms.md" },
+        { "Paths, signals and scopes": "paths.md" },
+        { "Time units and windows": "timeunits.md" },
+        { "Clocks and sampling": "sampling.md" },
+        { "Boolean conditions": "predicates.md" }
+      ]
+    },
+    {
+      "Usage": [
+        { "Explore dump": "explore-dump.md" },
+        { "Inspect values": "inspect-values.md" },
+        { "Evaluate properties": "evaluate-properties.md" },
+        { "Extract transfers": "extract-transfers.md" },
+        { "Extract AMBA AXI": "extract-axi.md" },
+        { "Extract AMBA AXI-Stream": "extract-axis.md" },
+        { "Extract AMBA AHB": "extract-ahb.md" },
+        { "Extract AMBA APB": "extract-apb.md" },
+        { "Extract AMBA ATB": "extract-atb.md" }
+      ]
+    },
+    {
+      "Reference": [
+        { "CLI help reference": "cli-reference.md" },
+        { "Machine output format": "machine-output.md"},
+        { "Event expression language": "event-expressions.md" },
+        { "Boolean expression language": "boolean-expressions.md" }
+      ]
+    }
+  ]
+}

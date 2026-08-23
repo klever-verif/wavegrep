@@ -3,9 +3,9 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::collections::HashSet;
-use std::io::BufReader;
-use std::path::Path;
-use std::path::PathBuf;
+use std::io::{BufRead, BufReader, Cursor, Seek};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use wellen::{
     ScopeRef, ScopeType, SignalRef, SignalValueRef, Timescale, TimescaleUnit, VarType, simple,
@@ -24,9 +24,24 @@ use super::types::{
 const STREAM_THRESHOLD_WORK: usize = 20_000;
 
 #[derive(Debug)]
+enum WellenSource {
+    Path(PathBuf),
+    Bytes { name: PathBuf, data: Arc<[u8]> },
+}
+
+impl WellenSource {
+    fn name(&self) -> &Path {
+        match self {
+            Self::Path(path) => path,
+            Self::Bytes { name, .. } => name,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(super) struct WellenBackend {
     inner: simple::Waveform,
-    source_path: PathBuf,
+    source: WellenSource,
     file_format: wellen::FileFormat,
     loaded_signals: HashSet<SignalRef>,
 }
@@ -40,7 +55,6 @@ impl WellenBackend {
             )));
         }
 
-        let source_path = path.to_path_buf();
         let file = std::fs::File::open(path).map_err(|error| {
             WavepeekError::File(format!("cannot open '{}': {error}", path.display()))
         })?;
@@ -50,7 +64,32 @@ impl WellenBackend {
         let inner = simple::read(path).map_err(|error| map_wellen_error(path, error))?;
         Ok(Self {
             inner,
-            source_path,
+            source: WellenSource::Path(path.to_path_buf()),
+            file_format,
+            loaded_signals: HashSet::new(),
+        })
+    }
+
+    pub fn open_bytes(name: &Path, data: Arc<[u8]>) -> Result<Self, WavepeekError> {
+        let mut reader = Cursor::new(Arc::clone(&data));
+        let file_format = wellen::viewers::detect_file_format(&mut reader);
+        reader.set_position(0);
+        if !matches!(
+            file_format,
+            wellen::FileFormat::Vcd | wellen::FileFormat::Fst
+        ) {
+            return Err(WavepeekError::File(
+                "the browser supports only VCD and FST waveforms".to_string(),
+            ));
+        }
+        let inner =
+            simple::read_from_reader(reader).map_err(|error| map_wellen_error(name, error))?;
+        Ok(Self {
+            inner,
+            source: WellenSource::Bytes {
+                name: name.to_path_buf(),
+                data,
+            },
             file_format,
             loaded_signals: HashSet::new(),
         })
@@ -582,12 +621,31 @@ impl WellenBackend {
             ));
         }
 
-        let mut streaming = wellen::stream::read_from_file(
-            self.source_path.as_path(),
-            &wellen::LoadOptions::default(),
-        )
-        .map_err(|error| map_wellen_error(self.source_path.as_path(), error))?;
+        match &self.source {
+            WellenSource::Path(path) => {
+                let streaming =
+                    wellen::stream::read_from_file(path, &wellen::LoadOptions::default())
+                        .map_err(|error| map_wellen_error(path, error))?;
+                self.collect_change_times_from_stream(streaming, resolved, from_raw, to_raw)
+            }
+            WellenSource::Bytes { data, .. } => {
+                let streaming = wellen::stream::read(
+                    Cursor::new(Arc::clone(data)),
+                    &wellen::LoadOptions::default(),
+                )
+                .map_err(|error| map_wellen_error(self.source.name(), error))?;
+                self.collect_change_times_from_stream(streaming, resolved, from_raw, to_raw)
+            }
+        }
+    }
 
+    fn collect_change_times_from_stream<R: BufRead + Seek>(
+        &self,
+        mut streaming: wellen::stream::StreamingWaveform<R>,
+        resolved: &[ResolvedSignal],
+        from_raw: u64,
+        to_raw: u64,
+    ) -> Result<Vec<u64>, WavepeekError> {
         let signal_refs = resolved
             .iter()
             .map(|signal| {
@@ -611,7 +669,7 @@ impl WellenBackend {
             })
             .map_err(|error| match error {
                 wellen::stream::StreamError::Wellen(error) => {
-                    map_wellen_error(self.source_path.as_path(), error)
+                    map_wellen_error(self.source.name(), error)
                 }
                 wellen::stream::StreamError::Callback(never) => match never {},
             })?;
@@ -655,7 +713,7 @@ impl WellenBackend {
 }
 
 fn should_use_multi_thread_signal_load(file_format: wellen::FileFormat) -> bool {
-    file_format == wellen::FileFormat::Fst
+    cfg!(not(target_arch = "wasm32")) && file_format == wellen::FileFormat::Fst
 }
 
 fn floor_time_table_index(time_table: &[u64], query_time_raw: u64) -> Option<usize> {
@@ -724,7 +782,7 @@ fn resolve_var_ref(
     canonical_path: &str,
 ) -> Result<wellen::VarRef, WavepeekError> {
     if canonical_path.is_empty() {
-        return Err(WavepeekError::Signal(format!(
+        return Err(WavepeekError::SignalNotFound(format!(
             "signal '{canonical_path}' not found in dump"
         )));
     }
@@ -734,7 +792,7 @@ fn resolve_var_ref(
             (scope_path.split('.').collect::<Vec<_>>(), signal_name)
         }
         Some(_) => {
-            return Err(WavepeekError::Signal(format!(
+            return Err(WavepeekError::SignalNotFound(format!(
                 "signal '{canonical_path}' not found in dump"
             )));
         }
@@ -744,7 +802,7 @@ fn resolve_var_ref(
     hierarchy
         .lookup_var(&scope_names, signal_name)
         .ok_or_else(|| {
-            WavepeekError::Signal(format!("signal '{canonical_path}' not found in dump"))
+            WavepeekError::SignalNotFound(format!("signal '{canonical_path}' not found in dump"))
         })
 }
 
@@ -1157,7 +1215,7 @@ mod tests {
     use crate::waveform::{
         ChangeCandidateCollectionMode, EXCLUDED_SCOPE_KIND_ALIASES, EXCLUDED_SIGNAL_KIND_ALIASES,
         STABLE_SCOPE_KIND_ALIASES, STABLE_SIGNAL_KIND_ALIASES, SampledSignal, ScopeEntry, Waveform,
-        classify_edge, duplicate_preserving_projection, should_emit_delta_and_update_baseline,
+        classify_edge, duplicate_preserving_projection,
     };
 
     const TEST_VCD: &str = "$date\n  today\n$end\n$version\n  wavepeek-test\n$end\n$timescale 1ns $end\n$scope module top $end\n$var wire 1 ! clk $end\n$var reg 8 \" data $end\n$var parameter 8 # cfg $end\n$scope module cpu $end\n$var wire 1 $ valid $end\n$upscope $end\n$scope function helper $end\n$var wire 1 & helper_flag $end\n$upscope $end\n$scope module mem $end\n$var wire 1 % ready $end\n$upscope $end\n$upscope $end\n$enddefinitions $end\n#0\n0!\nb00000000 \"\nb10101010 #\n0$\n0&\n0%\n#5\n1!\n1$\n1&\n#10\nb00001111 \"\n1%\n";
@@ -1642,6 +1700,10 @@ mod tests {
             "fatal: signal: signal 'top.nope' not found in dump"
         );
         assert_eq!(error.exit_code(), 1);
+        assert!(matches!(
+            error,
+            crate::error::WavepeekError::SignalNotFound(_)
+        ));
     }
 
     #[test]
@@ -1814,29 +1876,7 @@ mod tests {
     }
 
     #[test]
-    fn delta_filter_initializes_without_prior_state() {
-        let mut previous = vec![None];
-        let current = vec![Some("1".to_string())];
-
-        let emitted = should_emit_delta_and_update_baseline(&mut previous, &current);
-
-        assert!(!emitted);
-        assert_eq!(previous, vec![Some("1".to_string())]);
-    }
-
-    #[test]
-    fn delta_filter_mixed_prior_state_emits_on_comparable_change() {
-        let mut previous = vec![Some("0".to_string()), None];
-        let current = vec![Some("1".to_string()), Some("1".to_string())];
-
-        let emitted = should_emit_delta_and_update_baseline(&mut previous, &current);
-
-        assert!(emitted);
-        assert_eq!(previous, vec![Some("1".to_string()), Some("1".to_string())]);
-    }
-
-    #[test]
-    fn stable_schema_kind_aliases_cover_full_inventory() {
+    fn stable_kind_aliases_cover_full_inventory() {
         let scope_cases = [
             (wellen::ScopeType::Module, "module"),
             (wellen::ScopeType::Task, "task"),

@@ -33,7 +33,7 @@
       "stderr_snapshot": "expr_runtime_invalid_eval"
     },
     {
-      "name": "property_scoped_dotted_on_expr",
+      "name": "property_malformed_sized_literal",
       "command": "property",
       "args": [
         "--waves",
@@ -41,13 +41,17 @@
         "--scope",
         "top",
         "--on",
-        "posedge top.clk",
+        "*",
+        "--sample-mode",
+        "native",
         "--eval",
-        "data == 8'h00"
+        "clk == (clk >= 64h10)",
+        "--capture",
+        "match"
       ],
       "exit_code": 1,
       "stderr_prefix": "fatal: expr:",
-      "stderr_snapshot": "expr_runtime_scoped_dotted_on"
+      "stderr_snapshot": "expr_runtime_malformed_sized_literal"
     }
   ]
 }

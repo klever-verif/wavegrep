@@ -1,129 +1,97 @@
+<h1 align="center"><code>wavepeek</code></h1>
 
-# wavepeek
+<p align="center">
+  <img src="docs/wavepeek.svg" alt="wavepeek" width="900">
+</p>
 
-![wavepeek banner](docs/banner.png)
-[![CI](https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/wavepeek.svg)](https://crates.io/crates/wavepeek)
+<p align="center">
+  A CLI for querying RTL waveform dumps.<br>
+  Supports signal inspection, clocked Boolean conditions, and generic or AMBA event extraction.
+</p>
 
-`wavepeek` is a deterministic CLI for inspecting RTL waveforms (`.vcd`, `.fst`, `.fsdb`) in scripts, CI, and LLM-driven workflows.
+<p align="center">
+  <a href="https://kleverhq.github.io/wavepeek/">Playground</a>
+  · <a href="https://kleverhq.github.io/wavepeek/latest/">Documentation</a>
+  · <a href="https://kleverhq.github.io/wavepeek/latest/quickstart/">Quickstart</a>
+  · <a href="https://github.com/kleverhq/wavepeek/releases">Releases</a>
+</p>
 
-## Why
+<p align="center">
+  <a href="https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml"><img src="https://github.com/kleverhq/wavepeek/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/kleverhq/wavepeek/releases"><img src="https://img.shields.io/github/v/release/kleverhq/wavepeek" alt="GitHub release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/kleverhq/wavepeek" alt="Apache-2.0 license"></a>
+</p>
 
-- In RTL debugging, waveforms are the primary artifact, but most existing tooling is GUI-first.
-- LLM agents and CI jobs need short, composable commands instead of interactive navigation.
-- Raw dumps (especially large waveform files) are too heavy for direct, repeated analysis in context-limited systems.
-- `wavepeek` closes this gap with deterministic, bounded, machine-friendly waveform queries.
+`wavepeek` runs non-interactive queries over saved waveform files. Its main use cases are LLM-driven debugging and other automated workflows. GUI viewers are better suited to open-ended interactive exploration. `wavepeek` can also be used in scripts that need repeatable queries with limited output.
 
-## Quick Start
+`wavepeek` is a stateless CLI. Each invocation opens one VCD/FST/FSDB file, runs one query, writes text, JSON, or JSONL, and exits. It starts on demand and does not require a background service. It is not a GUI or TUI waveform viewer. It does not provide real-time waveform streaming, live simulator connections, or waveform comparison.
 
-Install a prebuilt VCD/FST binary.
+For example, this command returns the value of `top.data` at `10ns`:
 
-macOS and Linux:
+```text
+$ wavepeek value --waves dump.vcd --at 10ns --signals top.data
+@10ns top.data=8'h0f
+```
+
+## Commands
+
+| Task                                                         | Commands                                                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Read dump metadata and browse the recorded hierarchy         | `info`, `scope`, `signal`                                                       |
+| Read values at a time or on selected events                  | `value`, `change`                                                               |
+| Find when a Boolean condition matches, asserts, or deasserts | `property`                                                                      |
+| Extract custom handshakes or synchronous events              | `extract generic`                                                               |
+| Extract AMBA transfers or phase events                       | `extract axi`, `extract axistream`, `extract ahb`, `extract apb`, `extract atb` |
+
+The protocol extractors support AXI and ACE, AXI-Stream, AHB, APB, and ATB. Their output contains observed channel transfers or protocol phase events with sampled payload and context. They do not check protocol compliance or reconstruct high-level transactions.
+
+## Getting started
+
+Open the [Playground](https://kleverhq.github.io/wavepeek/) to run `wavepeek` in a browser.
+
+To install `wavepeek` on macOS or Linux, run:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -LsSf https://kleverhq.github.io/wavepeek/install.sh | sh
 ```
 
-Windows PowerShell:
+The prebuilt binary supports VCD and FST. FSDB support requires a source build on Linux x86_64 and the Synopsys Verdi FSDB Reader SDK.
 
-```bash
-powershell -ExecutionPolicy Bypass -c "irm https://kleverhq.github.io/wavepeek/install.ps1 | iex"
-```
-
-Cargo remains available as a fallback:
-
-```bash
-cargo install wavepeek
-# or from source
-cargo install --path .
-# or with FSDB support (requires valid $VERDI_HOME)
-cargo install wavepeek --features fsdb
-```
-
-Prebuilt binaries support VCD/FST.
-FSDB support is source-only, Linux x86_64 only, and requires installing with the Cargo feature `fsdb` and the Synopsys Verdi FSDB Reader SDK.
-
-Run a complete inspection flow:
-
-```bash
-# 0) Get a dump
-# Note: example `.fst` dumps can be downloaded from `rtl-artifacts` releases: https://github.com/kleverhq/rtl-artifacts
-WAVES=./dump.fst
-
-# 1) Check dump bounds and time unit
-wavepeek info --waves "$WAVES"
-
-# 2) Discover hierarchy
-wavepeek scope --waves "$WAVES" --tree
-
-# 3) Find relevant signals in a scope (--filter is a regex)
-wavepeek signal --waves "$WAVES" --scope top.cpu --filter '.*(clk|rst|state).*'
-
-# 4) Sample values at one or more explicit timestamps
-wavepeek value --waves "$WAVES" --at 100ns,200ns --scope top.cpu --signals reset_n,state
-
-# 5) Inspect transitions over a time window (--on is a SystemVerilog-like clocking event expression)
-wavepeek change --waves "$WAVES" --from 0ns --to 500ns --scope top.cpu --signals state --on 'posedge clk'
-
-# 6) Check a property on selected events (--eval is a SystemVerilog-like logical expression)
-wavepeek property --waves "$WAVES" --from 0ns --to 500ns --scope top.cpu --on 'posedge clk' --eval 'ready && !stall' --capture assert
-
-# 7) Extract transfer-like event rows with payload values
-wavepeek extract generic --waves "$WAVES" --from 0ns --to 500ns --scope top.pipe --on 'posedge clk' --when 'valid_i && ready_i' --payload data0_i,data1_i
-```
-
-By default, commands print human-readable output. Add `--json` for strict machine output:
-
-```bash
-wavepeek info --waves "$WAVES" --json
-```
-
-Chain commands in scripts with `jq`:
-
-```bash
-scope="$(wavepeek scope --waves "$WAVES" --json | jq -r '.data[0].path')"
-wavepeek signal --waves "$WAVES" --scope "$scope" --json | jq '.data[:5]'
-```
-
-## Agentic Flows
-
-Copy/paste this to your agent:
+Alternatively, ask your agent to do the setup:
 
 ```text
-Check whether `wavepeek` is installed:
-
-wavepeek version
-
-If that succeeds, run:
-
-wavepeek skill
-
-`wavepeek skill` prints the full packaged skill Markdown to stdout. Use that output as the source of truth and install/adapt the skill according to your own skill format and rules.
+Install the latest release from https://github.com/kleverhq/wavepeek/releases. Run 'wavepeek skill' to get the skill.
 ```
 
-## Commands
+Check the version after installation:
 
-| Command | Purpose |
-| --- | --- |
-| `info` | Print dump metadata |
-| `scope` | List hierarchy scopes |
-| `signal` | List signals in a scope with metadata |
-| `value` | Signal values at explicit time point(s) |
-| `change` | Delta snapshots over a time range with event triggers |
-| `property` | Property checks over event triggers with capture modes |
-| `extract` | Get events, handshakes, transfers from synchronous signals |
-| `schema` | Print canonical JSON schemas used by JSON output, JSONL streams, and structured input |
-| `docs` | Browse embedded narrative docs, search topics, and export Markdown |
-| `skill` | Print packaged agent skill Markdown |
-| `help` | Print detailed long help for top-level or nested command paths |
+```bash
+wavepeek --version
+```
 
-Use progressive disclosure via built-in help and docs:
+See the [Quickstart](https://kleverhq.github.io/wavepeek/latest/quickstart/) for Windows, Cargo, source installation, FSDB setup, and further examples.
 
-- `wavepeek -h` for compact lookup help
-- `wavepeek --help` or `wavepeek help <command-path...>` for detailed top-level reference help
-- `wavepeek docs` for embedded command guidance, workflows, troubleshooting, reference topics, and export
-- `wavepeek schema` for packaged JSON output, input and stream contracts
-- `wavepeek skill` for packaged agent skill Markdown
+## Agent skill
+
+Extract the skill package included in the binary:
+
+```bash
+wavepeek skill ./wavepeek-skill
+```
+
+The package matches the installed `wavepeek` version. Its directory contains `SKILL.md`, offline references, examples, helper scripts, and provenance. Follow your agent harness's instructions to install the directory.
+
+## Documentation
+
+| Topic                        | Link                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Installation and first query | [Quickstart](https://kleverhq.github.io/wavepeek/latest/quickstart/)                                                                                    |
+| Command groups               | [Commands](https://kleverhq.github.io/wavepeek/latest/commands/)                                                                                        |
+| Hierarchy and signal values  | [Explore dump](https://kleverhq.github.io/wavepeek/latest/explore-dump/) · [Inspect values](https://kleverhq.github.io/wavepeek/latest/inspect-values/) |
+| Boolean conditions           | [Evaluate properties](https://kleverhq.github.io/wavepeek/latest/evaluate-properties/)                                                                  |
+| Generic and AMBA extraction  | [Extract transfers](https://kleverhq.github.io/wavepeek/latest/extract-transfers/)                                                                      |
+| JSON and JSONL output        | [Machine output](https://kleverhq.github.io/wavepeek/latest/machine-output/)                                                                            |
+| Syntax and flags             | [CLI reference](https://kleverhq.github.io/wavepeek/latest/cli-reference/)                                                                              |
 
 ## Development
 

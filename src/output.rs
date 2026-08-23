@@ -4,16 +4,27 @@ use serde::Serialize;
 
 use crate::contract::{output::OutputEnvelope, stream};
 use crate::diagnostic::{Diagnostic, DiagnosticKind};
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::output_mode::OutputMode;
+
+#[derive(Serialize)]
+struct FatalRecord<'a> {
+    #[serde(rename = "type")]
+    record_type: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    seq: Option<usize>,
+    code: &'static str,
+    message: &'a str,
+}
 
 pub struct JsonlWriter<W: Write> {
     writer: W,
     command: CommandName,
     next_seq: usize,
-    items: usize,
+    data: usize,
     diagnostics: usize,
+    suppress_data: bool,
 }
 
 impl<W: Write> JsonlWriter<W> {
@@ -22,13 +33,19 @@ impl<W: Write> JsonlWriter<W> {
             writer,
             command,
             next_seq: 0,
-            items: 0,
+            data: 0,
             diagnostics: 0,
+            suppress_data: false,
         }
     }
 
     pub fn begin(&mut self) -> Result<(), WavepeekError> {
         let record = stream::BeginRecord::new(self.next_seq, self.command)?;
+        self.write_record(&record)
+    }
+
+    pub fn begin_scope(&mut self, scope: &str) -> Result<(), WavepeekError> {
+        let record = stream::BeginRecord::with_scope(self.next_seq, self.command, scope)?;
         self.write_record(&record)
     }
 
@@ -40,10 +57,20 @@ impl<W: Write> JsonlWriter<W> {
         self.write_record(&record)
     }
 
-    pub fn item<T: stream::StreamItem + ?Sized>(&mut self, item: &T) -> Result<(), WavepeekError> {
-        let record = stream::ItemRecord::new(self.next_seq, self.command, item)?;
+    pub const fn suppress_data(&mut self, suppress: bool) {
+        self.suppress_data = suppress;
+    }
+
+    pub fn data<T: stream::StreamDataRow + ?Sized>(
+        &mut self,
+        data: &T,
+    ) -> Result<(), WavepeekError> {
+        if self.suppress_data {
+            return Ok(());
+        }
+        let record = stream::DataRecord::new(self.next_seq, self.command, data)?;
         self.write_record(&record)?;
-        self.items += 1;
+        self.data += 1;
         Ok(())
     }
 
@@ -54,20 +81,37 @@ impl<W: Write> JsonlWriter<W> {
         Ok(())
     }
 
-    pub fn end(&mut self, truncated: bool) -> Result<(), WavepeekError> {
+    pub fn end(&mut self) -> Result<(), WavepeekError> {
+        self.write_end(None)
+    }
+
+    pub fn end_summary(&mut self, summary: &ResultSummary) -> Result<(), WavepeekError> {
+        self.write_end(Some(summary))
+    }
+
+    pub fn fatal(&mut self, error: &WavepeekError) -> Result<(), WavepeekError> {
+        let record = fatal_record(error, Some(self.next_seq))?;
+        self.write_record(&record)
+    }
+
+    fn write_end(&mut self, summary: Option<&ResultSummary>) -> Result<(), WavepeekError> {
         let record = stream::EndRecord::new(
             self.next_seq,
             self.command,
-            self.items,
+            self.data,
             self.diagnostics,
-            truncated,
+            summary,
         )?;
         self.write_record(&record)
     }
 
+    const fn command(&self) -> CommandName {
+        self.command
+    }
+
     #[cfg(test)]
-    pub const fn item_count(&self) -> usize {
-        self.items
+    pub const fn data_count(&self) -> usize {
+        self.data
     }
 
     #[cfg(test)]
@@ -84,23 +128,75 @@ impl<W: Write> JsonlWriter<W> {
     }
 }
 
-pub fn write(result: CommandResult) -> Result<(), WavepeekError> {
+fn fatal_record(
+    error: &WavepeekError,
+    seq: Option<usize>,
+) -> Result<FatalRecord<'_>, WavepeekError> {
+    let Some(code) = error.fatal_code() else {
+        return Err(WavepeekError::Internal(
+            "broken pipe cannot be serialized as a fatal error".to_string(),
+        ));
+    };
+    let Some(message) = error.message() else {
+        return Err(WavepeekError::Internal(
+            "fatal error has no serializable message".to_string(),
+        ));
+    };
+    Ok(FatalRecord {
+        record_type: "fatal",
+        seq,
+        code,
+        message,
+    })
+}
+
+pub fn write_json_fatal_to<W: Write + ?Sized>(
+    error: &WavepeekError,
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
+    let json = serde_json::to_string(&fatal_record(error, None)?)
+        .map_err(|error| WavepeekError::Internal(format!("failed to serialize output: {error}")))?;
+    write_to(writer, &json)
+}
+
+pub fn write_jsonl_fatal_to<W: Write + ?Sized>(
+    error: &WavepeekError,
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
+    serde_json::to_writer(&mut *writer, &fatal_record(error, Some(0))?)
+        .map_err(map_jsonl_serde_error)?;
+    writer.write_all(b"\n").map_err(map_stdout_io_error)?;
+    writer.flush().map_err(map_stdout_io_error)
+}
+
+pub fn write_result_to<W: Write + ?Sized, E: Write + ?Sized>(
+    result: CommandResult,
+    stdout: &mut W,
+    stderr: &mut E,
+) -> Result<(), WavepeekError> {
     match result.output_mode {
         OutputMode::Human => {
-            let output = render_human(&result.data, result.human_options);
-            if !output.is_empty() {
-                write_stdout(output.as_str())?;
+            let mut output =
+                render_human_with_data(&result.data, result.human_options, !result.summary_only);
+            if result.summary_only
+                && let Some(summary) = result.summary
+            {
+                if !output.is_empty() {
+                    output.push('\n');
+                }
+                output.push_str(render_summary(summary).as_str());
             }
-            emit_human_diagnostics(&result.diagnostics);
-            Ok(())
+            if !output.is_empty() {
+                write_to(stdout, output.as_str())?;
+            }
+            emit_human_diagnostics(&result.diagnostics, stderr)
         }
         OutputMode::Json => {
             let json = render_json(result)?;
-            write_stdout(&json)
+            write_to(stdout, &json)
         }
         OutputMode::Jsonl => {
-            let stdout = io::stdout();
-            let mut writer = JsonlWriter::new(stdout.lock(), result.command);
+            let mut writer = JsonlWriter::new(stdout, result.command);
             write_jsonl_result(result, &mut writer)
         }
     }
@@ -110,6 +206,14 @@ pub fn write_jsonl_result<W: Write>(
     result: CommandResult,
     writer: &mut JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    if result.command != writer.command() {
+        return Err(WavepeekError::Internal(format!(
+            "command {} cannot be written to a {} JSONL stream",
+            result.command.as_str(),
+            writer.command().as_str()
+        )));
+    }
+    writer.suppress_data(result.summary_only);
     if !matches!(
         &result.data,
         CommandData::ExtractAhb(_)
@@ -118,89 +222,87 @@ pub fn write_jsonl_result<W: Write>(
             | CommandData::ExtractAxi(_)
             | CommandData::ExtractAxiStream(_)
     ) {
-        writer.begin()?;
+        match result.scope.as_deref() {
+            Some(scope) => writer.begin_scope(scope)?,
+            None => writer.begin()?,
+        }
     }
     match &result.data {
-        CommandData::Info(data) => writer.item(data)?,
+        CommandData::Info(data) => writer.data(data)?,
         CommandData::Scope(entries) => {
             for entry in entries {
-                writer.item(entry)?;
+                writer.data(entry)?;
             }
         }
         CommandData::Signal(entries) => {
             for entry in entries {
-                writer.item(entry)?;
+                writer.data(entry)?;
             }
         }
         CommandData::Value(snapshots) => {
             for snapshot in snapshots {
-                writer.item(snapshot)?;
+                writer.data(snapshot)?;
             }
         }
         CommandData::Change(snapshots) => {
             for snapshot in snapshots {
-                writer.item(snapshot)?;
+                writer.data(snapshot)?;
             }
         }
         CommandData::Property(rows) => {
             for row in rows {
-                writer.item(row)?;
+                writer.data(row)?;
             }
         }
         CommandData::ExtractAhb(data) => {
             writer.begin_context(&data.context())?;
             for event in &data.events {
-                writer.item(event)?;
+                writer.data(event)?;
             }
         }
         CommandData::ExtractApb(data) => {
             writer.begin_context(&data.context())?;
             for event in &data.events {
-                writer.item(event)?;
+                writer.data(event)?;
             }
         }
         CommandData::ExtractAtb(data) => {
             writer.begin_context(&data.context())?;
             for event in &data.events {
-                writer.item(event)?;
+                writer.data(event)?;
             }
         }
         CommandData::ExtractAxi(data) => {
             writer.begin_context(&data.context())?;
             for transfer in &data.transfers {
-                writer.item(transfer)?;
+                writer.data(transfer)?;
             }
         }
         CommandData::ExtractAxiStream(data) => {
             writer.begin_context(&data.context())?;
             for transfer in &data.transfers {
-                writer.item(transfer)?;
+                writer.data(transfer)?;
             }
         }
         CommandData::ExtractGeneric(data) => {
             for row in &data.rows {
-                writer.item(row)?;
+                writer.data(row)?;
             }
         }
-        CommandData::Schema(_)
-        | CommandData::Text(_)
-        | CommandData::DocsTopics(_)
-        | CommandData::DocsSearch(_) => {
+        CommandData::Text(_) => {
             return Err(WavepeekError::Args(
                 "--jsonl is available only for waveform commands".to_string(),
             ));
         }
     }
 
-    let truncated = result.diagnostics.iter().any(is_truncation_diagnostic);
     for diagnostic in &result.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(truncated)
-}
-
-fn is_truncation_diagnostic(diagnostic: &Diagnostic) -> bool {
-    diagnostic.code() == Some("WPK-W0002")
+    match &result.summary {
+        Some(summary) => writer.end_summary(summary),
+        None => writer.end(),
+    }
 }
 
 fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
@@ -212,10 +314,18 @@ fn map_jsonl_serde_error(error: serde_json::Error) -> WavepeekError {
 }
 
 pub(crate) fn map_stdout_io_error(error: io::Error) -> WavepeekError {
+    map_io_error(error, "stdout")
+}
+
+fn map_stderr_io_error(error: io::Error) -> WavepeekError {
+    map_io_error(error, "stderr")
+}
+
+fn map_io_error(error: io::Error, channel: &str) -> WavepeekError {
     if error.kind() == io::ErrorKind::BrokenPipe {
         WavepeekError::BrokenPipe
     } else {
-        WavepeekError::Internal(format!("failed to write stdout: {error}"))
+        WavepeekError::Internal(format!("failed to write {channel}: {error}"))
     }
 }
 
@@ -225,9 +335,43 @@ fn render_json(result: CommandResult) -> Result<String, WavepeekError> {
         .map_err(|error| WavepeekError::Internal(format!("failed to serialize output: {error}")))
 }
 
+fn render_summary(summary: ResultSummary) -> String {
+    let limit = summary
+        .limit
+        .map_or_else(|| "null".to_string(), |value| value.to_string());
+    let total = summary
+        .total
+        .map_or_else(|| "null".to_string(), |value| value.to_string());
+    format!(
+        "complete: {}\nreturned: {}\nlimit: {limit}\ntotal: {total}",
+        summary.complete, summary.returned
+    )
+}
+
+#[cfg(test)]
 fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
-    match data {
-        CommandData::Schema(schema) => schema.clone(),
+    render_human_with_data(data, options, true)
+}
+
+fn render_human_with_data(
+    data: &CommandData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
+    if !include_data
+        && !matches!(
+            data,
+            CommandData::ExtractAhb(_)
+                | CommandData::ExtractApb(_)
+                | CommandData::ExtractAtb(_)
+                | CommandData::ExtractAxi(_)
+                | CommandData::ExtractAxiStream(_)
+        )
+    {
+        return String::new();
+    }
+
+    let rendered = match data {
         CommandData::Text(text) => text.clone(),
         CommandData::Info(info) => {
             let mut lines = Vec::new();
@@ -313,11 +457,11 @@ fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
             })
             .collect::<Vec<_>>()
             .join("\n"),
-        CommandData::ExtractAhb(data) => render_ahb_human(data, options),
-        CommandData::ExtractApb(data) => render_apb_human(data, options),
-        CommandData::ExtractAtb(data) => render_atb_human(data, options),
-        CommandData::ExtractAxi(data) => render_axi_human(data, options),
-        CommandData::ExtractAxiStream(data) => render_axistream_human(data, options),
+        CommandData::ExtractAhb(data) => render_ahb_human(data, options, include_data),
+        CommandData::ExtractApb(data) => render_apb_human(data, options, include_data),
+        CommandData::ExtractAtb(data) => render_atb_human(data, options, include_data),
+        CommandData::ExtractAxi(data) => render_axi_human(data, options, include_data),
+        CommandData::ExtractAxiStream(data) => render_axistream_human(data, options, include_data),
         CommandData::ExtractGeneric(data) => data
             .rows
             .iter()
@@ -340,22 +484,29 @@ fn render_human(data: &CommandData, options: HumanRenderOptions) -> String {
             })
             .collect::<Vec<_>>()
             .join("\n"),
-        CommandData::DocsTopics(data) => data
-            .topics
-            .iter()
-            .map(|topic| format!("{} — {}", topic.id, topic.description))
-            .collect::<Vec<_>>()
-            .join("\n"),
-        CommandData::DocsSearch(data) => data
-            .matches
-            .iter()
-            .map(|entry| format!("{}  {}", entry.topic.id, entry.topic.description))
-            .collect::<Vec<_>>()
-            .join("\n"),
+    };
+
+    if !rendered.is_empty() {
+        return rendered;
+    }
+
+    match data {
+        CommandData::Scope(_) => "no scopes found".to_string(),
+        CommandData::Signal(_) => "no signals found in selected scope".to_string(),
+        CommandData::Change(_) => "no change rows found in selected time range".to_string(),
+        CommandData::Property(_) => "no property matches found in selected time range".to_string(),
+        CommandData::ExtractGeneric(_) => {
+            "no extract rows found in selected time range".to_string()
+        }
+        _ => rendered,
     }
 }
 
-fn render_ahb_human(data: &crate::engine::ahb::AhbData, options: HumanRenderOptions) -> String {
+fn render_ahb_human(
+    data: &crate::engine::ahb::AhbData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -375,6 +526,9 @@ fn render_ahb_human(data: &crate::engine::ahb::AhbData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("events:".to_string());
     for event in &data.events {
@@ -404,7 +558,11 @@ fn render_ahb_human(data: &crate::engine::ahb::AhbData, options: HumanRenderOpti
     lines.join("\n")
 }
 
-fn render_apb_human(data: &crate::engine::apb::ApbData, options: HumanRenderOptions) -> String {
+fn render_apb_human(
+    data: &crate::engine::apb::ApbData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -419,6 +577,9 @@ fn render_apb_human(data: &crate::engine::apb::ApbData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("events:".to_string());
     for event in &data.events {
@@ -439,7 +600,11 @@ fn render_apb_human(data: &crate::engine::apb::ApbData, options: HumanRenderOpti
     lines.join("\n")
 }
 
-fn render_atb_human(data: &crate::engine::atb::AtbData, options: HumanRenderOptions) -> String {
+fn render_atb_human(
+    data: &crate::engine::atb::AtbData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -452,6 +617,9 @@ fn render_atb_human(data: &crate::engine::atb::AtbData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("events:".to_string());
     for event in &data.events {
@@ -472,7 +640,11 @@ fn render_atb_human(data: &crate::engine::atb::AtbData, options: HumanRenderOpti
     lines.join("\n")
 }
 
-fn render_axi_human(data: &crate::engine::axi::AxiData, options: HumanRenderOptions) -> String {
+fn render_axi_human(
+    data: &crate::engine::axi::AxiData,
+    options: HumanRenderOptions,
+    include_data: bool,
+) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
     lines.push(format!("profile: {}", data.profile));
@@ -485,6 +657,9 @@ fn render_axi_human(data: &crate::engine::axi::AxiData, options: HumanRenderOpti
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("transfers:".to_string());
     for transfer in &data.transfers {
@@ -508,6 +683,7 @@ fn render_axi_human(data: &crate::engine::axi::AxiData, options: HumanRenderOpti
 fn render_axistream_human(
     data: &crate::engine::axistream::AxiStreamData,
     options: HumanRenderOptions,
+    include_data: bool,
 ) -> String {
     let mut lines = Vec::new();
     lines.push(format!("name: {}", data.name));
@@ -522,6 +698,9 @@ fn render_axistream_human(
             mapping.display.as_str()
         };
         lines.push(format!("  {} = {display}", mapping.standard));
+    }
+    if !include_data {
+        return lines.join("\n");
     }
     lines.push("transfers:".to_string());
     for transfer in &data.transfers {
@@ -548,9 +727,16 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
 
     let mut lines = Vec::with_capacity(scopes.len());
     let mut ancestor_last = Vec::new();
+    let mut ancestor_paths: Vec<&str> = Vec::new();
 
     for (index, entry) in scopes.iter().enumerate() {
-        let label = entry.path.rsplit('.').next().unwrap_or(entry.path.as_str());
+        let label = entry
+            .depth
+            .checked_sub(1)
+            .and_then(|depth| ancestor_paths.get(depth))
+            .and_then(|parent| entry.path.strip_prefix(*parent))
+            .and_then(|suffix| suffix.strip_prefix('.'))
+            .unwrap_or(entry.path.as_str());
         let scope_label = format!("{label} kind={}", entry.kind);
         let is_last = scope_entry_is_last_sibling(scopes, index);
 
@@ -575,6 +761,8 @@ fn render_scope_tree(scopes: &[crate::engine::scope::ScopeEntry]) -> String {
 
         ancestor_last.truncate(entry.depth);
         ancestor_last.push(is_last);
+        ancestor_paths.truncate(entry.depth);
+        ancestor_paths.push(entry.path.as_str());
     }
 
     lines.join("\n")
@@ -598,22 +786,27 @@ fn signal_display_name(entry: &crate::engine::signal::SignalEntry, abs: bool) ->
     if abs {
         entry.path.as_str()
     } else {
-        entry.display.as_str()
+        entry.relative_path.as_str()
     }
 }
 
-fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
+fn emit_human_diagnostics<W: Write + ?Sized>(
+    diagnostics: &[Diagnostic],
+    writer: &mut W,
+) -> Result<(), WavepeekError> {
     for diagnostic in diagnostics {
         match diagnostic.kind() {
-            DiagnosticKind::Info => eprintln!("info: {}", diagnostic.message()),
-            DiagnosticKind::Warning => eprintln!(
+            DiagnosticKind::Info => writeln!(writer, "info: {}", diagnostic.message()),
+            DiagnosticKind::Warning => writeln!(
+                writer,
                 "warning[{}]: {}",
                 diagnostic
                     .code()
                     .expect("warning diagnostics must have stable codes"),
                 diagnostic.message()
             ),
-            DiagnosticKind::Error => eprintln!(
+            DiagnosticKind::Error => writeln!(
+                writer,
                 "error[{}]: {}",
                 diagnostic
                     .code()
@@ -621,12 +814,15 @@ fn emit_human_diagnostics(diagnostics: &[Diagnostic]) {
                 diagnostic.message()
             ),
         }
+        .map_err(map_stderr_io_error)?;
     }
+    writer.flush().map_err(map_stderr_io_error)
 }
 
-pub(crate) fn write_stdout(output: &str) -> Result<(), WavepeekError> {
-    let stdout = io::stdout();
-    let mut writer = stdout.lock();
+pub(crate) fn write_to<W: Write + ?Sized>(
+    writer: &mut W,
+    output: &str,
+) -> Result<(), WavepeekError> {
     writeln!(writer, "{}", output.strip_suffix('\n').unwrap_or(output)).map_err(map_stdout_io_error)
 }
 
@@ -640,15 +836,37 @@ mod tests {
 
     use serde_json::Value;
 
-    use crate::contract::schema::{OUTPUT_SCHEMA_URL, STREAM_SCHEMA_URL};
     use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
     use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
     use crate::output_mode::OutputMode;
 
     use super::{
         JsonlWriter, render_human, render_json, render_scope_tree, scope_entry_is_last_sibling,
-        signal_display_name, write, write_jsonl_result,
+        signal_display_name, write_jsonl_result, write_result_to,
     };
+
+    #[test]
+    fn jsonl_fatal_uses_next_sequence_number() {
+        let mut output = Vec::new();
+        let mut writer = JsonlWriter::new(&mut output, CommandName::Info);
+        writer.begin().expect("begin should serialize");
+        writer
+            .fatal(&crate::error::WavepeekError::Internal(
+                "failed after begin".into(),
+            ))
+            .expect("fatal should serialize");
+
+        let records = String::from_utf8(output).expect("records should be UTF-8");
+        let records = records
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).expect("record should be JSON"))
+            .collect::<Vec<_>>();
+        assert_eq!(records[0]["type"], "begin");
+        assert_eq!(records[1]["type"], "fatal");
+        assert_eq!(records[1]["seq"], 1);
+        assert_eq!(records[1]["code"], "WPK-F0006");
+        assert!(records[1].get("command").is_none());
+    }
 
     #[test]
     fn json_envelope_has_required_shape_for_info() {
@@ -656,21 +874,24 @@ mod tests {
             command: CommandName::Info,
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
             data: CommandData::Info(crate::engine::info::InfoData {
                 time_unit: "1ns".to_string(),
                 time_start: "0ns".to_string(),
                 time_end: "10ns".to_string(),
             }),
+            summary: None,
             diagnostics: vec![],
         };
 
         let json = render_json(result).expect("json serialization should succeed");
         let value: Value = serde_json::from_str(&json).expect("json should parse");
 
-        assert_eq!(value["$schema"], OUTPUT_SCHEMA_URL);
-        assert!(value.get("schema_version").is_none());
+        assert_eq!(value["type"], "result");
         assert_eq!(value["command"], "info");
-        assert!(value["data"].is_object());
+        assert_eq!(value["data"].as_array().map(Vec::len), Some(1));
+        assert_eq!(value["data"][0]["time_unit"], "1ns");
         assert!(value["diagnostics"].is_array());
         assert!(value.get("warnings").is_none());
     }
@@ -681,11 +902,14 @@ mod tests {
             command: CommandName::Scope,
             output_mode: OutputMode::Json,
             human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
             data: CommandData::Scope(vec![crate::engine::scope::ScopeEntry {
                 path: "top.cpu".to_string(),
                 depth: 1,
                 kind: "module".to_string(),
             }]),
+            summary: None,
             diagnostics: vec![Diagnostic::warning(
                 WarningDiagnosticCode::OutputTruncated,
                 "truncated to 1 entries",
@@ -702,32 +926,6 @@ mod tests {
         assert_eq!(value["data"][0]["path"], "top.cpu");
         assert_eq!(value["data"][0]["depth"], 1);
         assert_eq!(value["data"][0]["kind"], "module");
-    }
-
-    #[test]
-    fn docs_topics_json_envelope_uses_nested_topics_payload() {
-        let result = CommandResult {
-            command: CommandName::DocsTopics,
-            output_mode: OutputMode::Json,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::DocsTopics(crate::engine::DocsTopicsData {
-                topics: vec![crate::docs::TopicSummary {
-                    id: "intro".to_string(),
-                    title: "Introduction".to_string(),
-                    description: "Start here.".to_string(),
-                    section: "intro".to_string(),
-                    see_also: vec!["commands/help".to_string()],
-                }],
-            }),
-            diagnostics: vec![],
-        };
-
-        let json = render_json(result).expect("json serialization should succeed");
-        let value: Value = serde_json::from_str(&json).expect("json should parse");
-
-        assert_eq!(value["command"], "docs topics");
-        assert_eq!(value["data"]["topics"][0]["id"], "intro");
-        assert_eq!(value["data"]["topics"][0]["see_also"][0], "commands/help");
     }
 
     #[derive(Default)]
@@ -761,34 +959,78 @@ mod tests {
     }
 
     #[test]
+    fn human_diagnostic_write_errors_name_stderr() {
+        struct FailingSink;
+
+        impl io::Write for FailingSink {
+            fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+                Err(io::Error::other("closed"))
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let result = CommandResult {
+            command: CommandName::Scope,
+            output_mode: OutputMode::Human,
+            human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
+            data: CommandData::Scope(Vec::new()),
+            summary: None,
+            diagnostics: vec![Diagnostic::warning(
+                WarningDiagnosticCode::OutputTruncated,
+                "truncated",
+            )],
+        };
+        let error = write_result_to(result, &mut Vec::new(), &mut FailingSink)
+            .expect_err("diagnostic write should fail");
+
+        assert!(matches!(
+            error,
+            crate::error::WavepeekError::Internal(message)
+                if message == "failed to write stderr: closed"
+        ));
+    }
+
+    #[test]
     fn jsonl_writer_emits_ordered_records_and_flushes_each_line() {
         let mut sink = FlushCountingSink::default();
         {
             let mut writer = JsonlWriter::new(&mut sink, CommandName::Change);
             writer.begin().expect("begin record should write");
             writer
-                .item(&crate::engine::change::ChangeSnapshot {
+                .data(&crate::engine::change::ChangeSnapshot {
                     time: "5ns".to_string(),
                     sample_time: "5ns".to_string(),
                     signals: Vec::new(),
                 })
-                .expect("item record should write");
+                .expect("data record should write");
             writer
                 .diagnostic(&Diagnostic::warning(
                     WarningDiagnosticCode::OutputTruncated,
                     "truncated output to 1 entries",
                 ))
                 .expect("diagnostic record should write");
-            writer.end(true).expect("end record should write");
-            assert_eq!(writer.item_count(), 1);
+            writer
+                .data(&crate::engine::change::ChangeSnapshot {
+                    time: "10ns".to_string(),
+                    sample_time: "10ns".to_string(),
+                    signals: Vec::new(),
+                })
+                .expect("interleaved data record should write");
+            writer.end().expect("end record should write");
+            assert_eq!(writer.data_count(), 2);
             assert_eq!(writer.diagnostic_count(), 1);
         }
 
-        assert_eq!(sink.flushes, 4);
+        assert_eq!(sink.flushes, 5);
         let output = String::from_utf8(sink.bytes).expect("JSONL should be UTF-8");
         assert!(output.ends_with('\n'));
         let lines = output.lines().collect::<Vec<_>>();
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 5);
         let records = lines
             .iter()
             .map(|line| serde_json::from_str::<Value>(line).expect("line should parse"))
@@ -797,15 +1039,18 @@ mod tests {
         assert_eq!(records[0]["type"], "begin");
         assert_eq!(records[0]["seq"], 0);
         assert_eq!(records[0]["command"], "change");
-        assert_eq!(records[0]["$schema"], STREAM_SCHEMA_URL);
-        assert_eq!(records[1]["type"], "item");
+        assert_eq!(records[1]["type"], "data");
         assert_eq!(records[1]["seq"], 1);
+        assert!(records[1].get("command").is_none());
         assert_eq!(records[2]["type"], "diagnostic");
+        assert!(records[2].get("command").is_none());
         assert_eq!(records[2]["diagnostic"]["code"], "WPK-W0002");
-        assert_eq!(records[3]["type"], "end");
-        assert_eq!(records[3]["summary"]["items"], 1);
-        assert_eq!(records[3]["summary"]["diagnostics"], 1);
-        assert_eq!(records[3]["summary"]["truncated"], true);
+        assert_eq!(records[3]["type"], "data");
+        assert_eq!(records[3]["data"]["time"], "10ns");
+        assert_eq!(records[4]["type"], "end");
+        assert!(records[4].get("command").is_none());
+        assert_eq!(records[4]["records"]["data"], 2);
+        assert_eq!(records[4]["records"]["diagnostics"], 1);
     }
 
     #[test]
@@ -816,16 +1061,41 @@ mod tests {
     }
 
     #[test]
-    fn jsonl_result_adapter_emits_items_diagnostics_and_summary() {
+    fn jsonl_result_adapter_rejects_command_mismatch() {
         let result = CommandResult {
             command: CommandName::Scope,
             output_mode: OutputMode::Jsonl,
             human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
+            data: CommandData::Scope(Vec::new()),
+            summary: None,
+            diagnostics: Vec::new(),
+        };
+        let mut writer = JsonlWriter::new(Vec::new(), CommandName::Signal);
+
+        let error = write_jsonl_result(result, &mut writer).expect_err("mismatch should fail");
+        assert!(
+            error
+                .to_string()
+                .contains("command scope cannot be written to a signal JSONL stream")
+        );
+    }
+
+    #[test]
+    fn jsonl_result_adapter_emits_data_diagnostics_and_counts() {
+        let result = CommandResult {
+            command: CommandName::Scope,
+            output_mode: OutputMode::Jsonl,
+            human_options: HumanRenderOptions::default(),
+            scope: None,
+            summary_only: false,
             data: CommandData::Scope(vec![crate::engine::scope::ScopeEntry {
                 path: "top".to_string(),
                 depth: 0,
                 kind: "module".to_string(),
             }]),
+            summary: None,
             diagnostics: vec![Diagnostic::warning(
                 WarningDiagnosticCode::OutputTruncated,
                 "truncated output to 1 entries",
@@ -841,9 +1111,10 @@ mod tests {
             .map(|line| serde_json::from_str::<Value>(line).expect("line should parse"))
             .collect::<Vec<_>>();
         assert_eq!(records[0]["type"], "begin");
-        assert_eq!(records[1]["item"]["path"], "top");
+        assert_eq!(records[1]["data"]["path"], "top");
         assert_eq!(records[2]["diagnostic"]["code"], "WPK-W0002");
-        assert_eq!(records[3]["summary"]["truncated"], true);
+        assert_eq!(records[3]["records"]["data"], 1);
+        assert_eq!(records[3]["records"]["diagnostics"], 1);
     }
 
     #[test]
@@ -910,6 +1181,30 @@ mod tests {
     }
 
     #[test]
+    fn scope_tree_preserves_dots_in_escaped_local_names() {
+        let rendered = render_human(
+            &CommandData::Scope(vec![
+                crate::engine::scope::ScopeEntry {
+                    path: "top".to_string(),
+                    depth: 0,
+                    kind: "module".to_string(),
+                },
+                crate::engine::scope::ScopeEntry {
+                    path: "top.\\foo.bar".to_string(),
+                    depth: 1,
+                    kind: "module".to_string(),
+                },
+            ]),
+            HumanRenderOptions {
+                scope_tree: true,
+                signals_abs: false,
+            },
+        );
+
+        assert_eq!(rendered, "top kind=module\n└── \\foo.bar kind=module");
+    }
+
+    #[test]
     fn value_human_render_is_deterministic_and_compact() {
         let rendered = render_human(
             &CommandData::Value(vec![crate::engine::value::ValueSnapshot {
@@ -918,11 +1213,13 @@ mod tests {
                     crate::engine::value::ValueSignalValue {
                         display: "clk".to_string(),
                         path: "top.clk".to_string(),
+                        relative_path: Some("clk".to_string()),
                         value: "1'h1".to_string(),
                     },
                     crate::engine::value::ValueSignalValue {
                         display: "data".to_string(),
                         path: "top.data".to_string(),
+                        relative_path: Some("data".to_string()),
                         value: "8'h0f".to_string(),
                     },
                 ],
@@ -936,36 +1233,39 @@ mod tests {
     #[test]
     fn change_human_render_is_single_line_per_snapshot() {
         let rendered = render_human(
-            &CommandData::Change(vec![crate::engine::change::ChangeSnapshot {
-                time: "5ns".to_string(),
-                sample_time: "4ns".to_string(),
-                signals: vec![
-                    crate::engine::change::ChangeSignalValue {
-                        display: "clk".to_string(),
-                        path: "top.clk".to_string(),
-                        value: "1'h1".to_string(),
-                    },
-                    crate::engine::change::ChangeSignalValue {
-                        display: "data".to_string(),
-                        path: "top.data".to_string(),
-                        value: "8'h00".to_string(),
-                    },
-                ],
-            }]),
+            &CommandData::Change(vec![
+                crate::engine::change::ChangeSnapshot {
+                    time: "5ns".to_string(),
+                    sample_time: "4ns".to_string(),
+                    signals: vec![
+                        crate::engine::change::ChangeSignalValue {
+                            display: "clk".to_string(),
+                            path: "top.clk".to_string(),
+                            relative_path: Some("clk".to_string()),
+                            value: "1'h1".to_string(),
+                        },
+                        crate::engine::change::ChangeSignalValue {
+                            display: "data".to_string(),
+                            path: "top.data".to_string(),
+                            relative_path: Some("data".to_string()),
+                            value: "8'h00".to_string(),
+                        },
+                    ],
+                },
+                crate::engine::change::ChangeSnapshot {
+                    time: "15ns".to_string(),
+                    sample_time: "15ns".to_string(),
+                    signals: vec![],
+                },
+            ]),
             HumanRenderOptions::default(),
         );
 
-        assert_eq!(rendered, "@5ns sample@4ns clk=1'h1 data=8'h00");
+        assert_eq!(rendered, "@5ns sample@4ns clk=1'h1 data=8'h00\n@15ns");
     }
 
     #[test]
-    fn render_human_exercises_schema_signal_and_docs_search_variants() {
-        let schema = render_human(
-            &CommandData::Schema("{\"type\":\"object\"}".to_string()),
-            HumanRenderOptions::default(),
-        );
-        assert_eq!(schema, "{\"type\":\"object\"}");
-
+    fn render_human_exercises_signal_variants() {
         let info = render_human(
             &CommandData::Info(crate::engine::info::InfoData {
                 time_unit: "1ps".to_string(),
@@ -988,16 +1288,16 @@ mod tests {
 
         let signals = vec![
             crate::engine::signal::SignalEntry {
-                display: "clk".to_string(),
                 name: "clk".to_string(),
                 path: "top.clk".to_string(),
+                relative_path: "clk".to_string(),
                 kind: "wire".to_string(),
                 width: Some(1),
             },
             crate::engine::signal::SignalEntry {
-                display: "status".to_string(),
                 name: "status".to_string(),
                 path: "top.status".to_string(),
+                relative_path: "status".to_string(),
                 kind: "event".to_string(),
                 width: None,
             },
@@ -1012,25 +1312,6 @@ mod tests {
         assert_eq!(rendered, "top.clk kind=wire width=1\ntop.status kind=event");
         assert_eq!(signal_display_name(&signals[0], true), "top.clk");
         assert_eq!(signal_display_name(&signals[0], false), "clk");
-
-        let docs_search = render_human(
-            &CommandData::DocsSearch(crate::engine::DocsSearchData {
-                query: "change".to_string(),
-                matches: vec![crate::engine::DocsSearchMatchData {
-                    topic: crate::docs::TopicSummary {
-                        id: "commands/change".to_string(),
-                        title: "Change command".to_string(),
-                        description: "Find changes.".to_string(),
-                        section: "commands".to_string(),
-                        see_also: vec![],
-                    },
-                    match_kind: crate::docs::MatchKind::IdPrefix,
-                    matched_tokens: 1,
-                }],
-            }),
-            HumanRenderOptions::default(),
-        );
-        assert_eq!(docs_search, "commands/change  Find changes.");
     }
 
     #[test]
@@ -1059,38 +1340,23 @@ mod tests {
     }
 
     #[test]
-    fn write_entrypoint_exercises_json_empty_human_and_diagnostic_paths() {
-        write(CommandResult {
-            command: CommandName::Schema,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::Schema("{}".to_string()),
-            diagnostics: Vec::new(),
-        })
-        .expect("schema output should write");
-
-        write(CommandResult {
-            command: CommandName::DocsSearch,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::DocsSearch(crate::engine::DocsSearchData {
-                query: "none".to_string(),
-                matches: vec![],
-            }),
-            diagnostics: vec![Diagnostic::warning(
-                WarningDiagnosticCode::EmptyResult,
-                "nothing matched",
-            )],
-        })
-        .expect("empty human output with diagnostics should write");
-
-        write(CommandResult {
-            command: CommandName::Info,
-            output_mode: OutputMode::Human,
-            human_options: HumanRenderOptions::default(),
-            data: CommandData::Text("already-newline\n".to_string()),
-            diagnostics: Vec::new(),
-        })
+    fn write_entrypoint_preserves_existing_newline() {
+        let mut stdout = Vec::new();
+        write_result_to(
+            CommandResult {
+                command: CommandName::Info,
+                output_mode: OutputMode::Human,
+                human_options: HumanRenderOptions::default(),
+                scope: None,
+                summary_only: false,
+                data: CommandData::Text("already-newline\n".to_string()),
+                summary: None,
+                diagnostics: Vec::new(),
+            },
+            &mut stdout,
+            &mut Vec::new(),
+        )
         .expect("newline-terminated human output should not add a second newline");
+        assert_eq!(stdout, b"already-newline\n");
     }
 }

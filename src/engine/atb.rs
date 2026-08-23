@@ -6,15 +6,13 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::cli::extract::AtbArgs;
-use crate::contract::schema::INPUT_SCHEMA_URL;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{SharedWaveform, open_shared_waveform};
 use crate::engine::extract::{
-    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractRunStats,
-    ExtractSource,
+    self, ExtractGenericRow, ExtractPlan, ExtractRowSink, ExtractRunArgs, ExtractSource,
 };
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 
 const DEFAULT_PROFILE: &str = "atb-c";
@@ -109,7 +107,7 @@ impl AtbData {
 struct AtbOutcome {
     context: AtbContext,
     diagnostics: Vec<Diagnostic>,
-    stats: ExtractRunStats,
+    summary: ResultSummary,
 }
 
 trait AtbEventSink {
@@ -142,7 +140,7 @@ impl<W: std::io::Write> AtbEventSink for JsonlAtbSink<'_, W> {
     }
 
     fn emit(&mut self, event: AtbEvent) -> Result<(), WavepeekError> {
-        self.writer.item(&event)
+        self.writer.data(&event)
     }
 }
 
@@ -208,8 +206,6 @@ fn event_kind(source: &str) -> Result<AtbEventKind, WavepeekError> {
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     #[serde(default, deserialize_with = "optional_string")]
     profile: Option<String>,
@@ -286,13 +282,10 @@ impl AtbProfile {
     }
 }
 
-pub(crate) const fn profile_specs() -> [AtbProfile; 3] {
-    [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC]
-}
-
 pub fn run(args: AtbArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let summary_only = args.summary;
     let mut sink = CollectingAtbSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -303,6 +296,8 @@ pub fn run(args: AtbArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope: None,
+        summary_only,
         data: CommandData::ExtractAtb(AtbData {
             name: outcome.context.name,
             profile: outcome.context.profile,
@@ -310,6 +305,7 @@ pub fn run(args: AtbArgs) -> Result<CommandResult, WavepeekError> {
             mappings: outcome.context.mappings,
             events: sink.events,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -318,6 +314,7 @@ pub fn run_jsonl<W: std::io::Write>(
     args: AtbArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlAtbSink { writer };
         run_with_sink(args, &mut sink)?
@@ -326,7 +323,7 @@ pub fn run_jsonl<W: std::io::Write>(
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: AtbEventSink + ?Sized>(
@@ -355,6 +352,7 @@ fn run_with_sink<S: AtbEventSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: false,
         },
         plan,
         waveform,
@@ -367,7 +365,7 @@ fn run_with_sink<S: AtbEventSink + ?Sized>(
     Ok(AtbOutcome {
         context,
         diagnostics,
-        stats: outcome.stats,
+        summary: outcome.summary,
     })
 }
 
@@ -472,14 +470,6 @@ fn config_from_source(path: &std::path::Path) -> Result<AtbConfig, WavepeekError
         ))
     })?;
 
-    if input.schema != INPUT_SCHEMA_URL {
-        return Err(WavepeekError::Args(format!(
-            "ATB extract source file '{}' uses unsupported $schema {}; expected {}",
-            path.display(),
-            input.schema,
-            INPUT_SCHEMA_URL
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "ATB extract source file '{}' has kind {}; expected {}",
@@ -651,8 +641,10 @@ fn explicit_mappings(
             Some(scope) => format!("{scope}.{waves}"),
             None => waves.clone(),
         };
-        let mut resolved = waveform.borrow().resolve_signals(&[query_path])?;
-        let resolved = resolved.remove(0);
+        let resolved =
+            waveform
+                .borrow()
+                .resolve_local_signal_with_diagnostic(&query_path, waves, scope)?;
         result.insert(
             standard.clone(),
             AtbSignalMapping {
@@ -932,7 +924,6 @@ fn standard_suffix_start(tokens: &[String], standard: &str) -> Option<usize> {
 mod tests {
     use super::{
         AtbProfile, candidate_matches_standard, event_kind, parse_cli_maps, parse_profile,
-        profile_specs,
     };
 
     #[test]
@@ -951,7 +942,7 @@ mod tests {
 
     #[test]
     fn profile_signal_sets_match_issue_c_contract() {
-        let profiles = profile_specs();
+        let profiles = [AtbProfile::AtbA, AtbProfile::AtbB, AtbProfile::AtbC];
         assert_eq!(profiles.map(AtbProfile::name), ["atb-a", "atb-b", "atb-c"]);
         assert_eq!(
             AtbProfile::AtbA.signals(),

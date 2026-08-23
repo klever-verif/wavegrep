@@ -67,6 +67,36 @@ fn many_property_matches_vcd(edge_count: u32) -> String {
 }
 
 #[test]
+fn property_signal_typo_keeps_expression_diagnostic_and_suggests_path() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "property",
+            "--waves",
+            fixture.as_str(),
+            "--scope",
+            "top",
+            "--on",
+            "posedge clk",
+            "--eval",
+            "vlaid",
+            "--capture",
+            "assert",
+        ])
+        .assert()
+        .failure()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::starts_with("fatal: expr:"))
+        .stderr(predicate::str::contains("unknown signal 'vlaid'"))
+        .stderr(predicate::str::contains(
+            "signal 'vlaid' not found under scope 'top'\nclosest query names:\n  cpu.valid",
+        ));
+}
+
+#[test]
 fn property_sample_mode_pre_edge_samples_before_trigger_edge() {
     let fixture = write_fixture(RTL_SAMPLING_VCD, "property-rtl-sampling.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
@@ -236,10 +266,7 @@ fn property_sample_mode_pre_edge_preserves_from_baseline() {
     assert!(assert_output.status.success());
     let assert_json = parse_json(&assert_output.stdout);
     assert_eq!(assert_json["data"], json!([]));
-    assert_eq!(
-        assert_json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no property matches found in selected time range"}])
-    );
+    assert_eq!(assert_json["diagnostics"], json!([]));
     assert!(deassert_output.status.success());
     assert_eq!(
         parse_json(&deassert_output.stdout)["data"],
@@ -301,10 +328,7 @@ fn property_sample_mode_pre_edge_skips_from_boundary_before_eval() {
     assert!(output.status.success());
     let parsed = parse_json(&output.stdout);
     assert_eq!(parsed["data"], json!([]));
-    assert_eq!(
-        parsed["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no property matches found in selected time range"}])
-    );
+    assert_eq!(parsed["diagnostics"], json!([]));
 }
 
 #[test]
@@ -721,7 +745,7 @@ fn property_max_one_truncates_in_human_and_json_modes() {
 }
 
 #[test]
-fn property_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() {
+fn property_unlimited_max_disables_truncation_without_diagnostics() {
     let fixture = write_fixture(&many_property_matches_vcd(60), ".property-unlimited.vcd");
     let fixture = fixture.path().to_string_lossy().into_owned();
 
@@ -778,20 +802,15 @@ fn property_unlimited_max_disables_truncation_and_emits_warning_in_both_modes() 
             .len(),
         60
     );
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
         String::from_utf8_lossy(&human_output.stdout)
             .lines()
             .count(),
         60
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
@@ -822,7 +841,7 @@ fn property_rejects_zero_max() {
 }
 
 #[test]
-fn property_empty_result_emits_empty_result_diagnostic() {
+fn property_empty_result_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -866,17 +885,14 @@ fn property_empty_result_emits_empty_result_diagnostic() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no property matches found in selected time range"
+    );
+    assert!(human_output.stderr.is_empty());
     let json = parse_json(&json_output.stdout);
     assert_eq!(json["data"], json!([]));
-    assert_eq!(
-        json["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no property matches found in selected time range"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no property matches found in selected time range"
-    );
+    assert_eq!(json["diagnostics"], json!([]));
 }
 
 #[test]
@@ -1058,7 +1074,7 @@ fn property_explicit_wildcard_signal_free_eval_reports_tracking_error() {
 }
 
 #[test]
-fn property_scope_resolves_descendants_and_rejects_canonical_names() {
+fn property_scope_accepts_mixed_relative_and_canonical_names() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -1070,9 +1086,9 @@ fn property_scope_resolves_descendants_and_rejects_canonical_names() {
             "--scope",
             "top",
             "--on",
-            "posedge cpu.valid",
+            "posedge top.cpu.valid",
             "--eval",
-            "cpu.valid",
+            "cpu.valid && top.cpu.valid",
             "--capture",
             "assert",
             "--sample-mode",
@@ -1088,25 +1104,6 @@ fn property_scope_resolves_descendants_and_rejects_canonical_names() {
         parse_json(&output.stdout)["data"],
         json!([{"time": "5ns", "sample_time": "5ns", "kind": "assert"}])
     );
-
-    wavepeek_cmd()
-        .args([
-            "property",
-            "--waves",
-            fixture.as_str(),
-            "--scope",
-            "top",
-            "--on",
-            "posedge top.clk",
-            "--eval",
-            "data == 8'h00",
-        ])
-        .assert()
-        .failure()
-        .code(1)
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::starts_with("fatal: expr:"))
-        .stderr(predicate::str::contains("unknown signal 'top.clk'"));
 }
 
 #[test]

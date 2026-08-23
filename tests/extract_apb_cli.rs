@@ -6,38 +6,11 @@ use serde_json::{Value, json};
 use tempfile::NamedTempFile;
 
 mod common;
-use common::{
-    expected_input_schema_url, expected_schema_url, expected_stream_schema_url, fixture_path,
-    wavepeek_cmd,
-};
+use common::{fixture_path, wavepeek_cmd};
 
 const APB4_AUTO_INCLUDE: &str = "^uart_apb_(p_clk_i|presetn_i|psel_o|penable_o|pwrite_o|pready_i|p_addr_o|pprot_o|pwdata_o|pstrb_o|prdata_i|pslverr_i)$";
 const APB4_INCLUDE_WITH_DECOYS: &str = "^uart_apb_(p_clk_i|presetn_i|psel_o|penable_o|pwrite_o|pready_i|p_addr_o|pprot_o|pwdata_o|pstrb_o|prdata_i|pslverr_i|misc_o|preadychk_i|psel0_o|pselx_o)$";
 const APB5_AUTO_INCLUDE: &str = "^apb5_(pclk_i|presetn_i|psel_o|penable_o|pwrite_o|pready_i|paddr_o|pprot_o|pnse_o|pauser_o|pwdata_o|pstrb_o|pwuser_o|prdata_i|pslverr_i|pruser_i|pbuser_i)$";
-
-fn output_schema_validator() -> jsonschema::Validator {
-    schema_validator("output.json")
-}
-
-fn stream_schema_validator() -> jsonschema::Validator {
-    schema_validator("stream.json")
-}
-
-fn input_schema_validator() -> jsonschema::Validator {
-    schema_validator("input.json")
-}
-
-fn schema_validator(name: &str) -> jsonschema::Validator {
-    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("schema")
-        .join(name);
-    let schema: Value = serde_json::from_str(
-        &fs::read_to_string(path).unwrap_or_else(|error| panic!("{name} should read: {error}")),
-    )
-    .unwrap_or_else(|error| panic!("{name} should parse: {error}"));
-    jsonschema::validator_for(&schema)
-        .unwrap_or_else(|error| panic!("{name} should compile: {error}"))
-}
 
 fn fixture(filename: &str) -> String {
     fixture_path(filename).to_string_lossy().into_owned()
@@ -52,22 +25,15 @@ fn write_source(contents: &str) -> NamedTempFile {
 
 fn parse_json(stdout: &[u8]) -> Value {
     let value: Value = serde_json::from_slice(stdout).expect("stdout should be valid JSON");
-    output_schema_validator()
-        .validate(&value)
-        .unwrap_or_else(|error| panic!("output should validate: {error}\n{value}"));
     value
 }
 
 fn parse_stream(stdout: &[u8]) -> Vec<Value> {
     let text = std::str::from_utf8(stdout).expect("stdout should be UTF-8 JSONL");
     assert!(text.ends_with('\n'));
-    let validator = stream_schema_validator();
     text.lines()
         .map(|line| {
             let value: Value = serde_json::from_str(line).expect("JSONL line should parse");
-            validator
-                .validate(&value)
-                .unwrap_or_else(|error| panic!("record should validate: {error}\n{value}"));
             value
         })
         .collect()
@@ -109,9 +75,7 @@ fn base_apb4_args() -> Vec<String> {
 }
 
 fn json_events(value: &Value) -> &[Value] {
-    value["data"]["events"]
-        .as_array()
-        .expect("events should be an array")
+    value["data"].as_array().expect("events should be an array")
 }
 
 fn event_signature(value: &Value) -> Vec<(String, String, String, Value)> {
@@ -194,12 +158,11 @@ fn extract_apb_json_emits_waits_and_filters_payload_by_event_and_direction() {
     );
     assert!(output.stderr.is_empty());
     let value = parse_json(&output.stdout);
-    assert_eq!(value["$schema"], expected_schema_url());
     assert_eq!(value["command"], "extract apb");
-    assert_eq!(value["data"]["profile"], "apb4");
-    assert_eq!(value["data"]["issue"], "E");
-    assert_eq!(value["data"]["pready_mode"], "mapped");
-    assert_eq!(value["data"]["include_wait"], true);
+    assert_eq!(value["context"]["profile"], "apb4");
+    assert_eq!(value["context"]["issue"], "E");
+    assert_eq!(value["context"]["pready_mode"], "mapped");
+    assert_eq!(value["context"]["include_wait"], true);
     assert_eq!(
         json_events(&value)
             .iter()
@@ -239,7 +202,7 @@ fn extract_apb_json_emits_waits_and_filters_payload_by_event_and_direction() {
 }
 
 #[test]
-fn extract_apb_jsonl_streams_context_items_and_row_limit_summary() {
+fn extract_apb_jsonl_streams_context_data_and_record_counts() {
     let mut args = base_apb4_args();
     args.extend(apb4_explicit_maps(true, true));
     args.extend([
@@ -261,17 +224,15 @@ fn extract_apb_jsonl_streams_context_items_and_row_limit_summary() {
     assert!(output.stderr.is_empty());
     let records = parse_stream(&output.stdout);
     assert_eq!(records[0]["type"], "begin");
-    assert_eq!(records[0]["$schema"], expected_stream_schema_url());
     assert_eq!(records[0]["command"], "extract apb");
     assert_eq!(records[0]["context"]["profile"], "apb4");
     assert_eq!(records[0]["context"]["pready_mode"], "mapped");
     assert_eq!(records[0]["context"]["include_wait"], true);
-    assert_eq!(records[1]["item"]["event"], "setup");
-    assert_eq!(records[2]["item"]["event"], "access-wait");
+    assert_eq!(records[1]["data"]["event"], "setup");
+    assert_eq!(records[2]["data"]["event"], "access-wait");
     assert_eq!(records[3]["diagnostic"]["code"], "WPK-W0002");
-    assert_eq!(records[4]["summary"]["items"], 2);
-    assert_eq!(records[4]["summary"]["diagnostics"], 1);
-    assert_eq!(records[4]["summary"]["truncated"], true);
+    assert_eq!(records[4]["records"]["data"], 2);
+    assert_eq!(records[4]["records"]["diagnostics"], 1);
 }
 
 #[test]
@@ -294,9 +255,9 @@ fn extract_apb_implicit_high_forbids_pready_and_classifies_every_access() {
         String::from_utf8_lossy(&output.stderr)
     );
     let value = parse_json(&output.stdout);
-    assert_eq!(value["data"]["pready_mode"], "implicit-high");
-    assert_eq!(value["data"]["include_wait"], false);
-    assert!(value["data"]["mappings"].get("pready").is_none());
+    assert_eq!(value["context"]["pready_mode"], "implicit-high");
+    assert_eq!(value["context"]["include_wait"], false);
+    assert!(value["context"]["mappings"].get("pready").is_none());
     assert_eq!(
         json_events(&value)
             .iter()
@@ -418,17 +379,17 @@ fn extract_apb_profiles_use_issue_e_and_profile_specific_mappings() {
             String::from_utf8_lossy(&output.stderr)
         );
         let value = parse_json(&output.stdout);
-        assert_eq!(value["data"]["profile"], profile.to_ascii_lowercase());
-        assert_eq!(value["data"]["issue"], "E");
+        assert_eq!(value["context"]["profile"], profile.to_ascii_lowercase());
+        assert_eq!(value["context"]["issue"], "E");
         for signal in required {
             assert!(
-                value["data"]["mappings"].get(signal).is_some(),
+                value["context"]["mappings"].get(signal).is_some(),
                 "{profile} should map {signal}"
             );
         }
         for signal in forbidden {
             assert!(
-                value["data"]["mappings"].get(signal).is_none(),
+                value["context"]["mappings"].get(signal).is_none(),
                 "{profile} must not map {signal}"
             );
         }
@@ -480,7 +441,6 @@ fn extract_apb_vcd_and_fst_are_equivalent_for_every_profile() {
 fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
     let source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "profile": "APB4",
             "pready_mode": "MAPPED",
@@ -518,9 +478,9 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
         String::from_utf8_lossy(&output.stderr)
     );
     let value = parse_json(&output.stdout);
-    assert_eq!(value["data"]["name"], "uart");
-    assert_eq!(value["data"]["profile"], "apb4");
-    assert_eq!(value["data"]["include_wait"], true);
+    assert_eq!(value["context"]["name"], "uart");
+    assert_eq!(value["context"]["profile"], "apb4");
+    assert_eq!(value["context"]["include_wait"], true);
     assert_eq!(
         json_events(&value)
             .iter()
@@ -531,7 +491,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     let defaults_source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "maps": {
                 "pclk": "uart_apb_p_clk_i",
@@ -559,17 +518,12 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
         .expect("defaulted source extraction should execute");
     assert!(defaults_output.status.success());
     let defaults = parse_json(&defaults_output.stdout);
-    assert_eq!(defaults["data"]["name"], "apb");
-    assert_eq!(defaults["data"]["profile"], "apb4");
-    assert_eq!(defaults["data"]["pready_mode"], "mapped");
-    assert_eq!(defaults["data"]["include_wait"], false);
+    assert_eq!(defaults["context"]["name"], "apb");
+    assert_eq!(defaults["context"]["profile"], "apb4");
+    assert_eq!(defaults["context"]["pready_mode"], "mapped");
+    assert_eq!(defaults["context"]["include_wait"], false);
 
     for (field, field_value, error_fragment) in [
-        (
-            "$schema",
-            json!("https://kleverhq.github.io/wavepeek/schema-input-v2.1.json"),
-            "unsupported $schema",
-        ),
         (
             "kind",
             json!("extract.axi.source"),
@@ -583,7 +537,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
         ("maps", Value::Null, "invalid type: null"),
     ] {
         let mut invalid = json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "maps": {}
         });
@@ -603,10 +556,8 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
             .stderr(predicate::str::contains(error_fragment));
     }
 
-    let duplicate_source = write_source(&format!(
-        r#"{{"$schema":"{}","kind":"extract.apb.source","maps":{{"pclk":"clk_a","pclk":"clk_b"}}}}"#,
-        expected_input_schema_url()
-    ));
+    let duplicate_source =
+        write_source(r#"{"kind":"extract.apb.source","maps":{"pclk":"clk_a","pclk":"clk_b"}}"#);
     wavepeek_cmd()
         .args([
             "extract",
@@ -622,7 +573,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     let implicit_wait_source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "pready_mode": "implicit-high",
             "include_wait": true,
@@ -647,7 +597,6 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 
     let outside_profile_source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "profile": "apb3",
             "maps": {"pprot": "top.uart_apb_pprot_o"}
@@ -671,62 +620,9 @@ fn extract_apb_source_mode_applies_defaults_wait_setting_and_strict_metadata() {
 }
 
 #[test]
-fn extract_apb_source_schema_accepts_canonical_values_only() {
-    let validator = input_schema_validator();
-    let canonical = json!({
-        "$schema": expected_input_schema_url(),
-        "kind": "extract.apb.source",
-        "profile": "apb5",
-        "pready_mode": "mapped",
-        "include_wait": true,
-        "maps": {"pclk": "clk", "pready": "ready"}
-    });
-    validator
-        .validate(&canonical)
-        .unwrap_or_else(|error| panic!("canonical source should validate: {error}"));
-
-    for invalid in [
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "profile": "APB5"
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "pready_mode": "implicit_high"
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "pready_mode": "implicit-high", "include_wait": true
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "pready_mode": "implicit-high", "maps": {"pready": "ready"}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "profile": "apb3", "maps": {"pprot": "prot"}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "maps": {"pclk": ""}
-        }),
-        json!({
-            "$schema": expected_input_schema_url(), "kind": "extract.apb.source",
-            "maps": {"pclk": "  \t\n"}
-        }),
-    ] {
-        assert!(
-            !validator.is_valid(&invalid),
-            "source must be rejected: {invalid}"
-        );
-    }
-}
-
-#[test]
 fn extract_apb_source_conflicts_with_profile_mapping_and_wait_flags() {
     let source = write_source(
         &json!({
-            "$schema": expected_input_schema_url(),
             "kind": "extract.apb.source",
             "pready_mode": "implicit-high",
             "maps": {
@@ -810,7 +706,7 @@ fn extract_apb_bounds_limits_empty_diagnostics_and_reset_gate_are_row_based() {
     let output = wavepeek_cmd().args(empty).output().unwrap();
     let value = parse_json(&output.stdout);
     assert!(json_events(&value).is_empty());
-    assert_eq!(value["diagnostics"][0]["code"], "WPK-W0003");
+    assert_eq!(value["diagnostics"], json!([]));
 
     let mut no_reset = base_apb4_args();
     no_reset.extend(apb4_explicit_maps(false, true));
@@ -856,7 +752,7 @@ fn extract_apb_mapping_validation_is_deterministic() {
     assert!(output.status.success());
     let value = parse_json(&output.stdout);
     assert_eq!(
-        value["data"]["mappings"]["psel"]["path"],
+        value["context"]["mappings"]["psel"]["path"],
         "top.uart_apb_psel0_o"
     );
     assert!(json_events(&value).is_empty());
@@ -911,7 +807,7 @@ fn extract_apb_mapping_validation_is_deterministic() {
     );
     let value = parse_json(&output.stdout);
     assert_eq!(
-        value["data"]["mappings"]["paddr"]["path"],
+        value["context"]["mappings"]["paddr"]["path"],
         "top.uart_apb_p_addr_o"
     );
 
@@ -926,7 +822,26 @@ fn extract_apb_mapping_validation_is_deterministic() {
         .args(unresolved)
         .assert()
         .failure()
-        .stderr(predicate::str::contains("missing_paddr"));
+        .stderr(predicate::str::contains("missing_paddr"))
+        .stderr(predicate::str::contains(
+            "no dumped signal with basename 'missing_paddr'; the RTL declaration may be optimized, aliased, or not dumped",
+        ));
+
+    let unscoped_fixture = fixture("extract_apb4.vcd");
+    wavepeek_cmd()
+        .args([
+            "extract",
+            "apb",
+            "--waves",
+            unscoped_fixture.as_str(),
+            "--map",
+            "paddr=wrong.uart_apb_p_addr_o",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "closest query names:\n  top.uart_apb_p_addr_o",
+        ));
 
     let mut duplicate = base_apb4_args();
     duplicate.extend(apb4_explicit_maps(true, true));

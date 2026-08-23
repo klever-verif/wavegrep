@@ -9,10 +9,6 @@ pub enum LimitArg {
 }
 
 impl LimitArg {
-    pub const fn is_unlimited(&self) -> bool {
-        matches!(self, Self::Unlimited)
-    }
-
     pub const fn numeric(&self) -> Option<usize> {
         match self {
             Self::Numeric(value) => Some(*value),
@@ -45,7 +41,6 @@ mod tests {
         let parsed = "42".parse::<LimitArg>().expect("numeric parse should work");
         assert_eq!(parsed, LimitArg::Numeric(42));
         assert_eq!(parsed.numeric(), Some(42));
-        assert!(!parsed.is_unlimited());
     }
 
     #[test]
@@ -55,7 +50,6 @@ mod tests {
             .expect("unlimited parse should work");
         assert_eq!(parsed, LimitArg::Unlimited);
         assert_eq!(parsed.numeric(), None);
-        assert!(parsed.is_unlimited());
     }
 
     #[test]

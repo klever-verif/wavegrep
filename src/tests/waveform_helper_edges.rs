@@ -188,12 +188,6 @@ fn derive_surfaces_for_data_transfer_types() {
     assert!(!classify_edge("", "1").edge());
     assert!(!classify_edge("0", "").edge());
     assert!(classify_edge("0", "h").posedge);
-    let mut previous = vec![Some("0".to_string()), None];
-    assert!(should_emit_delta_and_update_baseline(
-        &mut previous,
-        &[Some("1".to_string()), Some("x".to_string())]
-    ));
-    assert_eq!(previous[1].as_deref(), Some("x"));
     assert!(
         normalize_time(
             u64::MAX,

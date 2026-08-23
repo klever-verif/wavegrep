@@ -3,7 +3,7 @@ use predicates::prelude::*;
 use serde_json::{Value, json};
 
 mod common;
-use common::{expected_schema_url, fixture_path, rtl_fixture_path, wavepeek_cmd};
+use common::{fixture_path, rtl_fixture_path, wavepeek_cmd};
 
 #[test]
 fn scope_human_output_is_default_for_vcd() {
@@ -17,7 +17,6 @@ fn scope_human_output_is_default_for_vcd() {
         .success()
         .stdout(predicate::str::contains("0 top kind=module"))
         .stdout(predicate::str::contains("1 top.cpu kind=module"))
-        .stdout(predicate::str::contains("schema_version").not())
         .stderr(predicate::str::is_empty());
 }
 
@@ -42,8 +41,6 @@ fn scope_json_order_is_deterministic_for_vcd() {
     let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
     let value: Value = serde_json::from_str(&stdout).expect("scope output should be valid json");
 
-    assert_eq!(value["$schema"], expected_schema_url());
-    assert!(value.get("schema_version").is_none());
     assert_eq!(value["command"], "scope");
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
@@ -153,7 +150,7 @@ fn scope_emits_truncation_warning_when_max_is_hit() {
 }
 
 #[test]
-fn scope_unlimited_max_emits_warning_in_json_and_human_modes() {
+fn scope_unlimited_max_disables_limit_without_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -177,10 +174,7 @@ fn scope_unlimited_max_emits_warning_in_json_and_human_modes() {
     assert!(human_output.status.success());
 
     let value = parse_scope_json(&json_output.stdout);
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}])
-    );
+    assert_eq!(value["diagnostics"], json!([]));
     assert_eq!(
         value["data"]
             .as_array()
@@ -188,14 +182,12 @@ fn scope_unlimited_max_emits_warning_in_json_and_human_modes() {
             .len(),
         3
     );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0001]: limit disabled: --max=unlimited"
-    );
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
-fn scope_unlimited_max_depth_disables_depth_bound_and_emits_warning() {
+fn scope_unlimited_max_depth_disables_depth_bound_without_diagnostic() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -232,10 +224,7 @@ fn scope_unlimited_max_depth_disables_depth_bound_and_emits_warning() {
     let depth_unlimited = parse_scope_json(&depth_unlimited_output.stdout);
     let depth_one = parse_scope_json(&depth_one_output.stdout);
 
-    assert_eq!(
-        depth_unlimited["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}])
-    );
+    assert_eq!(depth_unlimited["diagnostics"], json!([]));
     assert_eq!(depth_one["diagnostics"], json!([]));
     assert!(
         depth_unlimited["data"]
@@ -250,7 +239,7 @@ fn scope_unlimited_max_depth_disables_depth_bound_and_emits_warning() {
 }
 
 #[test]
-fn scope_dual_unlimited_warnings_are_deterministic_in_json_and_human_modes() {
+fn scope_dual_unlimited_limits_have_no_diagnostics() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -284,23 +273,13 @@ fn scope_dual_unlimited_warnings_are_deterministic_in_json_and_human_modes() {
     assert!(human_output.status.success());
 
     let value = parse_scope_json(&json_output.stdout);
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max=unlimited"}, {"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr)
-            .lines()
-            .collect::<Vec<_>>(),
-        vec![
-            "warning[WPK-W0001]: limit disabled: --max=unlimited",
-            "warning[WPK-W0001]: limit disabled: --max-depth=unlimited"
-        ]
-    );
+    assert_eq!(value["diagnostics"], json!([]));
+    assert_eq!(value["summary"]["limit"], Value::Null);
+    assert!(human_output.stderr.is_empty());
 }
 
 #[test]
-fn scope_unlimited_warnings_precede_legacy_truncation_warnings() {
+fn scope_unlimited_depth_keeps_truncation_warning_only() {
     let fixture = fixture_path("signal_recursive_depth.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -336,16 +315,13 @@ fn scope_unlimited_warnings_precede_legacy_truncation_warnings() {
     let value = parse_scope_json(&json_output.stdout);
     assert_eq!(
         value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0001", "message": "limit disabled: --max-depth=unlimited"}, {"kind": "warning", "code": "WPK-W0002", "message": "truncated output to 1 entries (use --max to increase limit)"}])
+        json!([{"kind": "warning", "code": "WPK-W0002", "message": "truncated output to 1 entries (use --max to increase limit)"}])
     );
     assert_eq!(
         String::from_utf8_lossy(&human_output.stderr)
             .lines()
             .collect::<Vec<_>>(),
-        vec![
-            "warning[WPK-W0001]: limit disabled: --max-depth=unlimited",
-            "warning[WPK-W0002]: truncated output to 1 entries (use --max to increase limit)"
-        ]
+        vec!["warning[WPK-W0002]: truncated output to 1 entries (use --max to increase limit)"]
     );
 }
 
@@ -371,7 +347,7 @@ fn parse_scope_json(stdout: &[u8]) -> Value {
 }
 
 #[test]
-fn scope_empty_filter_emits_empty_result_diagnostic() {
+fn scope_empty_filter_uses_normal_human_output_and_empty_machine_diagnostics() {
     let fixture = fixture_path("m2_core.vcd");
     let fixture = fixture.to_string_lossy().into_owned();
 
@@ -399,17 +375,14 @@ fn scope_empty_filter_emits_empty_result_diagnostic() {
 
     assert!(json_output.status.success());
     assert!(human_output.status.success());
-    assert!(human_output.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&human_output.stdout).trim(),
+        "no scopes found"
+    );
+    assert!(human_output.stderr.is_empty());
     let value = parse_scope_json(&json_output.stdout);
     assert_eq!(value["data"], json!([]));
-    assert_eq!(
-        value["diagnostics"],
-        json!([{"kind": "warning", "code": "WPK-W0003", "message": "no scopes found"}])
-    );
-    assert_eq!(
-        String::from_utf8_lossy(&human_output.stderr).trim(),
-        "warning[WPK-W0003]: no scopes found"
-    );
+    assert_eq!(value["diagnostics"], json!([]));
 }
 
 #[test]
@@ -490,7 +463,28 @@ fn scope_tree_mode_renders_visual_hierarchy() {
         .stdout(predicate::str::contains("top kind=module"))
         .stdout(predicate::str::contains("├── cpu kind=module"))
         .stdout(predicate::str::contains("└── mem kind=module"))
-        .stdout(predicate::str::contains("schema_version").not())
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn scope_filtered_tree_includes_ancestors_to_root() {
+    let fixture = fixture_path("m2_core.vcd");
+    let fixture = fixture.to_string_lossy().into_owned();
+
+    wavepeek_cmd()
+        .args([
+            "scope",
+            "--waves",
+            fixture.as_str(),
+            "--filter",
+            "^top\\.cpu$",
+            "--tree",
+            "--max",
+            "1",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::eq("top kind=module\n└── cpu kind=module\n"))
         .stderr(predicate::str::is_empty());
 }
 
@@ -507,6 +501,8 @@ fn scope_json_ignores_tree_flag_without_extra_warning() {
             fixture.as_str(),
             "--json",
             "--tree",
+            "--filter",
+            "^top\\.cpu$",
             "--max",
             "50",
         ])
@@ -519,12 +515,10 @@ fn scope_json_ignores_tree_flag_without_extra_warning() {
     assert_eq!(value["diagnostics"], Value::Array(vec![]));
     assert_eq!(
         value["data"],
-        json!([
-            { "path": "top", "depth": 0, "kind": "module" },
-            { "path": "top.cpu", "depth": 1, "kind": "module" },
-            { "path": "top.mem", "depth": 1, "kind": "module" }
-        ])
+        json!([{ "path": "top.cpu", "depth": 1, "kind": "module" }])
     );
+    assert_eq!(value["summary"]["returned"], 1);
+    assert_eq!(value["summary"]["total"], 1);
 }
 
 #[test]

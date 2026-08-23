@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::cli::extract::GenericArgs;
 use crate::cli::limits::LimitArg;
-use crate::contract::schema::{GENERIC_INPUT_SCHEMA_URLS, is_supported_generic_input_schema_url};
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
 use crate::engine::expr_runtime::{
@@ -17,19 +16,18 @@ use crate::engine::expr_runtime::{
     event_expr_is_edge_only, event_expr_matches, event_iff_handles, open_shared_waveform,
     referenced_signal_handles,
 };
+use crate::engine::signal_projection::{ProjectedSignal, resolve_projected_signal};
 use crate::engine::time::{
     DumpTimeContext, TimeValidationError, format_raw_timestamp, parse_dump_time_context,
     validate_time_token_to_raw,
 };
 use crate::engine::value_format::format_verilog_literal;
-use crate::engine::{
-    CommandData, CommandName, CommandResult, HumanRenderOptions, scoped_signal_path,
-};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::{BoundEventExpr, BoundLogicalExpr, EventEvalFrame};
 use crate::waveform::{
-    ChangeCandidateCollectionMode, ExprResolvedSignal, ResolvedSignal, SampledSignalState,
-    SignalId, expr_host::WaveformExprHost,
+    ChangeCandidateCollectionMode, ExprResolvedSignal, SampledSignalState, SignalId,
+    display_signal_path, expr_host::WaveformExprHost,
 };
 
 const DEFAULT_SOURCE_NAME: &str = "transfer";
@@ -41,6 +39,8 @@ pub struct ExtractPayloadValue {
     #[serde(skip_serializing)]
     pub display: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relative_path: Option<String>,
     pub value: String,
 }
 
@@ -104,8 +104,8 @@ impl ExtractSource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct PayloadSignal {
     display: String,
-    path: String,
-    resolved: ResolvedSignal,
+    relative_path: Option<String>,
+    selected: ProjectedSignal,
 }
 
 #[derive(Debug)]
@@ -143,6 +143,7 @@ pub(crate) struct ExtractRunArgs {
     pub(crate) to: Option<String>,
     pub(crate) scope: Option<String>,
     pub(crate) max: LimitArg,
+    pub(crate) include_relative_paths: bool,
 }
 
 struct ExtractEmitContext<'a> {
@@ -180,7 +181,7 @@ struct EventGroupCandidateTimes {
 pub(crate) struct ExtractCommandOutcome {
     pub(crate) source_count: usize,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    pub(crate) stats: ExtractRunStats,
+    pub(crate) summary: ResultSummary,
 }
 
 pub(crate) trait ExtractRowSink {
@@ -205,22 +206,24 @@ impl ExtractRowSink for CollectingExtractSink {
 
 struct JsonlExtractSink<'a, W: std::io::Write> {
     writer: &'a mut crate::output::JsonlWriter<W>,
+    scope: Option<String>,
 }
 
 impl<W: std::io::Write> ExtractRowSink for JsonlExtractSink<'_, W> {
     fn start(&mut self) -> Result<(), WavepeekError> {
-        self.writer.begin()
+        match self.scope.as_deref() {
+            Some(scope) => self.writer.begin_scope(scope),
+            None => self.writer.begin(),
+        }
     }
 
     fn emit(&mut self, row: ExtractGenericRow) -> Result<(), WavepeekError> {
-        self.writer.item(&row)
+        self.writer.data(&row)
     }
 }
 
 #[derive(Debug, Deserialize)]
 struct SourceFile {
-    #[serde(rename = "$schema")]
-    schema: String,
     kind: String,
     sources: Vec<SourceFileSource>,
 }
@@ -236,6 +239,8 @@ struct SourceFileSource {
 pub fn run(args: GenericArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
     let signals_abs = args.abs;
+    let scope = args.scope.clone();
+    let summary_only = args.summary;
     let mut sink = CollectingExtractSink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
@@ -246,10 +251,13 @@ pub fn run(args: GenericArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs,
         },
+        scope,
+        summary_only,
         data: CommandData::ExtractGeneric(ExtractGenericData {
             source_count: outcome.source_count,
             rows: sink.rows,
         }),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -258,15 +266,19 @@ pub fn run_jsonl<W: std::io::Write>(
     args: GenericArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
-        let mut sink = JsonlExtractSink { writer };
+        let mut sink = JsonlExtractSink {
+            writer,
+            scope: args.scope.clone(),
+        };
         run_with_sink(args, &mut sink)?
     };
 
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: ExtractRowSink + ?Sized>(
@@ -283,6 +295,7 @@ fn run_with_sink<S: ExtractRowSink + ?Sized>(
             to: args.to,
             scope: args.scope,
             max: args.max,
+            include_relative_paths: args.json || args.jsonl,
         },
         plan,
         sink,
@@ -295,7 +308,6 @@ pub(crate) fn run_plan_with_sink<S: ExtractRowSink + ?Sized>(
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let max_entries = max_entries(&args.max)?;
-    let diagnostics = initial_diagnostics(&args.max);
 
     let debug = DebugTrace::for_command(args.command);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -310,7 +322,7 @@ pub(crate) fn run_plan_with_sink<S: ExtractRowSink + ?Sized>(
         });
     }
 
-    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, diagnostics, sink)
+    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, sink)
 }
 
 pub(crate) fn run_plan_with_waveform_sink<S: ExtractRowSink + ?Sized>(
@@ -321,8 +333,7 @@ pub(crate) fn run_plan_with_waveform_sink<S: ExtractRowSink + ?Sized>(
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let max_entries = max_entries(&args.max)?;
-    let diagnostics = initial_diagnostics(&args.max);
-    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, diagnostics, sink)
+    run_open_plan_with_sink(args, plan, waveform, debug, max_entries, sink)
 }
 
 fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
@@ -331,7 +342,6 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
     waveform: SharedWaveform,
     debug: DebugTrace,
     max_entries: Option<usize>,
-    mut diagnostics: Vec<Diagnostic>,
     sink: &mut S,
 ) -> Result<ExtractCommandOutcome, WavepeekError> {
     let source_count = plan.source_count();
@@ -385,7 +395,12 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
         })
     });
 
-    let bound_sources = bind_extract_sources(&waveform, args.scope.as_deref(), plan.sources)?;
+    let bound_sources = bind_extract_sources(
+        &waveform,
+        args.scope.as_deref(),
+        args.include_relative_paths,
+        plan.sources,
+    )?;
     let event_groups = build_event_groups(&bound_sources)?;
     let event_group_candidate_sources = event_groups
         .iter()
@@ -480,12 +495,7 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
         })
     });
 
-    if stats.emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no extract rows found in selected time range",
-        ));
-    }
+    let mut diagnostics = Vec::new();
     if let Some(max_entries) = max_entries
         && stats.truncated
     {
@@ -498,19 +508,8 @@ fn run_open_plan_with_sink<S: ExtractRowSink + ?Sized>(
     Ok(ExtractCommandOutcome {
         source_count,
         diagnostics,
-        stats,
+        summary: ResultSummary::from_run(stats.emitted, max_entries, stats.truncated),
     })
-}
-
-pub(crate) fn initial_diagnostics(max: &LimitArg) -> Vec<Diagnostic> {
-    if max.is_unlimited() {
-        vec![Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        )]
-    } else {
-        Vec::new()
-    }
 }
 
 pub(crate) fn max_entries(max: &LimitArg) -> Result<Option<usize>, WavepeekError> {
@@ -553,7 +552,6 @@ fn build_plan(args: &GenericArgs) -> Result<ExtractPlan, WavepeekError> {
         )
     })?;
     let payload = normalize_payload(payload)?;
-    require_unique_payloads(&payload)?;
 
     Ok(ExtractPlan::new(vec![ExtractSource::new(
         0,
@@ -580,14 +578,6 @@ fn plan_from_source_file(path: &std::path::Path) -> Result<ExtractPlan, Wavepeek
         ))
     })?;
 
-    if !is_supported_generic_input_schema_url(&input.schema) {
-        return Err(WavepeekError::Args(format!(
-            "extract source file '{}' uses unsupported $schema {}; expected one of {}",
-            path.display(),
-            input.schema,
-            GENERIC_INPUT_SCHEMA_URLS.join(", ")
-        )));
-    }
     if input.kind != SOURCE_KIND {
         return Err(WavepeekError::Args(format!(
             "extract source file '{}' has kind {}; expected {}",
@@ -614,7 +604,6 @@ fn plan_from_source_file(path: &std::path::Path) -> Result<ExtractPlan, Wavepeek
             )));
         }
         let payload = normalize_payload(source.payload)?;
-        require_unique_payloads(&payload)?;
         sources.push(ExtractSource::new(
             declaration_index,
             source.name,
@@ -650,21 +639,10 @@ fn normalize_payload(payload: Vec<String>) -> Result<Vec<String>, WavepeekError>
         .collect()
 }
 
-fn require_unique_payloads(payload: &[String]) -> Result<(), WavepeekError> {
-    let mut seen = HashSet::new();
-    for signal in payload {
-        if !seen.insert(signal.as_str()) {
-            return Err(WavepeekError::Args(format!(
-                "payload contains duplicate signal '{signal}'. See 'wavepeek extract generic --help'."
-            )));
-        }
-    }
-    Ok(())
-}
-
 fn bind_extract_sources(
     waveform: &SharedWaveform,
     scope: Option<&str>,
+    include_relative_paths: bool,
     sources: Vec<ExtractSource>,
 ) -> Result<Vec<BoundExtractSource>, WavepeekError> {
     if let Some(scope) = scope {
@@ -689,7 +667,12 @@ fn bind_extract_sources(
         waveform
             .borrow()
             .validate_expr_values_supported(eval_sources.as_slice())?;
-        let payload = resolve_payload_signals(waveform, scope, source.payload.as_slice())?;
+        let payload = resolve_payload_signals(
+            waveform,
+            scope,
+            include_relative_paths,
+            source.payload.as_slice(),
+        )?;
         bound_sources.push(BoundExtractSource {
             declaration_index: source.declaration_index,
             name: source.name,
@@ -708,36 +691,42 @@ fn bind_extract_sources(
 fn resolve_payload_signals(
     waveform: &SharedWaveform,
     scope: Option<&str>,
+    include_relative_paths: bool,
     payload: &[String],
 ) -> Result<Vec<PayloadSignal>, WavepeekError> {
-    let mut display_names = Vec::with_capacity(payload.len());
-    let mut canonical_paths = Vec::with_capacity(payload.len());
-    for token in payload {
-        let path = scoped_signal_path(token, scope).ok_or_else(|| {
-            WavepeekError::Args(format!(
-                "payload signal '{token}' must be relative when --scope is set. See 'wavepeek extract generic --help'."
-            ))
-        })?;
-        display_names.push(token.clone());
-        canonical_paths.push(path);
-    }
-
-    let expr_resolved = waveform
-        .borrow()
-        .resolve_expr_signals(canonical_paths.as_slice())?;
+    let selected = {
+        let waveform = waveform.borrow();
+        payload
+            .iter()
+            .map(|token| resolve_projected_signal(&waveform, token, scope))
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    let source_paths = selected
+        .iter()
+        .map(|selected| selected.source.path.clone())
+        .collect::<Vec<_>>();
+    let expr_resolved = waveform.borrow().resolve_expr_signals_with_diagnostics(
+        source_paths.as_slice(),
+        payload,
+        scope,
+    )?;
     waveform
         .borrow()
         .validate_expr_values_supported(expr_resolved.as_slice())?;
-    let resolved = waveform
-        .borrow()
-        .resolve_signals(canonical_paths.as_slice())?;
-    Ok(display_names
+    Ok(selected
         .into_iter()
-        .zip(resolved)
-        .map(|(display, resolved)| PayloadSignal {
-            display,
-            path: resolved.path.clone(),
-            resolved,
+        .map(|selected| {
+            let display = display_signal_path(selected.path.as_str(), scope).to_string();
+            let relative_path = if include_relative_paths && scope.is_some() {
+                Some(display.clone())
+            } else {
+                None
+            };
+            PayloadSignal {
+                display,
+                relative_path,
+                selected,
+            }
         })
         .collect())
 }
@@ -847,8 +836,8 @@ fn preload_extract_value_changes(
     let mut seen_payload = HashSet::new();
     for source in sources {
         for payload in &source.payload {
-            if seen_payload.insert(payload.resolved.id) {
-                payload_sources.push(payload.resolved.clone());
+            if seen_payload.insert(payload.selected.source.id) {
+                payload_sources.push(payload.selected.source.clone());
             }
         }
     }
@@ -1070,7 +1059,7 @@ fn build_row(
     let resolved = source
         .payload
         .iter()
-        .map(|payload| payload.resolved.clone())
+        .map(|payload| payload.selected.source.clone())
         .collect::<Vec<_>>();
     let samples = waveform
         .borrow_mut()
@@ -1078,7 +1067,7 @@ fn build_row(
     let payload = source
         .payload
         .iter()
-        .zip(samples.iter())
+        .zip(samples)
         .map(|(requested, sampled)| build_payload_value(requested, sampled))
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -1092,17 +1081,19 @@ fn build_row(
 
 fn build_payload_value(
     requested: &PayloadSignal,
-    sampled: &SampledSignalState,
+    sampled: SampledSignalState,
 ) -> Result<ExtractPayloadValue, WavepeekError> {
+    let sampled = requested.selected.project_sample(sampled)?;
     let bits = sampled.bits.as_ref().ok_or_else(|| {
         WavepeekError::Signal(format!(
             "signal '{}' has no value at or before requested time",
-            requested.path
+            requested.selected.path
         ))
     })?;
     Ok(ExtractPayloadValue {
         display: requested.display.clone(),
-        path: requested.path.clone(),
+        path: requested.selected.path.clone(),
+        relative_path: requested.relative_path.clone(),
         value: format_verilog_literal(sampled.width, bits.as_str()),
     })
 }
@@ -1144,7 +1135,7 @@ pub(crate) fn parse_bound_time(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_plan, normalize_payload, require_unique_payloads};
+    use super::{build_plan, normalize_payload};
     use crate::cli::extract::GenericArgs;
     use crate::cli::limits::LimitArg;
 
@@ -1163,6 +1154,7 @@ mod tests {
             max: LimitArg::Numeric(50),
             abs: false,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect("plan should build");
@@ -1171,11 +1163,10 @@ mod tests {
     }
 
     #[test]
-    fn payload_normalization_rejects_empty_and_duplicate_names() {
+    fn payload_normalization_rejects_empty_and_preserves_duplicates() {
         assert!(normalize_payload(vec![" ".to_string()]).is_err());
         let payload = normalize_payload(vec![" data ".to_string(), "data".to_string()])
             .expect("trimmed payload should parse");
         assert_eq!(payload, vec!["data", "data"]);
-        assert!(require_unique_payloads(&payload).is_err());
     }
 }

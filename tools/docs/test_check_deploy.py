@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import http.client
 import importlib.util
 import json
@@ -21,9 +22,15 @@ SPEC.loader.exec_module(check_deploy)
 
 
 class Response:
-    def __init__(self, body: bytes = b"ok", status: int = 200) -> None:
+    def __init__(
+        self,
+        body: bytes = b"ok",
+        status: int = 200,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self.body = body
         self.status = status
+        self.headers = headers or {}
 
     def __enter__(self) -> Response:
         return self
@@ -50,33 +57,6 @@ class CheckDeployTests(unittest.TestCase):
             ["--version", "2.2.0", "--no-expect-latest"]
         )
         self.assertFalse(args.expect_latest)
-
-    def test_version_validation_and_artifact_names_cover_legacy_families(self) -> None:
-        self.assertEqual(check_deploy.validate_version("2.2.0"), "2.2.0")
-        for invalid in ["v2.2.0", "2.2", "02.2.0", "next"]:
-            with self.assertRaises(check_deploy.DeployCheckError):
-                check_deploy.validate_version(invalid)
-
-        self.assertEqual(check_deploy.schema_artifact_name("1.0.0"), "wavepeek_v1.json")
-        self.assertEqual(check_deploy.schema_artifact_name("2.0.0"), "wavepeek_v2.0.json")
-        self.assertEqual(
-            check_deploy.schema_artifact_name("2.2.0"),
-            "schema-output-v2.2.json",
-        )
-        self.assertEqual(
-            check_deploy.stream_schema_artifact_name("2.2.0"),
-            "schema-stream-v2.2.json",
-        )
-        self.assertEqual(
-            check_deploy.input_schema_artifact_name("2.2.0"),
-            "schema-input-v2.2.json",
-        )
-
-    def test_schema_requirement_thresholds_preserve_historical_checks(self) -> None:
-        self.assertFalse(check_deploy.stream_schema_required("1.0.9"))
-        self.assertTrue(check_deploy.stream_schema_required("1.1.0"))
-        self.assertFalse(check_deploy.input_schema_required("2.0.9"))
-        self.assertTrue(check_deploy.input_schema_required("2.1.0"))
 
     def test_url_and_repository_validation(self) -> None:
         self.assertEqual(
@@ -113,6 +93,23 @@ class CheckDeployTests(unittest.TestCase):
         self.assertEqual(body, b"ready")
         self.assertEqual(urlopen.call_count, 2)
         sleep.assert_called_once_with(0.25)
+
+    def test_fetch_header_requires_named_header(self) -> None:
+        with mock.patch.object(
+            check_deploy.urllib.request,
+            "urlopen",
+            return_value=Response(headers={"Access-Control-Allow-Origin": "*"}),
+        ):
+            self.assertEqual(
+                check_deploy.fetch_header(
+                    "https://example.test/file",
+                    "Access-Control-Allow-Origin",
+                    retries=1,
+                    retry_delay=0.0,
+                    timeout=3.0,
+                ),
+                "*",
+            )
 
     def test_fetch_bytes_retries_incomplete_response_body(self) -> None:
         incomplete = Response()
@@ -166,72 +163,45 @@ class CheckDeployTests(unittest.TestCase):
                 "1",
             ]
         )
-        with mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok") as fetch:
+        root = b'<div class="playground" data-version="2.2.0">'
+        with (
+            mock.patch.object(
+                check_deploy,
+                "fetch_bytes",
+                side_effect=lambda url, **_kwargs: (
+                    root
+                    if url.endswith("/wavepeek/")
+                    else b"demo"
+                    if url.endswith("scr1_axi.fst")
+                    else b"docs"
+                ),
+            ) as fetch,
+            mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_browser_smoke") as browser_smoke,
+            mock.patch.object(
+                check_deploy.prepare_playground,
+                "DEMO_SHA256",
+                hashlib.sha256(b"demo").hexdigest(),
+            ),
+        ):
             check_deploy.check_deploy(args)
 
+        browser_smoke.assert_called_once_with(
+            "https://example.test/wavepeek",
+            retries=1,
+            retry_delay=3.0,
+            timeout=20.0,
+        )
         self.assertEqual(
             [call.args[0] for call in fetch.call_args_list],
             [
                 "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/2.2.0/",
                 "https://example.test/wavepeek/latest/",
+                "https://example.test/wavepeek/2.2.0/",
                 "https://example.test/wavepeek/versions.json",
-                "https://example.test/wavepeek/schema-output-v2.2.json",
-                "https://example.test/wavepeek/schema-stream-v2.2.json",
-                "https://example.test/wavepeek/schema-input-v2.2.json",
+                "https://example.test/wavepeek/assets/playground/scr1_axi.fst",
             ],
         )
-
-    def test_check_deploy_omits_latest_and_optional_legacy_schemas(self) -> None:
-        args = check_deploy.parse_args(
-            [
-                "--version",
-                "1.0.0",
-                "--base-url",
-                "https://example.test/wavepeek",
-                "--no-expect-latest",
-                "--retries",
-                "1",
-            ]
-        )
-        with mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok") as fetch:
-            check_deploy.check_deploy(args)
-
-        urls = [call.args[0] for call in fetch.call_args_list]
-        self.assertNotIn("https://example.test/wavepeek/latest/", urls)
-        self.assertEqual(
-            urls,
-            [
-                "https://example.test/wavepeek/",
-                "https://example.test/wavepeek/1.0.0/",
-                "https://example.test/wavepeek/versions.json",
-                "https://example.test/wavepeek/wavepeek_v1.json",
-            ],
-        )
-
-    def test_explicit_schema_artifacts_are_always_fetched(self) -> None:
-        args = check_deploy.parse_args(
-            [
-                "--version",
-                "1.0.0",
-                "--base-url",
-                "https://example.test",
-                "--schema-artifact",
-                "output.json",
-                "--stream-schema-artifact",
-                "stream.json",
-                "--input-schema-artifact",
-                "input.json",
-                "--retries",
-                "1",
-            ]
-        )
-        with mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok") as fetch:
-            check_deploy.check_deploy(args)
-        urls = [call.args[0] for call in fetch.call_args_list]
-        self.assertIn("https://example.test/output.json", urls)
-        self.assertIn("https://example.test/stream.json", urls)
-        self.assertIn("https://example.test/input.json", urls)
 
     def test_pages_site_requires_workflow_build_and_matching_url(self) -> None:
         check_deploy.validate_pages_site(
@@ -262,7 +232,24 @@ class CheckDeployTests(unittest.TestCase):
         )
         site = {"build_type": "workflow", "html_url": "https://example.test/docs"}
         with (
-            mock.patch.object(check_deploy, "fetch_bytes", return_value=b"ok"),
+            mock.patch.object(
+                check_deploy,
+                "fetch_bytes",
+                side_effect=lambda url, **_kwargs: (
+                    b'<div class="playground" data-version="2.2.0">'
+                    if url.endswith("/docs/")
+                    else b"demo"
+                    if url.endswith("scr1_axi.fst")
+                    else b"docs"
+                ),
+            ),
+            mock.patch.object(check_deploy, "fetch_header", return_value="*"),
+            mock.patch.object(check_deploy, "check_browser_smoke"),
+            mock.patch.object(
+                check_deploy.prepare_playground,
+                "DEMO_SHA256",
+                hashlib.sha256(b"demo").hexdigest(),
+            ),
             mock.patch.object(check_deploy, "load_pages_site", return_value=site) as load,
         ):
             check_deploy.check_deploy(args)

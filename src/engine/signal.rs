@@ -2,18 +2,17 @@ use crate::cli::limits::LimitArg;
 use crate::cli::signal::SignalArgs;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
-use crate::engine::{CommandData, CommandName, CommandResult};
+use crate::engine::{CommandData, CommandName, CommandResult, ResultSummary};
 use crate::error::WavepeekError;
-use crate::waveform::Waveform;
+use crate::waveform::{Waveform, display_signal_path};
 use regex::Regex;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SignalEntry {
-    #[serde(skip_serializing)]
-    pub display: String,
     pub name: String,
     pub path: String,
+    pub relative_path: String,
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,
@@ -28,6 +27,7 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         recursive,
         max_depth,
         abs,
+        summary,
         json,
         jsonl,
     } = args;
@@ -46,24 +46,11 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
     })?;
 
     let mut diagnostics = Vec::new();
-    if max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
-    if max_depth == LimitArg::Unlimited {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max-depth=unlimited",
-        ));
-    }
 
     let effective_max_depth = match max_depth {
         LimitArg::Numeric(value) => Some(value),
         LimitArg::Unlimited => None,
     };
-    let scope_prefix = format!("{scope}.");
 
     let debug = DebugTrace::for_command(CommandName::Signal);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -92,17 +79,16 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         .entries
         .into_iter()
         .filter(|entry| filter.is_match(entry.name.as_str()))
-        .map(|entry| SignalEntry {
-            display: signal_display_name(
-                recursive,
-                scope_prefix.as_str(),
-                entry.path.as_str(),
-                entry.name.as_str(),
-            ),
-            name: entry.name,
-            path: entry.path,
-            kind: entry.kind,
-            width: entry.width,
+        .map(|entry| {
+            let relative_path =
+                display_signal_path(entry.path.as_str(), Some(scope.as_str())).to_string();
+            SignalEntry {
+                name: entry.name,
+                path: entry.path,
+                relative_path,
+                kind: entry.kind,
+                width: entry.width,
+            }
         })
         .collect::<Vec<_>>();
     debug.event(
@@ -110,6 +96,7 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         || serde_json::json!({"signals": entries.len()}),
     );
 
+    let total = entries.len();
     if let Some(max_entries) = max.numeric()
         && entries.len() > max_entries
     {
@@ -120,13 +107,6 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
         ));
     }
 
-    if entries.is_empty() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no signals found in selected scope",
-        ));
-    }
-
     Ok(CommandResult {
         command: CommandName::Signal,
         output_mode: crate::output_mode::OutputMode::from_json_flags(json, jsonl),
@@ -134,17 +114,17 @@ pub fn run(args: SignalArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: false,
             signals_abs: abs,
         },
+        scope: Some(scope),
+        summary_only: summary,
+        summary: Some(ResultSummary {
+            complete: entries.len() == total,
+            returned: entries.len(),
+            limit: max.numeric(),
+            total: Some(total),
+        }),
         data: CommandData::Signal(entries),
         diagnostics,
     })
-}
-
-fn signal_display_name(recursive: bool, scope_prefix: &str, path: &str, name: &str) -> String {
-    if !recursive {
-        return name.to_string();
-    }
-
-    path.strip_prefix(scope_prefix).unwrap_or(name).to_string()
 }
 
 fn ambiguous_signal_warning(paths: &[String]) -> Diagnostic {

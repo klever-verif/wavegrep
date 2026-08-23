@@ -2,7 +2,7 @@ use crate::cli::limits::LimitArg;
 use crate::cli::scope::ScopeArgs;
 use crate::debug_trace::DebugTrace;
 use crate::diagnostic::{Diagnostic, WarningDiagnosticCode};
-use crate::engine::{CommandData, CommandName, CommandResult};
+use crate::engine::{CommandData, CommandName, CommandResult, ResultSummary};
 use crate::error::WavepeekError;
 use crate::waveform::Waveform;
 use regex::Regex;
@@ -22,6 +22,7 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         max_depth,
         filter,
         tree,
+        summary,
         json,
         jsonl,
     } = args;
@@ -40,18 +41,6 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
     })?;
 
     let mut diagnostics = Vec::new();
-    if max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
-    if max_depth.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max-depth=unlimited",
-        ));
-    }
 
     let debug = DebugTrace::for_command(CommandName::Scope);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -62,11 +51,33 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
             "format": waveform.format_name(),
         })
     });
-    let mut entries = waveform
-        .scopes_depth_first(max_depth.numeric())?
+    let scopes = waveform.scopes_depth_first(max_depth.numeric())?;
+    let include_ancestors = tree && !json && !jsonl;
+    let mut included = vec![false; scopes.len()];
+    let mut ancestors = Vec::new();
+    let mut total = 0;
+
+    for (index, entry) in scopes.iter().enumerate() {
+        ancestors.truncate(entry.depth);
+        if filter.is_match(entry.path.as_str()) {
+            total += 1;
+            if max.numeric().is_none_or(|limit| total <= limit) {
+                included[index] = true;
+                if include_ancestors {
+                    for &ancestor in &ancestors {
+                        included[ancestor] = true;
+                    }
+                }
+            }
+        }
+        ancestors.push(index);
+    }
+
+    let entries = scopes
         .into_iter()
-        .filter(|entry| filter.is_match(entry.path.as_str()))
-        .map(|entry| ScopeEntry {
+        .zip(included)
+        .filter(|(_, included)| *included)
+        .map(|(entry, _)| ScopeEntry {
             path: entry.path,
             depth: entry.depth,
             kind: entry.kind,
@@ -77,20 +88,16 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
         || serde_json::json!({"scopes": entries.len()}),
     );
 
-    if let Some(max_entries) = max.numeric()
-        && entries.len() > max_entries
-    {
-        entries.truncate(max_entries);
+    let returned = max.numeric().map_or(total, |limit| total.min(limit));
+    if returned < total {
+        let entries = if include_ancestors {
+            "matching entries"
+        } else {
+            "entries"
+        };
         diagnostics.push(Diagnostic::warning(
             WarningDiagnosticCode::OutputTruncated,
-            format!("truncated output to {max_entries} entries (use --max to increase limit)"),
-        ));
-    }
-
-    if entries.is_empty() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no scopes found",
+            format!("truncated output to {returned} {entries} (use --max to increase limit)"),
         ));
     }
 
@@ -101,6 +108,14 @@ pub fn run(args: ScopeArgs) -> Result<CommandResult, WavepeekError> {
             scope_tree: tree,
             signals_abs: false,
         },
+        scope: None,
+        summary_only: summary,
+        summary: Some(ResultSummary {
+            complete: returned == total,
+            returned,
+            limit: max.numeric(),
+            total: Some(total),
+        }),
         data: CommandData::Scope(entries),
         diagnostics,
     })

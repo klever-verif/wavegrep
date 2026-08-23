@@ -15,7 +15,7 @@ use crate::engine::time::{
     DumpTimeContext, TimeValidationError, format_raw_timestamp, parse_dump_time_context,
     validate_time_token_to_raw,
 };
-use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions};
+use crate::engine::{CommandData, CommandName, CommandResult, HumanRenderOptions, ResultSummary};
 use crate::error::WavepeekError;
 use crate::expr::EventEvalFrame;
 use crate::waveform::ChangeCandidateCollectionMode;
@@ -49,16 +49,10 @@ pub struct PropertyCaptureRow {
     pub kind: PropertyResultKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct PropertyRunStats {
-    emitted: usize,
-    truncated: bool,
-}
-
 #[derive(Debug)]
 struct PropertyCommandOutcome {
     diagnostics: Vec<Diagnostic>,
-    stats: PropertyRunStats,
+    summary: ResultSummary,
 }
 
 trait PropertyRowSink {
@@ -91,21 +85,24 @@ impl<W: std::io::Write> PropertyRowSink for JsonlPropertySink<'_, W> {
     }
 
     fn emit(&mut self, row: PropertyCaptureRow) -> Result<(), WavepeekError> {
-        self.writer.item(&row)
+        self.writer.data(&row)
     }
 }
 
 pub fn run(args: PropertyArgs) -> Result<CommandResult, WavepeekError> {
     let output_mode = crate::output_mode::OutputMode::from_json_flags(args.json, args.jsonl);
+    let summary_only = args.summary;
     let mut sink = CollectingPropertySink::default();
     let outcome = run_with_sink(args, &mut sink)?;
 
-    let _emitted = outcome.stats.emitted;
     Ok(CommandResult {
         command: CommandName::Property,
         output_mode,
         human_options: HumanRenderOptions::default(),
+        scope: None,
+        summary_only,
         data: CommandData::Property(sink.rows),
+        summary: Some(outcome.summary),
         diagnostics: outcome.diagnostics,
     })
 }
@@ -114,16 +111,16 @@ pub fn run_jsonl<W: std::io::Write>(
     args: PropertyArgs,
     writer: &mut crate::output::JsonlWriter<W>,
 ) -> Result<(), WavepeekError> {
+    writer.suppress_data(args.summary);
     let outcome = {
         let mut sink = JsonlPropertySink { writer };
         run_with_sink(args, &mut sink)?
     };
 
-    let _emitted = outcome.stats.emitted;
     for diagnostic in &outcome.diagnostics {
         writer.diagnostic(diagnostic)?;
     }
-    writer.end(outcome.stats.truncated)
+    writer.end_summary(&outcome.summary)
 }
 
 fn run_with_sink<S: PropertyRowSink + ?Sized>(
@@ -141,12 +138,6 @@ fn run_with_sink<S: PropertyRowSink + ?Sized>(
     };
 
     let mut diagnostics = Vec::new();
-    if args.max.is_unlimited() {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::LimitDisabled,
-            "limit disabled: --max=unlimited",
-        ));
-    }
 
     let debug = DebugTrace::for_command(CommandName::Property);
     debug.event("backend.open.start", || serde_json::json!({}));
@@ -375,13 +366,6 @@ fn run_with_sink<S: PropertyRowSink + ?Sized>(
         || serde_json::json!({"rows": emitted, "truncated": truncated}),
     );
 
-    if emitted == 0 {
-        diagnostics.push(Diagnostic::warning(
-            WarningDiagnosticCode::EmptyResult,
-            "no property matches found in selected time range",
-        ));
-    }
-
     if let Some(max_entries) = max_entries
         && truncated
     {
@@ -393,7 +377,7 @@ fn run_with_sink<S: PropertyRowSink + ?Sized>(
 
     Ok(PropertyCommandOutcome {
         diagnostics,
-        stats: PropertyRunStats { emitted, truncated },
+        summary: ResultSummary::from_run(emitted, max_entries, truncated),
     })
 }
 
@@ -670,6 +654,7 @@ mod tests {
             capture: CaptureMode::Match,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect("match capture should succeed");
@@ -691,6 +676,7 @@ mod tests {
             capture: CaptureMode::Switch,
             max: LimitArg::Unlimited,
             json: true,
+            summary: false,
             jsonl: false,
         })
         .expect("switch capture should succeed");
@@ -714,6 +700,7 @@ mod tests {
             capture: CaptureMode::Assert,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect("assert capture should succeed");
@@ -734,6 +721,7 @@ mod tests {
             capture: CaptureMode::Match,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect_err("reversed time bounds should fail");
@@ -760,6 +748,7 @@ mod tests {
                 eval: "sig".to_string(),
                 capture: CaptureMode::Match,
                 max: LimitArg::Unlimited,
+                summary: false,
                 json: false,
                 jsonl: true,
             },
@@ -785,6 +774,7 @@ mod tests {
             capture: CaptureMode::Match,
             max: LimitArg::Unlimited,
             json: false,
+            summary: false,
             jsonl: false,
         })
         .expect_err("signal-free wildcard trigger should fail");

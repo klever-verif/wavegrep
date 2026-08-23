@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added repeated-option syntax to `value --at` and documented the existing append semantics of `value --signals`, `change --signals`, and `extract generic --payload`, including mixed comma-separated values, order, and duplicates ([issue #124](https://github.com/kleverhq/wavepeek/issues/124)).
+- Added a framework-free browser Playground at the GitHub Pages root with the native WavePeek parser and engine compiled to WebAssembly, a bundled AXI FST demo, local VCD/FST processing, Surfer handoff, and native/browser parity checks.
+- Added flat trailing `[msb:lsb]` projections to `value --signals`, `change --signals`, and `extract generic` payloads, including source-file payloads, projected change detection, and ordered duplicate entries ([issue #94](https://github.com/kleverhq/wavepeek/issues/94)).
+- Added result completeness metadata to bounded JSON and JSONL output, plus `--summary` to suppress result rows while retaining available context and diagnostics ([issue #92](https://github.com/kleverhq/wavepeek/issues/92)).
+- Added exact scope context and scope-relative paths to scoped `signal`, `value`, `change`, and `extract generic` JSON and JSONL output while retaining canonical paths ([issue #114](https://github.com/kleverhq/wavepeek/issues/114)).
+- Added scope-relative paths to `signal` JSON and JSONL entries while retaining leaf names and canonical paths ([issue #82](https://github.com/kleverhq/wavepeek/issues/82)).
+
+### Changed
+- Replaced the bundled Wavepeek skill with the v3 package, including task-oriented guides, generated CLI reference, time helper scripts, protocol scoreboard examples, and an output-diff example ([pull request #123](https://github.com/kleverhq/wavepeek/pull/123)).
+- Changed `change` to emit every selected event with full signal values by default, added independent `--row-mode dense|sparse` and `--row-values full|delta` controls, and provided the version 2 sparse/full row shape through `--row-mode sparse --row-values full`; sparse comparisons now use the previous selected sample rather than the preceding dump timestamp ([issue #85](https://github.com/kleverhq/wavepeek/issues/85)).
+- Normalized successful JSON and JSONL results so JSON `data` is always an array, protocol metadata uses `context`, and streamed rows match JSON data elements ([issue #106](https://github.com/kleverhq/wavepeek/issues/106)).
+- Replaced the overlapping embedded documentation surfaces with `wavepeek skill <DIRECTORY>`, which extracts a complete version-matched package containing `SKILL.md`, flat offline references with explicit navigation, an examples directory, and a provenance manifest ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
+- Flattened maintainer and tracking documentation under `docs/`, with branch-local tracked artifacts under `docs/wip/`.
+
+### Fixed
+- Included ancestor context up to the root in filtered human-readable scope trees.
+- Kept handled fatal errors machine-readable in JSON and JSONL output ([issue #104](https://github.com/kleverhq/wavepeek/issues/104)).
+- Normalized scope-relative signal labels in human-readable `value`, `change`, and `extract generic` output regardless of input path spelling, while retaining canonical labels with `--abs` ([issue #113](https://github.com/kleverhq/wavepeek/issues/113)).
+- Improved missing-signal errors to distinguish invalid paths from signals absent from the dump ([issue #84](https://github.com/kleverhq/wavepeek/issues/84)).
+- Report malformed hexadecimal expression literals at their full token span instead of blaming balanced opening parentheses, and underline expression diagnostic spans ([issue #103](https://github.com/kleverhq/wavepeek/issues/103)).
+- Accepted mixed relative and in-scope canonical signal paths across scoped `value`, `change`, `property`, and generic extraction queries ([issue #81](https://github.com/kleverhq/wavepeek/issues/81)).
+
+### Removed
+- Removed warning diagnostics for explicitly unlimited bounds and valid empty results; machine summaries retain those states and human empty results use normal stdout output ([issue #102](https://github.com/kleverhq/wavepeek/issues/102)).
+- Removed the Codex Web environment bootstrap; the devcontainer is now the supported development environment ([issue #93](https://github.com/kleverhq/wavepeek/issues/93)).
+- Removed JSON Schema generation, validation, publication, and the `schema` command while retaining JSON, JSONL, and structured-input behavior ([issue #89](https://github.com/kleverhq/wavepeek/issues/89)).
+- Removed the embedded topic browsing, search, display, and export helper command family ([issue #77](https://github.com/kleverhq/wavepeek/issues/77)).
+
 ## [2.2.3] - 2026-08-12
 
 ### Fixed

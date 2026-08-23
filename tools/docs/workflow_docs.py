@@ -25,7 +25,7 @@ class WorkflowError(Exception):
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="GitHub Actions wrappers for wavepeek docs publication."
+        description="GitHub Actions wrappers for wavepeek website publication."
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
@@ -170,18 +170,6 @@ def check_deploy_args(args: argparse.Namespace, env: Mapping[str, str]) -> list[
         args.base_url,
         "--expect-latest" if metadata["promote_latest"] else "--no-expect-latest",
     ]
-    schema_artifacts = metadata.get("schema_artifacts", [])
-    if not isinstance(schema_artifacts, list) or any(
-        not isinstance(item, str) for item in schema_artifacts
-    ):
-        raise WorkflowError("staged deploy metadata schema_artifacts is invalid")
-    for artifact in schema_artifacts:
-        if artifact.startswith("schema-output-v"):
-            deploy_args.extend(["--schema-artifact", artifact])
-        elif artifact.startswith("schema-stream-v"):
-            deploy_args.extend(["--stream-schema-artifact", artifact])
-        elif artifact.startswith("schema-input-v"):
-            deploy_args.extend(["--input-schema-artifact", artifact])
     if args.repository:
         deploy_args.extend(["--repository", args.repository])
     return deploy_args
